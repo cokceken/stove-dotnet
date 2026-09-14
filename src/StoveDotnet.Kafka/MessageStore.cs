@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 
 namespace StoveDotnet.Kafka;
@@ -28,19 +27,4 @@ public sealed record ObservedMessage<T>(T Value, ObservedRecord Record)
     public string? Key => Record.KeyAsString;
 
     public IReadOnlyDictionary<string, string> Headers => Record.Headers;
-}
-
-internal sealed class MessageStore
-{
-    private readonly ConcurrentQueue<ObservedRecord> _records = new();
-
-    public AsyncChangeSignal Changed { get; } = new();
-
-    public void Add(ObservedRecord record)
-    {
-        _records.Enqueue(record);
-        Changed.Notify();
-    }
-
-    public IReadOnlyList<ObservedRecord> Snapshot() => _records.ToArray();
 }

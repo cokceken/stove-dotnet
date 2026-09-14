@@ -12,6 +12,7 @@ dotnet test --project tests/StoveDotnet.MongoDb.AcceptanceTests
 dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
+dotnet test --project tests/StoveDotnet.RabbitMq.AcceptanceTests
 dotnet test --project examples/OrderService.E2ETests.XunitV3     # Docker or Podman
 ```
 

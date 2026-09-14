@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated: 2026-09-14. Original baseline: `09e4a04` (`individual tests for modules`); MongoDB/MySQL now implemented.
+Updated: 2026-09-14. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, Kafka hardening and RabbitMQ now implemented.
 
 StoveDotnet's next direction is broader module coverage, starting with databases. The lifecycle and test structure
 are now suitable for adding modules incrementally. Each addition should include a useful testing experience, a real
@@ -17,37 +17,39 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | --- | --- |
 | Core | Small lifecycle capabilities, named instances, typed configuration injection, migrations, cancellation, test correlation and failure wrapping |
 | Application hosting | Real ASP.NET Core application on Kestrel, HTTP DSL and access to application services |
-| Dependencies | PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka and named in-process WireMock servers |
+| Dependencies | PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and named in-process WireMock servers |
 | Telemetry | OTLP traces/logs, test correlation and failure details |
 | Lifecycle hardening | Attempt all disposal steps despite cleanup failures; retain startup and rollback errors; wait for in-flight starts before rollback |
 | Databases | Managed and existing endpoints, native clients, migration ordering, readiness before application startup for PostgreSQL/SQL Server/MySQL; MongoDB has ordered collection/index/seed setup and native transactions, native-client customization |
+| Broker observation | Kafka/RabbitMQ retain bounded per-test evidence, strict default correlation, explicit overflow failure and scope cleanup |
 | Kafka absence assertions | `ShouldNotBePublished` observes for an explicit interval; it does not prove absence beyond that interval or through observer lag |
-| Test organization | Core-only unit tests; separate hosting, PostgreSQL, SQL Server, MongoDB, MySQL, Redis and Kafka suites; provider-neutral database contracts |
-| Real test applications | Hosting, PostgreSQL, SQL Server, MongoDB and MySQL apps under `tests/TestApps`, with no Stove dependency |
+| Test organization | Core-only unit tests; separate hosting, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka and RabbitMQ suites; provider-neutral database contracts |
+| Real test applications | Hosting, PostgreSQL, SQL Server, MongoDB, MySQL and RabbitMQ apps under `tests/TestApps`, with no Stove dependency |
 | Composition example | OrderService retains PostgreSQL, Redis, Kafka and external HTTP dependencies; eight active tests cover workflows, retrieval, rejection, concurrency and diagnostics |
 | CI and packages | Shared CI/release matrix with separate suite jobs, fail-fast disabled, packaging gated on tests and an isolated package smoke test |
 
-SQL Server is implemented; it is no longer a future-module candidate. The repository contains eleven library packages:
-core, ASP.NET Core, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka and WireMock.
+SQL Server is implemented; it is no longer a future-module candidate. The repository contains twelve library packages:
+core, ASP.NET Core, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and WireMock.
 
 ### Last completed local verification
 
-The MongoDB/MySQL implementation session on 2026-09-14 verified the Release build (zero warnings/errors), all eleven
+The messaging implementation session on 2026-09-14 verified the Release build (zero warnings/errors), all twelve
 packages and an isolated-cache package smoke test, with containers running on Windows x64/Podman. The recorded suite
 results below are local evidence, not a remote CI or publication claim.
 
 | Suite | Passed |
 | --- | ---: |
-| Core | 25 |
+| Core | 32 |
 | Hosting | 22 |
 | PostgreSQL | 16 |
 | SQL Server | 14 |
 | MongoDB | 13 |
 | MySQL | 16 |
 | Redis | 1 |
-| Kafka | 8 |
+| Kafka | 11 |
+| RabbitMQ | 21 |
 | OrderService | 8 |
-| **Total** | **123** |
+| **Total** | **154** |
 
 One intentionally failing OrderService demonstration remains opt-in. Coverage depth is not uniform: the database
 suites include dedicated real applications, while Redis and Kafka also rely on OrderService for application-level
@@ -55,16 +57,17 @@ composition coverage. Splitting projects did not automatically give every module
 
 ## Recommended module sequence
 
-Database-first expansion and the sequence below are accepted. MongoDB and MySQL have landed in the working tree.
-Detailed messaging, gRPC and cloud scope still needs the design/acceptance evidence described below.
+Database-first expansion and the sequence below are accepted. MongoDB, MySQL, Kafka retention/correlation hardening
+and RabbitMQ are implemented. gRPC and cloud scope still need the design/acceptance evidence described below.
 
 | Milestone | Status | Why this comes next |
 | --- | --- | --- |
 | Lifecycle + SQL Server + test restructuring | Implemented | Establishes the foundation and a repeatable acceptance model |
 | MongoDB | Implemented | Adds document-database coverage and tests which conventions generalize beyond SQL |
 | MySQL | Implemented | Extends relational coverage using the existing behavioral contracts |
-| RabbitMQ | Next module, after messaging hardening | Adds another messaging model; requires precise observation and processing guarantees |
-| gRPC client | Proposed | Adds a new application boundary; keep dependency mocking a separate increment |
+| Kafka retention/correlation | Implemented | Bounded per-test evidence, strict default matching and explicit incomplete-observation failures |
+| RabbitMQ | Implemented | Adds another messaging model; requires precise observation and processing guarantees |
+| gRPC client | Next proposed module | Adds a new application boundary; keep dependency mocking a separate increment |
 | Selected AWS/Azure services | Exploratory | Choose individual services and verify emulator behavior before committing scope |
 
 This ranking reflects project fit and implementation scope, not measured adoption data. Reorder it when concrete user
@@ -104,15 +107,21 @@ tooling remain outside this increment. See the [database guide](docs/database-mo
 Extract shared production helpers only where the three relational implementations demonstrate real duplication.
 There is no planned universal database interface or ORM dependency.
 
-### Next work: messaging hardening, then RabbitMQ
+### Completed milestone: Kafka hardening and RabbitMQ
 
-First bound Kafka record retention without silently invalidating active assertions and define/test the uncorrelated-message
-policy for sequential and overlapping scopes. Keep committed-offset semantics explicit. Then add RabbitMQ.
-Proposed initial scope is topology setup, native client access, publishing,
-dedicated observation queues, correlation, bounded waits and useful failure details. Verify routing and publisher
-confirms separately from application processing. A Stove observer must not compete with the application for messages
-on its work queue. Successful processing should be demonstrated through an application side effect or an explicitly
-supported integration adapter, not inferred from publication alone.
+Kafka and RabbitMQ now share an internal scoped observation buffer. Defaults are 10,000 messages / 16 MiB per active
+test, with explicit failure on overflow. Successful scopes release evidence; failed scopes preserve bounded diagnostics
+without an environment-lifetime archive. Strict matching requires a matching test id or valid traceparent; when both
+are present they must agree. Missing headers require the explicit `SingleActiveTest` fallback. Its arrival-time
+limitation is documented, including old Kafka records received while catching up. This intentionally changes Kafka's
+previous permissive, unbounded behavior; see [migration guidance](docs/messaging.md).
+
+RabbitMQ adds a separate package and native-client application suite. Ordered setup completes before hosting;
+Stove observes an exclusive queue bound to explicit named exchanges, leaving application work queues alone. Publishing
+awaits confirms and defaults to mandatory routing. Tests distinguish unroutable returns, routes reaching only the
+observer, application success/rejection, observer cancellation/loss, existing-server ownership and failure cleanup.
+Automatic recovery is disabled to avoid hiding observation gaps. Native connection/channel access remains available.
+No `ShouldBeConsumed` processing inference, cluster recovery or stream-protocol support is claimed.
 
 ### gRPC and cloud services
 
@@ -129,15 +138,14 @@ check before committing each service. Share emulator lifecycle internally only w
 
 | Work | Current gap | Scheduling recommendation |
 | --- | --- | --- |
-| Kafka record retention | The message store retains records for the environment lifetime | Complete before expanding messaging; bound storage without silently invalidating active assertions |
-| Uncorrelated-message policy | Records without usable correlation can match every test, including later tests | Define strict/fallback behavior and compatibility; test sequential stale records and overlapping scopes |
 | Processing semantics | Kafka committed offsets do not establish successful business processing | Keep documentation precise; design stronger adapters only for a concrete use case |
 | Operation diagnostics | PostgreSQL, SQL Server and Redis have no dedicated failure-details provider | Add bounded per-test operation reports, with a deliberate policy for SQL, parameters and sensitive values |
 | Redis acceptance depth | One dedicated test plus composition coverage | Add existing-service ownership, cleanup-failure and cancellation/readiness cases supported by the native client |
 | Version/platform coverage | Local Podman success does not establish a full runtime/architecture matrix | Record tested combinations and add CI coverage where required by users |
 
-MongoDB/MySQL landed without another core rewrite. These existing-module gaps remain visible work and are not counted
-as solved by the test split or the new Kafka absence assertion.
+Database and messaging expansion landed without a core lifecycle rewrite. The remaining gaps above are separate from
+the completed retention/correlation hardening. Kafka transient observer lag and broader fault-injection coverage also
+remain limitations; bounded absence assertions do not establish broker-wide absence.
 
 ## Completion criteria for each new module
 

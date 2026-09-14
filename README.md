@@ -4,7 +4,7 @@ Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://gi
 
 StoveDotnet starts your **real** dependencies in containers, injects their connection details into your **real**
 application, runs the application in-process on a real Kestrel port, and gives every test one fluent DSL to arrange and
-assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
+assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
 traces and logs so a failing test explains itself.
 
 ```csharp
@@ -52,13 +52,14 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.MongoDb` | `WithMongoDb()`: MongoDB replica set, native filters, collections and ordered setup |
 | `StoveDotnet.MySql` | `WithMySql()`: MySQL, native MySqlConnector DSL |
 | `StoveDotnet.Kafka` | `WithKafka()`: Testcontainers Kafka, black-box publish/consume/fail assertions |
+| `StoveDotnet.RabbitMq` | `WithRabbitMq()`: confirmed publishing, dedicated observation queues, native RabbitMQ.Client |
 | `StoveDotnet.Redis` | `WithRedis()`: Testcontainers Redis, StackExchange.Redis client |
 | `StoveDotnet.WireMock` | `WithWireMock()`: in-process WireMock.Net servers |
 
 Requirements: .NET 10 and a Docker-compatible container runtime (Docker or Podman) for the container modules.
 
 Published packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet). Install the ones you need into
-your e2e test project. MongoDB and MySQL are implemented in this checkout; their publication is not implied by this table:
+your e2e test project. MongoDB, MySQL and RabbitMQ are implemented in this checkout; their publication is not implied by this table:
 
 ```shell
 dotnet add package StoveDotnet.AspNetCore --prerelease
@@ -115,7 +116,7 @@ WireMock per third-party API or two Redis instances:
 
 ### Existing instances
 
-Postgres, SQL Server, MongoDB, MySQL, Kafka and Redis can use an already running service instead of a container. This is useful for CI services or
+Postgres, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ and Redis can use an already running service instead of a container. This is useful for CI services or
 shared environments:
 
 ```csharp
@@ -256,7 +257,7 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
   and native `Client`, `Database`, `Collection<T>()`. Ordered `Setup` prepares collections, indexes and seed data.
 - **MySQL:** `Execute`, `Query<T>`, `ShouldQuery<T>` with `MySqlParameter` and native `DataSource` access.
   Options include `Migrations`, `Cleanup`, `ConfigureDataSource`, `ConfigureContainer` and `UseExisting`.
-- **Kafka** (black-box, needs no application changes):
+- **Kafka** (observes broker records and committed offsets; propagate correlation headers):
   - `Publish<T>` / `PublishRaw` send a message as the running test.
   - `ShouldBePublished<T>` waits until a matching message appears on any topic. Stove tails every topic with its own
     consumer.
@@ -264,8 +265,12 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
     This means no matching message was observed during that window; it cannot rule out later delivery or observer lag.
   - `ShouldBeConsumed<T>` waits until a consumer group has committed past the matching message.
   - `ShouldBeFailed<T>` waits until a matching message appears on an error topic (`.error` or `.DLT` by default).
-  - `Peek<T>` returns the messages observed so far.
+  - `Peek<T>` returns retained messages of the current test observed so far.
+  - `Observation` bounds evidence per test and excludes uncorrelated records by default. See [messaging guarantees](docs/messaging.md).
   - Serialization uses System.Text.Json by default. Plug in your own with `IStoveKafkaSerde`.
+- **RabbitMQ:** `Publish` / `PublishRaw` await broker confirms; `ShouldBePublished`, `ShouldNotBePublished` and `Peek`
+  inspect copies on Stove's exclusive queue. Configure `Bindings` and ordered `Setup`; native `Connection` is available.
+  Observation does not prove application processing. See [setup and guarantees](docs/messaging.md).
 - **Redis:** `Multiplexer` and `Database(db)`, plus `Migrations` and `Cleanup` options.
 - **WireMock:**
   - `MockGet/MockPost/MockPut/MockPatch/MockDelete(path, statusCode, responseBody, requestBody?, headers?, delay?)`.
@@ -345,17 +350,23 @@ the WireMock calls above come from the in-process WireMock servers.
 
 ### Correlation and parallel tests
 
-Data observed by Stove belongs to a test as follows:
+Kafka and RabbitMQ accept messages carrying the active test's id or a valid matching `traceparent`. If both headers
+are present, both must agree. Malformed or conflicting headers are excluded. Headerless messages are excluded by
+default; the explicit `SingleActiveTest` fallback uses observer arrival time and cannot distinguish a delayed old
+message from current work. Use strict correlation for parallel tests and existing brokers.
 
-- If it carries a test id or trace id, it belongs to the test with that id.
-- If it carries neither, it matches every test.
+Both observers retain at most 10,000 messages / 16 MiB of payload/header evidence per active test by default. Retention
+overflow makes assertions fail explicitly. Completed scopes release their records, with bounded failure evidence kept
+long enough for diagnostics. These defaults intentionally change Kafka's previous unbounded, permissive behavior.
+See [migration guidance and exact guarantees](docs/messaging.md).
 
-Sequential tests need nothing more. Parallel tests need the application to propagate trace context:
+Other modules keep their existing correlation behavior; telemetry may include data without correlation headers.
+Application code must propagate trace context across boundaries:
 
-- ASP.NET Core and HttpClient instrumentation do this automatically.
-- Confluent.Kafka has no instrumentation. Copy `traceparent` into produced message headers yourself; the example app
-  shows how.
-- For WireMock stubs that must differ between parallel tests, set `ScopeStubsToTest = true`.
+- ASP.NET Core and HttpClient instrumentation propagate W3C context.
+- Kafka and RabbitMQ producers must forward `traceparent` (or the test id) into message headers. The native-client test
+  apps demonstrate this without referencing Stove.
+- For WireMock stubs that differ between parallel tests, set `ScopeStubsToTest = true`.
 
 ## Test frameworks
 
@@ -442,7 +453,7 @@ See the [project roadmap](ROADMAP.md) for implemented work, remaining gaps and p
 ```
 src/                         library packages
 tests/StoveDotnet.UnitTests   core only; no application host or containers
-tests/*.AcceptanceTests      separate Hosting, Postgres, SqlServer, MongoDb, MySql, Redis and Kafka suites
+tests/*.AcceptanceTests      separate Hosting, database, Redis, Kafka and RabbitMq suites
 tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
 tests/TestApps/               small real applications using native clients, with no Stove references
 examples/                    OrderService, its OpenAPI specs, and OrderService.E2ETests.XunitV3 with typed fakes
@@ -460,6 +471,7 @@ dotnet test --project tests/StoveDotnet.MongoDb.AcceptanceTests
 dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
+dotnet test --project tests/StoveDotnet.RabbitMq.AcceptanceTests
 dotnet test --project examples/OrderService.E2ETests.XunitV3
 # the deliberately failing demo test:
 dotnet test --project examples/OrderService.E2ETests.XunitV3 -- --explicit only

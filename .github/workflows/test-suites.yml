@@ -26,6 +26,8 @@ jobs:
             project: tests/StoveDotnet.MySql.AcceptanceTests
           - suite: Redis
             project: tests/StoveDotnet.Redis.AcceptanceTests
+          - suite: RabbitMQ
+            project: tests/StoveDotnet.RabbitMq.AcceptanceTests
           - suite: Kafka
             project: tests/StoveDotnet.Kafka.AcceptanceTests
           - suite: OrderService composition

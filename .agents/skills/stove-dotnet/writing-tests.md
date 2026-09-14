@@ -59,7 +59,7 @@ NpgsqlDataSource ds = t.Postgres().DataSource;
 - The mapper receives `NpgsqlDataReader`.
 - `ShouldQuery` runs once. Wrap it in `Eventually.AssertAsync` when the app writes asynchronously.
 
-### Kafka (`t.Kafka(name?)`): black-box, no app changes
+### Kafka (`t.Kafka(name?)`): broker observation with propagated correlation
 
 ```csharp
 await t.Kafka().Publish("payments.completed", new PaymentCompleted(orderId, "pay-1"), key: orderId.ToString(), headers: null);
@@ -79,7 +79,10 @@ How it works:
 - `ShouldBeConsumed` first finds the message, then waits until a consumer group (other than Stove's) has committed an
   offset past it. Pass the app's `consumerGroup`; otherwise all groups are checked.
 - The default timeout is `KafkaOptions.DefaultTimeout` (10s).
-- Use `Peek` for "nothing was published" assertions, and only after the action has completed.
+- Use `ShouldNotBePublished<T>(condition, within, topic)` for a bounded absence observation; `Peek` is only a snapshot.
+- Strict matching requires a valid matching traceparent or test id; when both are present they must agree.
+- Records are retained only for active scopes within `Observation` limits. Overflow fails observation explicitly.
+- `ShouldBeConsumed` proves a committed offset, not successful business processing.
 
 ### Redis (`t.Redis(name?)`)
 
@@ -148,13 +151,13 @@ Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMoc
 
 ## Correlation and parallel tests
 
-- Each test has its own W3C trace. Stove's HTTP calls and Kafka publishes carry `traceparent` and `X-Stove-Test-Id`.
+- Each test has its own W3C trace. Stove's HTTP calls and broker publishes carry `traceparent` and `X-Stove-Test-Id`.
   Calls made directly in the body (a raw `HttpClient`, SDK clients) also join the trace through the current `Activity`.
-- Observed data (Kafka messages, WireMock requests, spans) belongs to a test when its trace or test id matches. **Data
-  without correlation headers matches every test.**
-- **Sequential tests** need nothing more.
+- Kafka/RabbitMQ messages need matching correlation by default; both headers must agree when present. Headerless
+  messages are excluded unless the explicit `SingleActiveTest` fallback applies. That fallback cannot distinguish
+  delayed previous work from a new single scope. Other modules retain their existing permissive headerless behavior.
 - **Parallel tests** need the app to propagate trace context. ASP.NET Core and HttpClient instrumentation do this;
-  Confluent.Kafka producers must copy `traceparent`. If they overlap on the same third-party endpoint, set
+  Kafka/RabbitMQ producers must copy `traceparent`. If they overlap on the same third-party endpoint, set
   `WireMockOptions.ScopeStubsToTest = true`.
 - Prefer unique data per test (new ids, distinct product names) so tests stay independent of each other's rows.
 
@@ -204,3 +207,26 @@ MySqlDataSource dataSource = t.MySql().DataSource;
 
 The DSL owns its connection/command/reader and uses test cancellation. Native connections obtained from `DataSource`
 are caller-owned. Queries read once, and test correlation does not isolate rows. MariaDB compatibility is unverified.
+
+## RabbitMQ (`t.RabbitMq(name?)`)
+
+Use namespace `StoveDotnet.RabbitMq`. Configure named-exchange `Bindings` before asserting.
+
+```csharp
+await t.RabbitMq().Publish("orders", "orders.submit", new { id, value = "hello" });
+RabbitMqMessage<JsonElement> message = await t.RabbitMq().ShouldBePublished<JsonElement>(
+    m => m.Value.GetProperty("id").GetString() == id, routingKey: "orders.processed");
+await t.RabbitMq().ShouldNotBePublished<JsonElement>(_ => true, TimeSpan.FromMilliseconds(200), routingKey: "orders.failed");
+IReadOnlyList<RabbitMqMessage<JsonElement>> records = t.RabbitMq().Peek<JsonElement>();
+```
+
+`Publish` waits for publisher confirmation with mandatory routing enabled by default. An unroutable message raises
+native `PublishReturnException`. `PublishRaw(exchange, routingKey, ReadOnlyMemory<byte>, headers?, mandatory?, contentType?)`
+supports bytes; the default content type is application/octet-stream. JSON uses web serializer defaults.
+`RabbitMqMessage<T>` contains `Value` and `Record` (Exchange, RoutingKey, Body, text Headers, MessageId, ObservedAt).
+Assertion exchange/routing-key filters are exact strings, not binding patterns.
+
+Stove observes copies on its own queue; it never consumes the work queue. A mandatory publish may route only to Stove,
+so even a confirmed observed message does not prove application processing. Verify a business side effect. There is no
+RabbitMQ `ShouldBeConsumed` API. Native `Connection` supports caller-owned channels; pass cancellation and serialize
+concurrent native channel access. Observer connection/channel loss or consumer cancellation invalidates assertions.

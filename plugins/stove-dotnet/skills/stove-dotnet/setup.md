@@ -10,11 +10,11 @@ project. Add only the packages you need:
 | `StoveDotnet` | always |
 | `StoveDotnet.AspNetCore` | the app is ASP.NET Core; also provides `t.Using<T>()` |
 | `StoveDotnet.Http` | tests call the app's HTTP API |
-| `StoveDotnet.Postgres` / `.SqlServer` / `.MongoDb` / `.MySql` / `.Kafka` / `.Redis` | the app uses them |
+| `StoveDotnet.Postgres` / `.SqlServer` / `.MongoDb` / `.MySql` / `.Kafka` / `.RabbitMq` / `.Redis` | the app uses them |
 | `StoveDotnet.WireMock` | the app calls third-party HTTP APIs (see `openapi-fakes.md`) |
 | `StoveDotnet.Telemetry` | the app has (or can get) OpenTelemetry; strongly recommended |
 
-Requirements: .NET 10, and Docker or Podman for database, Kafka and Redis container modules.
+Requirements: .NET 10, and Docker or Podman for database, Kafka, RabbitMQ and Redis container modules.
 
 The app must expose its entry point to `WebApplicationFactory`. Add this to the end of the app's `Program.cs` if it is
 missing:
@@ -154,3 +154,23 @@ Stove's client only. Cleanup also runs against external endpoints when configure
 but leaves the external server running. Setup/migrations rerun on every environment start. Use unique test identifiers;
 neither module automatically clears data between scopes. MySQL/MongoDB additions are repository implementations;
 check package availability before recommending a particular published version.
+
+## Messaging observation and RabbitMQ setup
+
+`KafkaOptions.Observation` and `RabbitMqOptions.Observation` expose `MaxMessagesPerTest` (10,000), `MaxBytesPerTest`
+(16 MiB) and `UncorrelatedMessages` (default `UncorrelatedMessagePolicy.Exclude`). Configure these before the system
+is constructed. No TTL evicts active evidence: overflow marks it incomplete and fails observation assertions.
+`SingleActiveTest` is an explicit fallback for headerless arrivals while only one test is active; it cannot tell a delayed
+old message from new work. Matching headers are required for reliable parallel isolation.
+
+`WithRabbitMq(name?, configure)` uses `RabbitMQ.Client` with default `rabbitmq:4.1-alpine`, user/password `stove`.
+`ConfigureClient` receives `ConnectionFactory`; automatic recovery is disabled after that hook to avoid hidden gaps.
+`ConfigureContainer` receives `RabbitMqBuilder`. `Setup.Add((ctx, ct) => ..., order)` receives `Connection`, temporary
+`Channel` and `Configuration`; declare exchanges/work queues/bindings there. `Bindings.Add(new("orders", "orders.#"))`
+binds Stove's exclusive queue to a named exchange. Wildcards apply only according to the exchange type.
+Map `RabbitMqExposedConfiguration.ConnectionString` to the app's actual configuration key.
+
+`UseExisting(connectionString, runSetup: true)` retains external infrastructure ownership. Cleanup runs with a fresh
+channel in either mode; later disposal still runs if it fails. Stove removes its exclusive observer queue but does not
+remove user topology unless cleanup explicitly does so. `Connection` is native; callers own channels created from it.
+There are no observer bindings by default: publishing/native access works, but assertions require explicit bindings.

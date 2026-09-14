@@ -75,3 +75,16 @@ foreach (var m in t.Kafka().Peek<JsonElement>()) Console.WriteLine($"{m.Topic}@{
 ```
 
 Remove the probes once the cause is found.
+
+## Incomplete Kafka/RabbitMQ observation
+
+If a failure reports a retention limit, evidence was deliberately bounded and later records were not retained.
+Narrow observed Kafka topics/RabbitMQ bindings or increase `Observation.MaxMessagesPerTest` / `MaxBytesPerTest` for the
+known workload. An absence assertion must not pass after evidence loss. Failed scopes retain bounded diagnostics;
+completed scopes do not provide history to later tests.
+
+If a message is missing, check correlation first: matching test id or valid traceparent is required by default, both
+must agree when present, and malformed headers are excluded. `SingleActiveTest` fallback is explicit and uses arrival
+time, so it cannot safely distinguish delayed previous work. RabbitMQ assertions also require explicit bindings to
+named exchanges. A cancelled/lost observer fails assertions; restart the environment to restore complete observation.
+RabbitMQ failure details show routes, sizes and message ids without including payload bodies.

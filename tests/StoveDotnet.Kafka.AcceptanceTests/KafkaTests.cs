@@ -117,6 +117,66 @@ public sealed class KafkaTests(KafkaFixture fixture) : IClassFixture<KafkaFixtur
         }, cancellation.Token));
     }
 
+    [Fact]
+    public Task Strict_mode_ignores_headerless_records_and_accepts_native_trace_propagation() => _stove.Test(async t =>
+    {
+        using var producer = new ProducerBuilder<Null, string>(new ProducerConfig { BootstrapServers = t.Kafka().ExposedConfiguration.BootstrapServers }).Build();
+        var id = Guid.NewGuid().ToString();
+        await producer.ProduceAsync("orders.created", new Message<Null, string> { Value = "{\"orderId\":\"" + id + "\",\"amount\":1}" }, t.CancellationToken);
+        var headers = new Headers { { StoveHeaders.Traceparent, System.Text.Encoding.UTF8.GetBytes(t.Traceparent) } };
+        await producer.ProduceAsync("orders.created", new Message<Null, string> { Value = "{\"orderId\":\"barrier\",\"amount\":1}", Headers = headers }, t.CancellationToken);
+        await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "barrier");
+        Assert.DoesNotContain(t.Kafka().Peek<OrderCreated>(), m => m.Value.OrderId == id);
+    }, TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task Retention_overflow_cannot_pass_an_absence_assertion()
+    {
+        string servers = "";
+        await _stove.Test(t => { servers = t.Kafka().ExposedConfiguration.BootstrapServers; return Task.CompletedTask; });
+        await using var stove = await StoveBuilder.Create().WithKafka(o =>
+        {
+            o.UseExisting(servers, runMigrations: false);
+            o.Observation.MaxMessagesPerTest = 1;
+        }).StartAsync(TestContext.Current.CancellationToken);
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => stove.Test(async t =>
+        {
+            await t.Kafka().Publish("orders.created", new OrderCreated("first", 1));
+            await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "first");
+            var observation = t.Kafka().ShouldNotBePublished<OrderCreated>(m => m.Value.OrderId == "never", TimeSpan.FromSeconds(10));
+            await t.Kafka().Publish("orders.created", new OrderCreated("second", 1));
+            await observation;
+        }, TestContext.Current.CancellationToken));
+        Assert.Contains("retention limit", error.InnerException!.Message, StringComparison.Ordinal);
+        Assert.Contains(error.Details, d => d.Content.Contains("retention limit", StringComparison.Ordinal));
+        await stove.Test(t => { Assert.Empty(t.Kafka().Peek<OrderCreated>()); return Task.CompletedTask; });
+    }
+
+    [Fact]
+    public async Task Explicit_fallback_does_not_replay_records_into_later_tests()
+    {
+        string servers = "";
+        await _stove.Test(t => { servers = t.Kafka().ExposedConfiguration.BootstrapServers; return Task.CompletedTask; });
+        await using var stove = await StoveBuilder.Create().WithKafka(o =>
+        {
+            o.UseExisting(servers, runMigrations: false);
+            o.Observation.UncorrelatedMessages = UncorrelatedMessagePolicy.SingleActiveTest;
+        }).StartAsync(TestContext.Current.CancellationToken);
+        using var producer = new ProducerBuilder<Null, string>(new ProducerConfig { BootstrapServers = servers }).Build();
+        var id = Guid.NewGuid().ToString();
+        await stove.Test(async t =>
+        {
+            await producer.ProduceAsync("orders.created", new Message<Null, string> { Value = System.Text.Json.JsonSerializer.Serialize(new { orderId = id, amount = 1 }) }, t.CancellationToken);
+            await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == id);
+        });
+        await stove.Test(async t =>
+        {
+            await t.Kafka().Publish("orders.created", new OrderCreated("barrier", 1));
+            await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "barrier");
+            Assert.DoesNotContain(t.Kafka().Peek<OrderCreated>(), m => m.Value.OrderId == id);
+        });
+    }
+
     private static async Task ConsumeAndCommit(KafkaSystem kafka, string groupId, string topic, CancellationToken cancellationToken)
     {
         var bootstrapServers = kafka.ExposedConfiguration.BootstrapServers;

@@ -20,6 +20,8 @@ requirements live in [module conventions](modules.md).
 | D12 | Expand database coverage first | SQL Server, MongoDB and MySQL are implemented; messaging/protocol/cloud follow with explicit scope |
 | D13 | MongoDB uses native document APIs and explicit database selection | Default `mongo:8.0` single-node replica set supports verified native transactions; standalone is optional. Ordered `Setup` manages collections/indexes/seeds without a migration-history engine |
 | D14 | MySQL uses MySqlConnector and the relational acceptance contract | Default `mysql:8.4` is tested with MySqlConnector 2.6.2; callbacks and parameters remain native; MariaDB parity is not claimed |
+| D15 | Bound broker evidence per test and require correlation by default | Kafka/RabbitMQ share count/byte limits; overflow invalidates assertions. Headerless fallback is opt-in and limited to one active scope; arrival time cannot identify delayed old work |
+| D16 | RabbitMQ observes dedicated queues and exposes native confirms | Bind an exclusive queue to named exchanges; never compete for application messages. Keep publisher confirms, routing and application processing distinct; fail on observer loss rather than hide gaps with recovery |
 
 ## What the original Stove informs
 
@@ -34,9 +36,9 @@ parity. Broader operation reporting, container controls, reuse and processing ad
 ## Accepted direction versus unresolved design
 
 The database-first direction and the architecture/testing rules above are accepted. MongoDB's API/topology/transaction
-scope and MySQL's driver/version policy are now implemented (D13/D14). RabbitMQ's observation design, gRPC streaming
-scope and cloud emulator choices are not finalized. The roadmap proposes a sequence and initial boundaries for those
-decisions. They should be resolved with their module's implementation and acceptance evidence.
+scope and MySQL's driver/version policy are implemented (D13/D14). Broker retention/correlation and RabbitMQ observation
+are now implemented (D15/D16). gRPC streaming scope and cloud emulator choices are not finalized. The roadmap proposes
+a sequence and initial boundaries for those decisions. They should be resolved with their module's implementation and acceptance evidence.
 
 When changing an accepted decision, record the new requirement, the tradeoff and which earlier decision it replaces.
 Do not silently rewrite an implemented limitation as a guaranteed capability.

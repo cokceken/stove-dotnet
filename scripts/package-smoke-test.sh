@@ -42,6 +42,7 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet.SqlServer" Version="$version" />
     <PackageReference Include="StoveDotnet.MongoDb" Version="$version" />
     <PackageReference Include="StoveDotnet.MySql" Version="$version" />
+    <PackageReference Include="StoveDotnet.RabbitMq" Version="$version" />
     <PackageReference Include="StoveDotnet.Redis" Version="$version" />
     <PackageReference Include="StoveDotnet.Telemetry" Version="$version" />
     <PackageReference Include="StoveDotnet.WireMock" Version="$version" />
@@ -59,6 +60,7 @@ using StoveDotnet.MySql;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MySqlConnector;
+using StoveDotnet.RabbitMq;
 using StoveDotnet.Redis;
 using StoveDotnet.Telemetry;
 using StoveDotnet.WireMock;
@@ -69,7 +71,8 @@ var builder = StoveBuilder.Create()
     .WithSqlServer(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:SqlServer", c.ConnectionString)])
     .WithMongoDb("documents", o => o.ConfigureExposedConfiguration = c => [new("Mongo:ConnectionString", c.ConnectionString), new("Mongo:Database", c.Database)])
     .WithMySql(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:MySql", c.ConnectionString)])
-    .WithKafka()
+    .WithKafka(o => o.Observation.MaxMessagesPerTest = 1000)
+    .WithRabbitMq(o => { o.Bindings.Add(new("events", "#")); o.Observation.UncorrelatedMessages = UncorrelatedMessagePolicy.Exclude; })
     .WithRedis()
     .WithWireMock("payments")
     .WithHttpClient(o => o.BaseAddress = new Uri("http://localhost"));
@@ -78,6 +81,8 @@ Console.WriteLine($"StoveDotnet packages restored and compiled ({builder.GetType
 
 // Compile the bounded absence API without starting a broker in this packaging check.
 _ = (Func<StoveTestContext, Task>)(t => t.Kafka().ShouldNotBePublished<object>(_ => true, TimeSpan.FromSeconds(1)));
+
+_ = (Func<StoveTestContext, Task>)(t => t.RabbitMq().ShouldNotBePublished<object>(_ => true, TimeSpan.FromSeconds(1)));
 
 // Compile native document/relational APIs without containers.
 _ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Empty, _ => { }));

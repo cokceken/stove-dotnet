@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="StoveDotnet.UnitTests" />
+    <InternalsVisibleTo Include="StoveDotnet.Kafka" />
+    <InternalsVisibleTo Include="StoveDotnet.RabbitMq" />
   </ItemGroup>
 
 </Project>

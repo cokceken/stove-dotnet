@@ -67,6 +67,7 @@ Namespaces:
 | `StoveDotnet.MongoDb` | `WithMongoDb`, `t.MongoDb()` |
 | `StoveDotnet.MySql` | `WithMySql`, `t.MySql()` |
 | `StoveDotnet.Kafka` | `WithKafka`, `t.Kafka()` |
+| `StoveDotnet.RabbitMq` | `WithRabbitMq`, `t.RabbitMq()` |
 | `StoveDotnet.Redis` | `WithRedis`, `t.Redis()` |
 | `StoveDotnet.WireMock` | `WithWireMock`, `t.WireMock()`, `PathTemplate`, `RecordedRequest` |
 | `StoveDotnet.Telemetry` | `WithTelemetry`, `t.Telemetry()` |
@@ -90,3 +91,10 @@ Namespaces:
   match.
 - Assertions use the project's existing assertion library. Stove ships none.
 - Keep setups minimal: register only the systems the app under test actually uses.
+
+- Kafka and RabbitMQ observation is strict by default: propagate matching test id or valid `traceparent`; both must
+  agree when present. Headerless data is excluded unless `Observation.UncorrelatedMessages = SingleActiveTest`.
+- Observation is bounded per test (10,000 messages / 16 MiB by default). Overflow fails assertions explicitly;
+  finished-test records are not replayed. Fallback uses observer arrival time and cannot identify delayed old messages.
+- RabbitMQ observes dedicated exchange bindings on its own queue. Publisher confirms, routing and observed copies do
+  not prove application processing; verify a business side effect instead.

@@ -68,3 +68,15 @@ release wait for all suites to pass.
 
 MongoDB uses its own document-oriented contract and native-client application. See [MongoDB and MySQL](database-modules.md)
 for their concrete APIs and tested boundaries.
+
+## Broker modules
+
+Kafka and RabbitMQ use a shared internal scoped buffer with explicit correlation policy and count/byte retention limits.
+Test scope hooks release completed records while preserving bounded failure evidence. Overflow must invalidate both
+positive and negative observation assertions, not silently discard evidence. Native headers must be copied before a
+broker callback releases its delivery memory. See [messaging guarantees](messaging.md) for migration notes and semantics.
+
+RabbitMQ owns an exclusive observation queue with explicit exchange bindings and never consumes application work
+queues. Its independent native-client app proves application processing through an HTTP-readable effect. Confirms,
+mandatory routing, observed copies and processing have separate tests. The suite also covers lost/cancelled observers,
+existing endpoints, cleanup failures, overlapping scopes and packaged API consumption.

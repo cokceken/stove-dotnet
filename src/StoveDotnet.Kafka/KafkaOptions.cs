@@ -31,6 +31,8 @@ public sealed class SystemTextJsonKafkaSerde(JsonSerializerOptions options) : IS
 
 public sealed class KafkaOptions : SystemOptions<KafkaExposedConfiguration>
 {
+    public MessageObservationOptions Observation { get; } = new();
+
     public string Image { get; set; } = "apache/kafka:4.1.0";
 
     /// <summary>Further container customization.</summary>

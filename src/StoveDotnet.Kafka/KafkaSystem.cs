@@ -10,9 +10,9 @@ namespace StoveDotnet.Kafka;
 /// A real Kafka broker for the application under test. Verification is black-box: Stove observes every topic through
 /// its own consumer and reads consumer-group offsets, so the application needs no Stove-specific code.
 /// </summary>
-public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfiguration>, IRunAware, IFailureDetailsProvider
+public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfiguration>, IRunAware, IFailureDetailsProvider, ITestScopeAware
 {
-    private readonly MessageStore _store = new();
+    private readonly ScopedMessageBuffer<ObservedRecord> _store;
     private readonly CancellationTokenSource _stopping = new();
     private readonly string _observerGroupId = $"stove-observer-{Guid.NewGuid():N}";
     private KafkaContainer? _container;
@@ -24,6 +24,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     public KafkaSystem(string? name, KafkaOptions options)
         : base(name, options)
     {
+        _store = new(options.Observation);
     }
 
     /// <summary>Admin client for anything the DSL does not cover (topics, groups, configs).</summary>
@@ -180,8 +181,10 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(test);
-        var records = Owned(test).ToList();
+        var snapshot = _store.Inspect(test);
+        var records = snapshot.Records;
         var content = new StringBuilder().AppendLine(CultureInfo.InvariantCulture, $"Messages observed ({records.Count}):");
+        if (snapshot.Error is not null) content.AppendLine(snapshot.Error);
         foreach (var record in records.TakeLast(50))
         {
             content.AppendLine(CultureInfo.InvariantCulture,
@@ -211,6 +214,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
 
     private IEnumerable<ObservedMessage<T>> Matching<T>(StoveTestContext test, Func<ObservedRecord, bool> recordFilter, Func<ObservedMessage<T>, bool> condition)
     {
+        test.CancellationToken.ThrowIfCancellationRequested();
         foreach (var record in Owned(test).Where(recordFilter))
         {
             if (record.Value is null || !TryDeserialize<T>(record.Value, out var value))
@@ -226,8 +230,10 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
         }
     }
 
-    private IEnumerable<ObservedRecord> Owned(StoveTestContext test) =>
-        _store.Snapshot().Where(r => test.Owns(r.Header(StoveHeaders.TestId), r.Header(StoveHeaders.Traceparent)));
+    public Task OnTestStartedAsync(StoveTestContext test) { _store.Start(test); return Task.CompletedTask; }
+    public Task OnTestEndedAsync(StoveTestContext test, Exception? failure) { _store.End(test, failure); return Task.CompletedTask; }
+
+    private IEnumerable<ObservedRecord> Owned(StoveTestContext test) => _store.Snapshot(test);
 
     private bool TryDeserialize<T>(byte[] data, out T value)
     {
@@ -309,7 +315,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
                         var result = consumer.Consume(TimeSpan.FromMilliseconds(100));
                         if (result?.Message is { } message && !result.IsPartitionEOF)
                         {
-                            _store.Add(new ObservedRecord(
+                            var record = new ObservedRecord(
                                 result.Topic,
                                 result.Partition.Value,
                                 result.Offset.Value,
@@ -317,13 +323,21 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
                                 message.Value,
                                 (message.Headers ?? [])
                                     .GroupBy(h => h.Key, StringComparer.OrdinalIgnoreCase)
-                                    .ToDictionary(g => g.Key, g => Encoding.UTF8.GetString(g.Last().GetValueBytes()), StringComparer.OrdinalIgnoreCase),
-                                message.Timestamp.UtcDateTime));
+                                    .ToDictionary(g => g.Key, g => Encoding.UTF8.GetString(g.Last().GetValueBytes() ?? []), StringComparer.OrdinalIgnoreCase),
+                                message.Timestamp.UtcDateTime);
+                            _store.Add(record, (long)(record.Key?.Length ?? 0) + (record.Value?.Length ?? 0)
+                                + Encoding.UTF8.GetByteCount(record.Topic) + record.Headers.Sum(h => (long)Encoding.UTF8.GetByteCount(h.Key) + Encoding.UTF8.GetByteCount(h.Value)),
+                                record.Header(StoveHeaders.TestId), record.Header(StoveHeaders.Traceparent));
                         }
                     }
-                    catch (ConsumeException)
+                    catch (ConsumeException ex) when (!ex.Error.IsFatal)
                     {
                         // Transient broker errors (e.g. topic being created); keep observing.
+                    }
+                    catch (Exception ex)
+                    {
+                        _store.Fail($"Kafka observer stopped: {ex.Message}");
+                        break;
                     }
                 }
 
