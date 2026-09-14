@@ -4,7 +4,7 @@ Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://gi
 
 StoveDotnet starts your **real** dependencies in containers, injects their connection details into your **real**
 application, runs the application in-process on a real Kestrel port, and gives every test one fluent DSL to arrange and
-assert across HTTP, PostgreSQL, SQL Server, Kafka, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
+assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
 traces and logs so a failing test explains itself.
 
 ```csharp
@@ -49,14 +49,16 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.Telemetry` | `WithTelemetry()`: OTLP/HTTP receiver for traces and logs, `t.Telemetry()` |
 | `StoveDotnet.Postgres` | `WithPostgres()`: Testcontainers PostgreSQL, raw Npgsql DSL |
 | `StoveDotnet.SqlServer` | `WithSqlServer()`: Testcontainers SQL Server, native Microsoft.Data.SqlClient DSL |
+| `StoveDotnet.MongoDb` | `WithMongoDb()`: MongoDB replica set, native filters, collections and ordered setup |
+| `StoveDotnet.MySql` | `WithMySql()`: MySQL, native MySqlConnector DSL |
 | `StoveDotnet.Kafka` | `WithKafka()`: Testcontainers Kafka, black-box publish/consume/fail assertions |
 | `StoveDotnet.Redis` | `WithRedis()`: Testcontainers Redis, StackExchange.Redis client |
 | `StoveDotnet.WireMock` | `WithWireMock()`: in-process WireMock.Net servers |
 
 Requirements: .NET 10 and a Docker-compatible container runtime (Docker or Podman) for the container modules.
 
-Packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet). Install the ones you need into
-your e2e test project:
+Published packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet). Install the ones you need into
+your e2e test project. MongoDB and MySQL are implemented in this checkout; their publication is not implied by this table:
 
 ```shell
 dotnet add package StoveDotnet.AspNetCore --prerelease
@@ -113,14 +115,14 @@ WireMock per third-party API or two Redis instances:
 
 ### Existing instances
 
-Postgres, SQL Server, Kafka and Redis can use an already running service instead of a container. This is useful for CI services or
+Postgres, SQL Server, MongoDB, MySQL, Kafka and Redis can use an already running service instead of a container. This is useful for CI services or
 shared environments:
 
 ```csharp
 .WithPostgres(o => o.UseExisting(Environment.GetEnvironmentVariable("ORDERS_DB")!, runMigrations: true))
 ```
 
-PostgreSQL and SQL Server open a connection before starting the application, even when migrations are disabled.
+PostgreSQL, SQL Server and MySQL open a connection before starting the application, even when migrations are disabled.
 Stove does not stop an existing server. Configured cleanup callbacks still run; `runMigrations: false` only disables
 migrations, not cleanup.
 
@@ -168,6 +170,48 @@ application's own SQL client. For PostgreSQL, `ConfigureDataSource` customizes t
 
 Both database DSLs query once. Use `Eventually.AssertAsync` for assertions against asynchronous application writes.
 
+### MongoDB and MySQL
+
+Each provider has an independent package, native-client test application and acceptance suite. MongoDB defaults to
+`mongo:8.0` with a single-node replica set; MySQL defaults to `mysql:8.4` with MySqlConnector. See the
+[database module guide](docs/database-modules.md) for runtime modes, ownership, transactions and complete setup details.
+
+```csharp
+// using StoveDotnet.MongoDb; using MongoDB.Bson; using MongoDB.Driver;
+var builder = StoveBuilder.Create().WithMongoDb("documents", o =>
+{
+    o.ConfigureExposedConfiguration = c =>
+        [new("Mongo:ConnectionString", c.ConnectionString), new("Mongo:Database", c.Database)];
+    o.Setup.Add((ctx, ct) => ctx.Database.CreateCollectionAsync("records", cancellationToken: ct));
+});
+// After adding your application and starting the environment:
+await stove.Test(async t =>
+{
+    var id = ObjectId.GenerateNewId();
+    await t.MongoDb("documents").Insert("records", new BsonDocument { ["_id"] = id, ["value"] = "ready" });
+    await t.MongoDb("documents").ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Eq("_id", id),
+        documents => Assert.Single(documents));
+});
+```
+
+```csharp
+// using StoveDotnet.MySql; using MySqlConnector;
+var builder = StoveBuilder.Create().WithMySql(o =>
+{
+    o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Orders", c.ConnectionString)];
+    o.Migrations.Add(async (ctx, ct) =>
+    {
+        await using var connection = await ctx.DataSource.OpenConnectionAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "create table orders (id int primary key, status varchar(100))";
+        await command.ExecuteNonQueryAsync(ct);
+    });
+});
+// Inside stove.Test:
+await t.MySql().Execute("insert into orders values (@id, @status)",
+    new MySqlParameter("id", 1), new MySqlParameter("status", "Created"));
+```
+
 ### Database test isolation
 
 A database belongs to a running Stove environment, not an individual `stove.Test`. Migrations run at environment startup
@@ -208,6 +252,10 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
 - **SQL Server:** `Execute(sql, params)`, `Query<T>(sql, map, params)`, `ShouldQuery<T>(sql, map, assert, params)` and
   `OpenConnectionAsync(ct)` for native SqlClient access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`,
   `ConfigureConnection` and `UseExisting`.
+- **MongoDB:** `Insert(collection, document)`, `Query<T>(collection, filter)`, `ShouldQuery<T>(collection, filter, assert)`
+  and native `Client`, `Database`, `Collection<T>()`. Ordered `Setup` prepares collections, indexes and seed data.
+- **MySQL:** `Execute`, `Query<T>`, `ShouldQuery<T>` with `MySqlParameter` and native `DataSource` access.
+  Options include `Migrations`, `Cleanup`, `ConfigureDataSource`, `ConfigureContainer` and `UseExisting`.
 - **Kafka** (black-box, needs no application changes):
   - `Publish<T>` / `PublishRaw` send a message as the running test.
   - `ShouldBePublished<T>` waits until a matching message appears on any topic. Stove tails every topic with its own
@@ -394,7 +442,7 @@ See the [project roadmap](ROADMAP.md) for implemented work, remaining gaps and p
 ```
 src/                         library packages
 tests/StoveDotnet.UnitTests   core only; no application host or containers
-tests/*.AcceptanceTests      separate Hosting, Postgres, SqlServer, Redis and Kafka suites
+tests/*.AcceptanceTests      separate Hosting, Postgres, SqlServer, MongoDb, MySql, Redis and Kafka suites
 tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
 tests/TestApps/               small real applications using native clients, with no Stove references
 examples/                    OrderService, its OpenAPI specs, and OrderService.E2ETests.XunitV3 with typed fakes
@@ -408,6 +456,8 @@ dotnet test --project tests/StoveDotnet.UnitTests
 dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Postgres.AcceptanceTests
 dotnet test --project tests/StoveDotnet.SqlServer.AcceptanceTests
+dotnet test --project tests/StoveDotnet.MongoDb.AcceptanceTests
+dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project examples/OrderService.E2ETests.XunitV3

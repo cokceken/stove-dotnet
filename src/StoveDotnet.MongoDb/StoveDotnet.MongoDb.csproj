@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><Description>MongoDB for StoveDotnet: managed replica sets or existing endpoints, ordered setup and native document APIs.</Description></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" />
+    <PackageReference Include="Testcontainers.MongoDb" />
+    <ProjectReference Include="../StoveDotnet/StoveDotnet.csproj" />
+  </ItemGroup>
+</Project>

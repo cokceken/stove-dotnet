@@ -64,6 +64,8 @@ Namespaces:
 | `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication`, `t.Using<T>()` |
 | `StoveDotnet.Http` | `WithHttpClient`, `t.Http()` |
 | `StoveDotnet.Postgres` | `WithPostgres`, `t.Postgres()` |
+| `StoveDotnet.MongoDb` | `WithMongoDb`, `t.MongoDb()` |
+| `StoveDotnet.MySql` | `WithMySql`, `t.MySql()` |
 | `StoveDotnet.Kafka` | `WithKafka`, `t.Kafka()` |
 | `StoveDotnet.Redis` | `WithRedis`, `t.Redis()` |
 | `StoveDotnet.WireMock` | `WithWireMock`, `t.WireMock()`, `PathTemplate`, `RecordedRequest` |

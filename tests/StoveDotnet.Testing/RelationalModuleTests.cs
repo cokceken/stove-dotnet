@@ -3,7 +3,7 @@ using Xunit;
 
 namespace StoveDotnet.Testing;
 
-/// <summary>The same behavioral contract runs against both database providers.</summary>
+/// <summary>The same behavioral contract runs against each relational database provider.</summary>
 public abstract class RelationalModuleTests(RelationalFixture fixture)
 {
     [Fact]

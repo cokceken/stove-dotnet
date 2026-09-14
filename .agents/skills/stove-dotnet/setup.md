@@ -10,11 +10,11 @@ project. Add only the packages you need:
 | `StoveDotnet` | always |
 | `StoveDotnet.AspNetCore` | the app is ASP.NET Core; also provides `t.Using<T>()` |
 | `StoveDotnet.Http` | tests call the app's HTTP API |
-| `StoveDotnet.Postgres` / `.Kafka` / `.Redis` | the app uses them |
+| `StoveDotnet.Postgres` / `.SqlServer` / `.MongoDb` / `.MySql` / `.Kafka` / `.Redis` | the app uses them |
 | `StoveDotnet.WireMock` | the app calls third-party HTTP APIs (see `openapi-fakes.md`) |
 | `StoveDotnet.Telemetry` | the app has (or can get) OpenTelemetry; strongly recommended |
 
-Requirements: .NET 10, and Docker or Podman for the Postgres, Kafka and Redis modules.
+Requirements: .NET 10, and Docker or Podman for database, Kafka and Redis container modules.
 
 The app must expose its entry point to `WebApplicationFactory`. Add this to the end of the app's `Program.cs` if it is
 missing:
@@ -31,6 +31,8 @@ with `Configure<T>(section)`.
 
 | System | Exposed record | Members |
 |---|---|---|
+| MongoDB | `MongoDbExposedConfiguration` | `ConnectionString, Database` |
+| MySQL | `MySqlExposedConfiguration` | `ConnectionString, Host, Port, Database, Username, Password` |
 | Postgres | `PostgresExposedConfiguration` | `ConnectionString, Host, Port, Database, Username, Password` |
 | Kafka | `KafkaExposedConfiguration` | `BootstrapServers` |
 | Redis | `RedisExposedConfiguration` | `ConnectionString, Host, Port` |
@@ -131,3 +133,24 @@ builder.Services.AddOpenTelemetry()
 - Do not hard-code an exporter endpoint in the app; that overrides Stove's configuration.
 - Apps using Confluent.Kafka must copy `traceparent` into produced message headers (`Activity.Current?.Id`) and start a
   consumer activity from it. Confluent.Kafka has no instrumentation.
+
+## MongoDB and MySQL setup
+
+`WithMongoDb(name?, configure)` defaults to `mongo:8.0`, database `stove`, single-node replica set `stove-rs`.
+Set `ReplicaSet = null` for standalone (no transactions). `ConfigureClient` receives `MongoClientSettings` and
+`ConfigureContainer` receives a `MongoDbBuilder`. Map both `c.ConnectionString` and `c.Database` into app config.
+`UseExisting(connectionString, database, runSetup: true)` selects an explicit database without changing the server.
+`Setup.Add((ctx, ct) => ..., order)` runs ordered collection/index/seed callbacks with `Client`, `Database`, and
+`Configuration`; this is repeated setup, not persisted migration history. `Cleanup` receives the same context.
+
+`WithMySql(name?, configure)` defaults to `mysql:8.4`, database/user/password `stove`, using MySqlConnector.
+`ConfigureDataSource` receives `MySqlDataSourceBuilder`; `ConfigureContainer` receives `MySqlBuilder`.
+`Migrations` receive `DataSource` and `Configuration`; `Cleanup` receives the data source.
+`UseExisting(connectionString, runMigrations: true)` does not provision the external database.
+Map `c.ConnectionString` to the application's actual connection-string key.
+
+Both validate connectivity before application startup, even with setup/migrations disabled. Client hooks configure
+Stove's client only. Cleanup also runs against external endpoints when configured; Stove disposes its own client
+but leaves the external server running. Setup/migrations rerun on every environment start. Use unique test identifiers;
+neither module automatically clears data between scopes. MySQL/MongoDB additions are repository implementations;
+check package availability before recommending a particular published version.

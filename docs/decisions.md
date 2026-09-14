@@ -17,7 +17,9 @@ requirements live in [module conventions](modules.md).
 | D09 | Preserve failures while releasing resources | Cleanup failure must not skip later disposal; rollback waits for starts already in flight and retains startup/rollback errors |
 | D10 | State messaging guarantees precisely | Publication, routing, offset commits and successful business processing are different observations; negative assertions describe a bounded observation window |
 | D11 | Use independent CI suite jobs | A failing provider must not suppress other suite results; packaging and release wait for the suite matrix |
-| D12 | Expand database coverage next | SQL Server is implemented; MongoDB and MySQL are the next recommended additions, followed by messaging/protocol/cloud work with explicit scope |
+| D12 | Expand database coverage first | SQL Server, MongoDB and MySQL are implemented; messaging/protocol/cloud follow with explicit scope |
+| D13 | MongoDB uses native document APIs and explicit database selection | Default `mongo:8.0` single-node replica set supports verified native transactions; standalone is optional. Ordered `Setup` manages collections/indexes/seeds without a migration-history engine |
+| D14 | MySQL uses MySqlConnector and the relational acceptance contract | Default `mysql:8.4` is tested with MySqlConnector 2.6.2; callbacks and parameters remain native; MariaDB parity is not claimed |
 
 ## What the original Stove informs
 
@@ -31,9 +33,9 @@ parity. Broader operation reporting, container controls, reuse and processing ad
 
 ## Accepted direction versus unresolved design
 
-The database-first direction and the architecture/testing rules above are accepted. MongoDB's exact API, default
-topology and transaction scope; MySQL's driver/version policy; RabbitMQ's observation design; gRPC streaming scope;
-and cloud emulator choices are not finalized. The roadmap proposes a sequence and initial boundaries for those
+The database-first direction and the architecture/testing rules above are accepted. MongoDB's API/topology/transaction
+scope and MySQL's driver/version policy are now implemented (D13/D14). RabbitMQ's observation design, gRPC streaming
+scope and cloud emulator choices are not finalized. The roadmap proposes a sequence and initial boundaries for those
 decisions. They should be resolved with their module's implementation and acceptance evidence.
 
 When changing an accepted decision, record the new requirement, the tradeoff and which earlier decision it replaces.

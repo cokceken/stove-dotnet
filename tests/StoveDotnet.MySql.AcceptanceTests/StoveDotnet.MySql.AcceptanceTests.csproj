@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <ProjectReference Include="../../src/StoveDotnet.MySql/StoveDotnet.MySql.csproj" />
+    <ProjectReference Include="../StoveDotnet.Testing/StoveDotnet.Testing.csproj" />
+    <ProjectReference Include="../TestApps/MySqlApp/MySqlApp.csproj" />
+  </ItemGroup>
+</Project>

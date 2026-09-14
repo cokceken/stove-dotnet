@@ -167,3 +167,40 @@ Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMoc
   methods.
 - Keep one environment per run. Do not start Stove in constructors or per test class unless isolation truly needs a
   separate application.
+
+## MongoDB (`t.MongoDb(name?)`)
+
+Use namespace `StoveDotnet.MongoDb` with `MongoDB.Driver`/`MongoDB.Bson`.
+
+```csharp
+var id = ObjectId.GenerateNewId();
+await t.MongoDb().Insert("records", new BsonDocument { ["_id"] = id, ["value"] = "ready" });
+IReadOnlyList<BsonDocument> documents = await t.MongoDb().Query<BsonDocument>(
+    "records", Builders<BsonDocument>.Filter.Eq("_id", id));
+await t.MongoDb().ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Eq("_id", id),
+    rows => Assert.Single(rows));
+IMongoCollection<BsonDocument> collection = t.MongoDb().Collection<BsonDocument>("records");
+IMongoDatabase database = t.MongoDb().Database;
+IMongoClient client = t.MongoDb().Client;
+```
+
+Queries read current matches once with native filters; no implied ordering or retry. Use collection APIs for
+projections, pagination, serializers and sessions. Pass `t.CancellationToken` to native calls; dispose sessions/cursors
+you create. The default replica set supports native transactions, but they do not include the app's separate session.
+Stove does not install global BSON conventions or reset documents between tests.
+
+## MySQL (`t.MySql(name?)`)
+
+Use namespace `StoveDotnet.MySql` with `MySqlConnector`.
+
+```csharp
+await t.MySql().Execute("insert into records values (@id, @value)",
+    new MySqlParameter("id", id), new MySqlParameter("value", "ready"));
+await t.MySql().ShouldQuery("select value from records where id = @id", r => r.GetString(0),
+    rows => Assert.Equal(["ready"], rows), new MySqlParameter("id", id));
+IReadOnlyList<string> values = await t.MySql().Query("select value from records", r => r.GetString(0));
+MySqlDataSource dataSource = t.MySql().DataSource;
+```
+
+The DSL owns its connection/command/reader and uses test cancellation. Native connections obtained from `DataSource`
+are caller-owned. Queries read once, and test correlation does not isolate rows. MariaDB compatibility is unverified.

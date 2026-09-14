@@ -20,6 +20,10 @@ jobs:
             project: tests/StoveDotnet.Postgres.AcceptanceTests
           - suite: SQL Server
             project: tests/StoveDotnet.SqlServer.AcceptanceTests
+          - suite: MongoDB
+            project: tests/StoveDotnet.MongoDb.AcceptanceTests
+          - suite: MySQL
+            project: tests/StoveDotnet.MySql.AcceptanceTests
           - suite: Redis
             project: tests/StoveDotnet.Redis.AcceptanceTests
           - suite: Kafka

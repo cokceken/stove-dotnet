@@ -40,6 +40,8 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet.Kafka" Version="$version" />
     <PackageReference Include="StoveDotnet.Postgres" Version="$version" />
     <PackageReference Include="StoveDotnet.SqlServer" Version="$version" />
+    <PackageReference Include="StoveDotnet.MongoDb" Version="$version" />
+    <PackageReference Include="StoveDotnet.MySql" Version="$version" />
     <PackageReference Include="StoveDotnet.Redis" Version="$version" />
     <PackageReference Include="StoveDotnet.Telemetry" Version="$version" />
     <PackageReference Include="StoveDotnet.WireMock" Version="$version" />
@@ -52,6 +54,11 @@ using StoveDotnet.Http;
 using StoveDotnet.Kafka;
 using StoveDotnet.Postgres;
 using StoveDotnet.SqlServer;
+using StoveDotnet.MongoDb;
+using StoveDotnet.MySql;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using MySqlConnector;
 using StoveDotnet.Redis;
 using StoveDotnet.Telemetry;
 using StoveDotnet.WireMock;
@@ -60,6 +67,8 @@ var builder = StoveBuilder.Create()
     .WithTelemetry()
     .WithPostgres(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Db", c.ConnectionString)])
     .WithSqlServer(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:SqlServer", c.ConnectionString)])
+    .WithMongoDb("documents", o => o.ConfigureExposedConfiguration = c => [new("Mongo:ConnectionString", c.ConnectionString), new("Mongo:Database", c.Database)])
+    .WithMySql(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:MySql", c.ConnectionString)])
     .WithKafka()
     .WithRedis()
     .WithWireMock("payments")
@@ -69,6 +78,10 @@ Console.WriteLine($"StoveDotnet packages restored and compiled ({builder.GetType
 
 // Compile the bounded absence API without starting a broker in this packaging check.
 _ = (Func<StoveTestContext, Task>)(t => t.Kafka().ShouldNotBePublished<object>(_ => true, TimeSpan.FromSeconds(1)));
+
+// Compile native document/relational APIs without containers.
+_ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Empty, _ => { }));
+_ = (Func<StoveTestContext, Task>)(t => t.MySql().Execute("select @id", new MySqlParameter("id", 1)));
 
 // Runtime check without containers: start WireMock from the packages and run a real stove.Test against it.
 await using var stove = await StoveBuilder.Create().WithWireMock("payments").StartAsync();

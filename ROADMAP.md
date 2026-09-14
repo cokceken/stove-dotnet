@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated: 2026-09-14. Baseline reviewed: `09e4a04` (`individual tests for modules`).
+Updated: 2026-09-14. Original baseline: `09e4a04` (`individual tests for modules`); MongoDB/MySQL now implemented.
 
 StoveDotnet's next direction is broader module coverage, starting with databases. The lifecycle and test structure
 are now suitable for adding modules incrementally. Each addition should include a useful testing experience, a real
@@ -17,23 +17,24 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | --- | --- |
 | Core | Small lifecycle capabilities, named instances, typed configuration injection, migrations, cancellation, test correlation and failure wrapping |
 | Application hosting | Real ASP.NET Core application on Kestrel, HTTP DSL and access to application services |
-| Dependencies | PostgreSQL, SQL Server, Redis, Kafka and named in-process WireMock servers |
+| Dependencies | PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka and named in-process WireMock servers |
 | Telemetry | OTLP traces/logs, test correlation and failure details |
 | Lifecycle hardening | Attempt all disposal steps despite cleanup failures; retain startup and rollback errors; wait for in-flight starts before rollback |
-| Databases | Managed and existing endpoints, native clients, migration ordering, readiness before application startup for PostgreSQL/SQL Server, native-client customization |
+| Databases | Managed and existing endpoints, native clients, migration ordering, readiness before application startup for PostgreSQL/SQL Server/MySQL; MongoDB has ordered collection/index/seed setup and native transactions, native-client customization |
 | Kafka absence assertions | `ShouldNotBePublished` observes for an explicit interval; it does not prove absence beyond that interval or through observer lag |
-| Test organization | Core-only unit tests; separate hosting, PostgreSQL, SQL Server, Redis and Kafka suites; provider-neutral database contracts |
-| Real test applications | Hosting, PostgreSQL and SQL Server apps under `tests/TestApps`, with no Stove dependency |
+| Test organization | Core-only unit tests; separate hosting, PostgreSQL, SQL Server, MongoDB, MySQL, Redis and Kafka suites; provider-neutral database contracts |
+| Real test applications | Hosting, PostgreSQL, SQL Server, MongoDB and MySQL apps under `tests/TestApps`, with no Stove dependency |
 | Composition example | OrderService retains PostgreSQL, Redis, Kafka and external HTTP dependencies; eight active tests cover workflows, retrieval, rejection, concurrency and diagnostics |
 | CI and packages | Shared CI/release matrix with separate suite jobs, fail-fast disabled, packaging gated on tests and an isolated package smoke test |
 
-SQL Server is implemented; it is no longer a future-module candidate. The repository contains nine library packages:
-core, ASP.NET Core, HTTP, telemetry, PostgreSQL, SQL Server, Redis, Kafka and WireMock.
+SQL Server is implemented; it is no longer a future-module candidate. The repository contains eleven library packages:
+core, ASP.NET Core, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka and WireMock.
 
 ### Last completed local verification
 
-The completed implementation session on 2026-09-14 verified the Release build and package smoke test, with containers
-running on Podman. These are historical results, not tests rerun when editing this roadmap.
+The MongoDB/MySQL implementation session on 2026-09-14 verified the Release build (zero warnings/errors), all eleven
+packages and an isolated-cache package smoke test, with containers running on Windows x64/Podman. The recorded suite
+results below are local evidence, not a remote CI or publication claim.
 
 | Suite | Passed |
 | --- | ---: |
@@ -41,10 +42,12 @@ running on Podman. These are historical results, not tests rerun when editing th
 | Hosting | 22 |
 | PostgreSQL | 16 |
 | SQL Server | 14 |
+| MongoDB | 13 |
+| MySQL | 16 |
 | Redis | 1 |
 | Kafka | 8 |
 | OrderService | 8 |
-| **Total** | **94** |
+| **Total** | **123** |
 
 One intentionally failing OrderService demonstration remains opt-in. Coverage depth is not uniform: the database
 suites include dedicated real applications, while Redis and Kafka also rely on OrderService for application-level
@@ -52,15 +55,15 @@ composition coverage. Splitting projects did not automatically give every module
 
 ## Recommended module sequence
 
-Database-first expansion is the accepted direction. The following milestone details and ordering are proposed scope
-for future implementation; no new module is implemented by this planning change.
+Database-first expansion and the sequence below are accepted. MongoDB and MySQL have landed in the working tree.
+Detailed messaging, gRPC and cloud scope still needs the design/acceptance evidence described below.
 
 | Milestone | Status | Why this comes next |
 | --- | --- | --- |
 | Lifecycle + SQL Server + test restructuring | Implemented | Establishes the foundation and a repeatable acceptance model |
-| MongoDB | Proposed next | Adds document-database coverage and tests which conventions generalize beyond SQL |
-| MySQL | Proposed after MongoDB | Extends relational coverage using the existing behavioral contracts |
-| RabbitMQ | Proposed, after messaging hardening | Adds another messaging model; requires precise observation and processing guarantees |
+| MongoDB | Implemented | Adds document-database coverage and tests which conventions generalize beyond SQL |
+| MySQL | Implemented | Extends relational coverage using the existing behavioral contracts |
+| RabbitMQ | Next module, after messaging hardening | Adds another messaging model; requires precise observation and processing guarantees |
 | gRPC client | Proposed | Adds a new application boundary; keep dependency mocking a separate increment |
 | Selected AWS/Azure services | Exploratory | Choose individual services and verify emulator behavior before committing scope |
 
@@ -68,43 +71,44 @@ This ranking reflects project fit and implementation scope, not measured adoptio
 demand warrants doing so. Testcontainers for .NET already provides MongoDB, MySQL and RabbitMQ modules, allowing Stove
 to focus on configuration, lifecycle, test APIs and diagnostics. [Upstream module catalog](https://dotnet.testcontainers.org/modules/)
 
-### Next milestone: MongoDB
+### Completed milestone: MongoDB
 
-Proposed deliverables:
+Implemented deliverables:
 
 - A separate module package, named registration and test-context access.
 - Managed container and existing-endpoint modes, typed configuration and readiness checks.
 - Native MongoDB client/database/collection access with explicit ownership and client customization.
 - Ordered setup for collections, indexes and seed data, plus explicit environment cleanup behavior.
 - A small document-oriented test API where it improves assertions; retain native filters and serialization controls.
-- A native-client application and its own acceptance project/CI entry. Prove application writes observed by Stove,
+- A native-client application and its own acceptance project/CI entry proving application writes observed by Stove,
   Stove seeding read through the application, named databases, existing endpoints, cancellation and concurrent scopes.
 - Failure-path tests, documentation, skill/API documentation synchronization and package smoke coverage.
 
-Before finalizing the API, decide the default topology and supported transaction scope. Verify replica-set readiness
-and a real transaction if transaction support is claimed; do not infer that coverage from a basic insert/read test.
-Exercise BSON identifiers and serialization settings. Keep collection/index setup distinct from a schema migration
-framework. The upstream [MongoDB module documentation](https://dotnet.testcontainers.org/modules/mongodb/) is an
-implementation reference; confirm the selected dependency version's behavior during development.
+The default is `mongo:8.0` with a single-node `stove-rs` replica set. Acceptance tests verify native transaction commit
+and abort, optional standalone mode, BSON ObjectIds and field serialization. `Setup` is ordered collection/index/seed
+preparation without a migration-history engine. The upstream [MongoDB module documentation](https://dotnet.testcontainers.org/modules/mongodb/) is an
+implementation reference; the selected Testcontainers 4.15.0/MongoDB.Driver 3.11.2 combination is verified locally.
 
-Do not force MongoDB into the relational test adapter or add it to OrderService. Reuse lifecycle and application
-behavior requirements, with document-specific assertions. Sharding, hosted-service parity and broad chaos tooling
-are outside the proposed first increment. Final public names and exact client hooks remain design work.
+MongoDB has its own document-oriented suite and app; OrderService remains focused. The public API is `WithMongoDb`,
+`t.MongoDb()`, native clients/collections and a small insert/query DSL. Sharding, hosted-service parity and broad chaos
+tooling remain outside this increment. See the [database guide](docs/database-modules.md) for APIs and boundaries.
 
-### Following milestone: MySQL
+### Completed milestone: MySQL
 
-- Add managed/existing modes, named instances, native client access, parameters, readiness, migrations and cleanup.
-- Reuse the relational behavior contract with an independent adapter and native-client application.
-- Verify database creation, Unicode values, parameter handling and the chosen client configuration hooks.
-- Select and document the native driver and supported server image/version policy during implementation.
-- Do not claim MariaDB compatibility without running a separate compatibility suite.
+- Implemented managed/existing modes, named instances, native client access, parameters, readiness, migrations and cleanup.
+- Reused the relational behavior contract with an independent adapter and native-client application.
+- Verified database creation, Unicode values, parameter handling and native connection-open callbacks.
+- Selected MySqlConnector 2.6.2 and `mysql:8.4`; image overrides require their own compatibility checks.
+- MariaDB compatibility is not claimed without a separate compatibility suite.
 
 Extract shared production helpers only where the three relational implementations demonstrate real duplication.
 There is no planned universal database interface or ORM dependency.
 
-### Messaging milestone: RabbitMQ
+### Next work: messaging hardening, then RabbitMQ
 
-First complete the messaging work below. Proposed initial scope is topology setup, native client access, publishing,
+First bound Kafka record retention without silently invalidating active assertions and define/test the uncorrelated-message
+policy for sequential and overlapping scopes. Keep committed-offset semantics explicit. Then add RabbitMQ.
+Proposed initial scope is topology setup, native client access, publishing,
 dedicated observation queues, correlation, bounded waits and useful failure details. Verify routing and publisher
 confirms separately from application processing. A Stove observer must not compete with the application for messages
 on its work queue. Successful processing should be demonstrated through an application side effect or an explicitly
@@ -132,8 +136,8 @@ check before committing each service. Share emulator lifecycle internally only w
 | Redis acceptance depth | One dedicated test plus composition coverage | Add existing-service ownership, cleanup-failure and cancellation/readiness cases supported by the native client |
 | Version/platform coverage | Local Podman success does not establish a full runtime/architecture matrix | Record tested combinations and add CI coverage where required by users |
 
-These gaps do not require another core rewrite before MongoDB/MySQL. They remain visible work rather than being
-counted as solved by the test split or the new Kafka absence assertion.
+MongoDB/MySQL landed without another core rewrite. These existing-module gaps remain visible work and are not counted
+as solved by the test split or the new Kafka absence assertion.
 
 ## Completion criteria for each new module
 

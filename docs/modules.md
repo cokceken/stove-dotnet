@@ -31,7 +31,7 @@ a parallel test. Messaging observation and successful application processing are
 ## Acceptance tests
 
 `tests/StoveDotnet.Testing/RelationalModuleTests.cs` defines the provider-neutral mechanics contract, and
-`RelationalApplicationTests.cs` defines the real-application contract. PostgreSQL and SQL Server have separate
+`RelationalApplicationTests.cs` defines the real-application contract. PostgreSQL, SQL Server and MySQL have separate
 acceptance projects, adapters and fixtures; neither references the other provider. Add a provider adapter and a small
 native-client application for another relational module, or reuse these requirements for another category:
 
@@ -58,10 +58,13 @@ Core lifecycle tests additionally cover rollback while another system is startin
 shutdown order with an application that fails to stop. New modules should also have a README example and participate
 in `scripts/package-smoke-test.sh`, so the packaged public API is compiled from an isolated NuGet cache.
 
-The real-application fixtures register modules through `WithPostgres`/`WithSqlServer`, while lifecycle tests may
+The real-application fixtures register modules through `WithPostgres`/`WithSqlServer`/`WithMySql`, while lifecycle tests may
 construct systems directly to inspect partial startup and disposal. Test apps under `tests/TestApps` reference native
 clients only. Keep business-like composition scenarios in OrderService instead of adding every provider to it.
 
 CI and release share `.github/workflows/test-suites.yml`. Each suite builds only its project and dependencies in its
 own job, with matrix fail-fast disabled. Adding a module suite requires adding it to that matrix; package creation and
 release wait for all suites to pass.
+
+MongoDB uses its own document-oriented contract and native-client application. See [MongoDB and MySQL](database-modules.md)
+for their concrete APIs and tested boundaries.

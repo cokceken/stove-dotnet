@@ -8,6 +8,8 @@ dotnet test --project tests/StoveDotnet.UnitTests                # core only
 dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests  # no containers
 dotnet test --project tests/StoveDotnet.Postgres.AcceptanceTests # Docker or Podman
 dotnet test --project tests/StoveDotnet.SqlServer.AcceptanceTests
+dotnet test --project tests/StoveDotnet.MongoDb.AcceptanceTests
+dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project examples/OrderService.E2ETests.XunitV3     # Docker or Podman

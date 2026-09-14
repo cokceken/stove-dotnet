@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>MySQL system for StoveDotnet: Testcontainers MySQL (or an existing instance), migrations and a raw MySqlConnector test DSL.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySqlConnector" />
+    <PackageReference Include="Testcontainers.MySql" />
+    <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+  </ItemGroup>
+
+</Project>
