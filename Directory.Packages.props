@@ -11,6 +11,7 @@
     <PackageVersion Include="WireMock.Net.Minimal" Version="2.15.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.36.1" />
     <PackageVersion Include="Grpc.Tools" Version="2.84.0" />
+    <PackageVersion Include="MinVer" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Examples and tests">

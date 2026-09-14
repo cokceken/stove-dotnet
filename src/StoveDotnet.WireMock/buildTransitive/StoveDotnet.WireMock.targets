@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    WireMock.Net.Minimal 2.15.0 depends on WireMock.Net.OpenApiParser, which depends on RamlToOpenApiConverter.SourceOnly
+    without excluding its C# contentFiles. NuGet therefore adds those sources to every consuming project, where they do
+    not compile. They are already compiled into WireMock.Net.OpenApiParser.dll, so removing them is safe.
+    Remove this file once the upstream packages stop leaking the sources.
+  -->
+  <Target Name="StoveDotnetRemoveLeakedRamlToOpenApiConverterSources" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_StoveDotnetLeakedSource Include="@(Compile)"
+                                Condition="$([System.String]::Copy('%(Compile.FullPath)').ToLowerInvariant().Replace('\', '/').Contains('/ramltoopenapiconverter.sourceonly/'))" />
+      <Compile Remove="@(_StoveDotnetLeakedSource)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

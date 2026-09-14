@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "stove-dotnet",
+  "version": "0.1.0",
+  "description": "Agent skill for StoveDotnet: set up and write end-to-end tests for .NET apps against real dependencies, diagnose failures, and generate typed WireMock fakes from OpenAPI specs and SDK definitions.",
+  "author": {
+    "name": "cokceken"
+  },
+  "homepage": "https://github.com/cokceken/stove-dotnet",
+  "repository": "https://github.com/cokceken/stove-dotnet",
+  "license": "Apache-2.0",
+  "keywords": ["dotnet", "e2e", "testing", "testcontainers", "wiremock", "openapi"],
+  "skills": [
+    "./skills/stove-dotnet"
+  ]
+}

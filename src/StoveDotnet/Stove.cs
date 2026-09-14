@@ -96,6 +96,9 @@ public sealed class Stove : IAsyncDisposable
                 await aware.OnTestStartedAsync(test).ConfigureAwait(false);
             }
 
+            // Anything the body calls directly (a raw HttpClient, an SDK client, app services via Using<T>) is observed
+            // by the in-process application's instrumentation; keep those calls inside the test's trace.
+            using var activity = test.StartCorrelatedActivity("stove.test");
             await body(test).ConfigureAwait(false);
         }
         catch (Exception ex)

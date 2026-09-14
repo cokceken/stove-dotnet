@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>Typed HTTP client system for StoveDotnet e2e tests, with per-test W3C trace correlation.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
   </ItemGroup>

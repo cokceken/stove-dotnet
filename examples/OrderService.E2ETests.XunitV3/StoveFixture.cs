@@ -1,4 +1,5 @@
 using Confluent.Kafka.Admin;
+using OrderService.E2ETests.Fakes;
 using StoveDotnet;
 using StoveDotnet.AspNetCore;
 using StoveDotnet.Http;
@@ -6,7 +7,6 @@ using StoveDotnet.Kafka;
 using StoveDotnet.Postgres;
 using StoveDotnet.Redis;
 using StoveDotnet.Telemetry;
-using StoveDotnet.WireMock;
 using Xunit;
 
 [assembly: AssemblyFixture(typeof(OrderService.E2ETests.StoveFixture))]
@@ -36,8 +36,9 @@ public sealed class StoveFixture : IAsyncLifetime
                     new TopicSpecification { Name = "payments.completed", NumPartitions = 1, ReplicationFactor = 1 },
                 ]));
             })
-            .WithWireMock("inventory", o => o.ConfigureExposedConfiguration = c => [new("Inventory:BaseUrl", c.BaseUrl.ToString())])
-            .WithWireMock("payments", o => o.ConfigureExposedConfiguration = c => [new("Payments:BaseUrl", c.BaseUrl.ToString())])
+            // Third-party APIs, faked from their OpenAPI specs (see Fakes/ and examples/OrderService/specs/).
+            .WithInventoryFake()
+            .WithPaymentsFake()
             .WithHttpClient()
             .WithAspNetCoreApplication<Program>()
             .StartAsync();

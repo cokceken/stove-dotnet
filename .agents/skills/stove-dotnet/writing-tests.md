@@ -1,0 +1,169 @@
+# Writing StoveDotnet tests
+
+## Shape of a test
+
+```csharp
+[Fact]
+public Task Rejects_order_when_out_of_stock() => stove.Test(async t =>
+{
+    // Arrange: seed data and stub third parties through t
+    // Act: call the app like a client would (HTTP, Kafka message)
+    // Assert: observable outcomes (response, rows, published messages, outgoing calls, spans)
+});
+```
+
+Rules for `stove.Test(Func<StoveTestContext, Task> body, CancellationToken cancellationToken = default)`:
+
+- **Naming.** The test is named `{FileName}.{MethodName}` automatically. Keep method names descriptive.
+- **Access.** Systems are reachable only through `t`, via extension methods such as `t.Http()`, `t.Postgres()`,
+  `t.Kafka()`, `t.Redis()`, `t.WireMock(name)`, `t.Telemetry()` and `t.Using<T>()`.
+- **No nesting.** One `stove.Test` per test method.
+- **Cancellation.** Pass the framework token when there is one (xUnit: `TestContext.Current.CancellationToken`). Inside
+  the body, use `t.CancellationToken`.
+- **Failures.** A failure is rethrown as `StoveTestFailedException` with the original as `InnerException`. Skip,
+  inconclusive and pass exceptions from test frameworks pass through unchanged.
+- **Test context.** `t.TestId`, `t.TraceId`, `t.Traceparent` and `t.Application` (`Services`, `BaseAddress`) are
+  available when needed.
+
+Assert with the project's assertion library. Stove's own helpers throw `StoveAssertionException` or
+`StoveTimeoutException`.
+
+## Module DSL
+
+### HTTP (`t.Http(name?)`)
+
+```csharp
+StoveHttpResponse<T> r = await t.Http().Get<T>("/orders/1", headers: null);
+StoveHttpResponse    r = await t.Http().Post("/orders", body);          // also Put, Patch, Delete; generic <T> variants
+r.StatusCode; r.Headers; r.RawBody; r.IsSuccessStatusCode;
+T body = r.Body;            // generic only; deserialized lazily, throws with the raw body if it is not T
+HttpResponseMessage raw = await t.Http().SendRaw(new HttpRequestMessage(...));
+```
+
+- Bodies are serialized with System.Text.Json web defaults (camelCase).
+- Redirects are not followed.
+- For auth, add headers per call or use `HttpClientOptions.DefaultHeaders`.
+
+### Postgres (`t.Postgres(name?)`)
+
+```csharp
+int rows = await t.Postgres().Execute("insert into orders (id, status) values (@id, @status)",
+    new NpgsqlParameter("id", id), new NpgsqlParameter("status", "Created"));
+IReadOnlyList<T> list = await t.Postgres().Query("select ...", reader => reader.GetString(0), params NpgsqlParameter[]);
+await t.Postgres().ShouldQuery("select ...", reader => (reader.GetGuid(0), reader.GetString(1)),
+    rows => Assert.Equal([(id, "Created")], rows), new NpgsqlParameter("id", id));
+NpgsqlDataSource ds = t.Postgres().DataSource;
+```
+
+- Raw Npgsql only; there is no Dapper or EF.
+- The mapper receives `NpgsqlDataReader`.
+- `ShouldQuery` runs once. Wrap it in `Eventually.AssertAsync` when the app writes asynchronously.
+
+### Kafka (`t.Kafka(name?)`): black-box, no app changes
+
+```csharp
+await t.Kafka().Publish("payments.completed", new PaymentCompleted(orderId, "pay-1"), key: orderId.ToString(), headers: null);
+await t.Kafka().PublishRaw(topic, bytes, key: null, headers: null);
+
+ObservedMessage<T> m = await t.Kafka().ShouldBePublished<T>(m => m.Value.OrderId == id, timeout: null, topic: null);
+ObservedMessage<T> m = await t.Kafka().ShouldBeConsumed<T>(m => m.Value.OrderId == id, timeout: null, topic: null, consumerGroup: "order-service");
+ObservedMessage<T> m = await t.Kafka().ShouldBeFailed<T>(m => ..., timeout: null);   // on topics ending with .error / .DLT
+IReadOnlyList<ObservedMessage<T>> seen = t.Kafka().Peek<T>(topic: "orders.created"); // no waiting
+m.Value; m.Key; m.Topic; m.Headers; m.Record.Partition; m.Record.Offset;
+```
+
+How it works:
+
+- Stove tails all topics with its own consumer.
+- `ShouldBePublished` matches any message the test can see, including ones Stove itself published.
+- `ShouldBeConsumed` first finds the message, then waits until a consumer group (other than Stove's) has committed an
+  offset past it. Pass the app's `consumerGroup`; otherwise all groups are checked.
+- The default timeout is `KafkaOptions.DefaultTimeout` (10s).
+- Use `Peek` for "nothing was published" assertions, and only after the action has completed.
+
+### Redis (`t.Redis(name?)`)
+
+`t.Redis().Database()` returns a StackExchange.Redis `IDatabase`, and `t.Redis().Multiplexer` returns an
+`IConnectionMultiplexer`. There are no assertion helpers; use the client directly.
+
+### WireMock (`t.WireMock(name)`)
+
+Prefer a typed fake per third-party API (see `openapi-fakes.md`). The raw API:
+
+```csharp
+wm.MockGet(path, statusCode: 200, responseBody: obj, responseHeaders: null, delay: null);
+wm.MockPost(path, statusCode: 200, responseBody: obj, requestBody: obj /* JSON equality match */, responseHeaders: null, delay: null);
+wm.MockPut / MockPatch (same as MockPost) / MockDelete (same as MockGet);
+wm.MockRaw(method, path, statusCode, "<xml/>" or byte[], contentType, responseHeaders: null, delay: null);
+wm.Stub(req => req.WithPathTemplate("/items/{id}").UsingGet().WithHeader("Authorization", "*"), res => res.WithStatusCode(204));
+IReadOnlyList<RecordedRequest> reqs = wm.Requests(method: "POST", path: "/charges");
+IReadOnlyList<RecordedRequest> reqs = await wm.ShouldHaveBeenCalled("POST", "/charges", times: 1, within: null);
+await wm.ShouldNotHaveBeenCalled("POST", "/charges");
+reqs[0].BodyAs<T>(); reqs[0].PathParameters["id"]; reqs[0].QueryValue("page"); reqs[0].Header("Authorization"); reqs[0].Body;
+```
+
+- **Paths.** `path` is an exact path or an OpenAPI template: `{name}` matches one segment and `{name+}` matches the rest,
+  including slashes. Matching ignores case.
+- **Response bodies.** A `string` body is sent as-is. Other objects are serialized to JSON with the
+  `application/json` content type.
+- **Stub lifetime.** Stubs registered in a test are deleted when it ends. The newest matching stub wins in WireMock.Net
+  when several match.
+
+### Telemetry (`t.Telemetry()`)
+
+```csharp
+SpanRecord span = await t.Telemetry().ShouldContainSpan(s => s.Kind == "Server" && s.Attribute("http.route") as string == "/orders");
+IReadOnlyList<SpanRecord> spans = await t.Telemetry().Spans();      // waits for export to go quiet
+IReadOnlyList<LogRecord> logs = await t.Telemetry().Logs();
+await t.Telemetry().ShouldNotHaveFailedSpans();
+string tree = t.Telemetry().RenderTree();
+```
+
+Span `Kind` values are `"Server"`, `"Client"`, `"Internal"`, `"Producer"` and `"Consumer"`. Attributes follow
+OpenTelemetry semantic conventions (`http.route`, `url.full`, `db.statement`...).
+
+### App services (`t.Using<T>`)
+
+```csharp
+await t.Using<OrderRepository>(async repo => Assert.Equal("Paid", (await repo.Find(id, t.CancellationToken))?.Status));
+var count = await t.Using<IOrderQueries, int>(q => q.Count());
+await t.Using<IServiceA, IServiceB>(async (a, b) => { ... });   // up to 3 services
+```
+
+- Each call gets a new DI scope.
+- Use it to arrange or assert through the app's own code when there is no external interface.
+- Prefer external observation (HTTP, database, messages) when one exists.
+
+### Waiting for eventual outcomes
+
+```csharp
+await Eventually.AssertAsync(async () =>
+    await t.Postgres().ShouldQuery("select status from orders where id = @id", r => r.GetString(0),
+        rows => Assert.Equal(["Paid"], rows), new NpgsqlParameter("id", id)),
+    TimeSpan.FromSeconds(10), t.CancellationToken);
+```
+
+Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `within:`, telemetry
+`ShouldContainSpan`, or `Eventually`.
+
+## Correlation and parallel tests
+
+- Each test has its own W3C trace. Stove's HTTP calls and Kafka publishes carry `traceparent` and `X-Stove-Test-Id`.
+  Calls made directly in the body (a raw `HttpClient`, SDK clients) also join the trace through the current `Activity`.
+- Observed data (Kafka messages, WireMock requests, spans) belongs to a test when its trace or test id matches. **Data
+  without correlation headers matches every test.**
+- **Sequential tests** need nothing more.
+- **Parallel tests** need the app to propagate trace context. ASP.NET Core and HttpClient instrumentation do this;
+  Confluent.Kafka producers must copy `traceparent`. If they overlap on the same third-party endpoint, set
+  `WireMockOptions.ScopeStubsToTest = true`.
+- Prefer unique data per test (new ids, distinct product names) so tests stay independent of each other's rows.
+
+## Test design guidance
+
+- Name tests after behavior: `Rejects_order_when_out_of_stock_without_charging`.
+- Assert outcomes at the boundaries: the response, the stored state, published messages, outgoing third-party calls.
+  Do not assert internal method calls.
+- Cover the failure paths the third-party spec defines (declined, not found, unavailable) through typed fake scenario
+  methods.
+- Keep one environment per run. Do not start Stove in constructors or per test class unless isolation truly needs a
+  separate application.

@@ -11,8 +11,8 @@ traces and logs so a failing test explains itself.
 [Fact]
 public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 {
-    t.WireMock("inventory").MockGet("/stock/chair", responseBody: new { available = 5 });
-    t.WireMock("payments").MockPost("/charges", responseBody: new { paymentId = "pay-1" });
+    t.InventoryFake().StockAvailable("chair", available: 5);           // typed fakes generated from OpenAPI specs
+    var payments = t.PaymentsFake().ChargeSucceeds(paymentId: "pay-1");
 
     var response = await t.Http().Post<Order>("/orders", new CreateOrderRequest("chair", 2, "customer-1"));
     Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -23,7 +23,8 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
         new NpgsqlParameter("id", response.Body.Id));
 
     await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == response.Body.Id);
-    await t.WireMock("payments").ShouldHaveBeenCalled("POST", "/charges");
+    var charge = await payments.ShouldHaveCharged(c => c.OrderId == response.Body.Id);
+    Assert.Equal(20m, charge.Amount);
 });
 ```
 
@@ -52,6 +53,15 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.WireMock` | `WithWireMock()`: in-process WireMock.Net servers |
 
 Requirements: .NET 10 and a Docker-compatible container runtime (Docker or Podman) for the container modules.
+
+Packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet). Install the ones you need into
+your e2e test project:
+
+```shell
+dotnet add package StoveDotnet.AspNetCore --prerelease
+dotnet add package StoveDotnet.Http --prerelease
+dotnet add package StoveDotnet.Postgres --prerelease
+```
 
 ## Setting up
 
@@ -144,11 +154,35 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
 - **Redis:** `Multiplexer` and `Database(db)`, plus `Migrations` and `Cleanup` options.
 - **WireMock:**
   - `MockGet/MockPost/MockPut/MockPatch/MockDelete(path, statusCode, responseBody, requestBody?, headers?, delay?)`.
-  - `Stub(request => ..., response => ...)` uses WireMock.Net's own builders.
-  - `ShouldHaveBeenCalled(method, path, times, within?)` and `ShouldNotHaveBeenCalled`.
+  - `MockRaw(method, path, statusCode, string or byte[] body, contentType)` for XML, text or binary responses.
+  - `Stub(request => ..., response => ...)` uses WireMock.Net's own builders; `request.WithPathTemplate(...)` is
+    available there.
+  - `Requests(method?, path?)` returns `RecordedRequest`s with `BodyAs<T>()`, `PathParameters`, `Query` and `Headers`.
+  - `ShouldHaveBeenCalled(method, path, times, within?)` returns the matching requests; `ShouldNotHaveBeenCalled`.
+  - `path` is an exact path or an OpenAPI template: `/stock/{productId}`, or `/{bucket}/{key+}` for the rest of the path.
   - `Server` gives raw access.
   - Stubs created in a test are removed when the test ends.
 - **Telemetry:** `Spans()`, `Logs()`, `ShouldContainSpan(predicate)`, `ShouldNotHaveFailedSpans()`, `RenderTree()`.
+
+### Faking third-party APIs
+
+Wrap each third-party API in a small typed fake built from its API definition (OpenAPI/Swagger spec, SDK service
+model or docs). The fake wraps a named WireMock instance, points the app's client at it through configuration, and
+offers scenario and verification methods:
+
+```csharp
+// fixture
+StoveBuilder.Create().WithInventoryFake().WithPaymentsFake() /* ... */;
+
+// test
+t.PaymentsFake().ChargeDeclined();
+var charge = await t.PaymentsFake().ShouldHaveCharged(c => c.Amount == 20m);
+```
+
+The example project contains two fakes generated from OpenAPI specs:
+[`Fakes/`](https://github.com/cokceken/stove-dotnet/tree/main/examples/OrderService.E2ETests.XunitV3/Fakes) from
+[`specs/`](https://github.com/cokceken/stove-dotnet/tree/main/examples/OrderService/specs). The
+[agent skill](#ai-agents) teaches coding agents to generate fakes like these, including for SDKs such as AWS S3.
 
 ## Telemetry and failure reports
 
@@ -262,13 +296,38 @@ public static class StoveHooks
 
 </details>
 
+## AI agents
+
+StoveDotnet ships an agent skill that teaches coding agents to:
+
+- set up Stove in a project;
+- write tests with the correct APIs;
+- read failure output;
+- generate typed WireMock fakes from OpenAPI specs or SDK definitions.
+
+The skill uses the open `SKILL.md` format.
+
+- **Claude Code:** install it as a plugin:
+  ```text
+  /plugin marketplace add cokceken/stove-dotnet
+  /plugin install stove-dotnet@stove-dotnet
+  ```
+- **Other agents** (Codex, GitHub Copilot, Cursor and others that read `.agents/skills`): copy
+  [`.agents/skills/stove-dotnet`](https://github.com/cokceken/stove-dotnet/tree/main/.agents/skills/stove-dotnet) into
+  your repository's `.agents/skills/` (or `.claude/skills/`).
+
+Then ask, for example: *"Add Stove e2e tests for the order endpoint"* or *"Create a WireMock fake for the payments API
+from specs/payments.yaml"*.
+
 ## Repository layout and development
 
 ```
-src/        library packages
-tests/      StoveDotnet.UnitTests (no Docker: core, HTTP, WireMock, telemetry against a small test app)
-            StoveDotnet.IntegrationTests (Docker: Postgres, Redis, Kafka)
-examples/   OrderService + OrderService.E2ETests.XunitV3
+src/                         library packages
+tests/                       StoveDotnet.UnitTests (no Docker: core, HTTP, WireMock, telemetry against a small test app)
+                             StoveDotnet.IntegrationTests (Docker: Postgres, Redis, Kafka)
+examples/                    OrderService, its OpenAPI specs, and OrderService.E2ETests.XunitV3 with typed fakes
+.agents/skills/stove-dotnet  agent skill (canonical copy)
+plugins/stove-dotnet         Claude Code plugin (copy of the skill; CI checks they match)
 ```
 
 ```shell
@@ -282,6 +341,9 @@ dotnet test --project examples/OrderService.E2ETests.XunitV3 -- --explicit only
 
 Podman works as the container runtime through its Docker-compatible API. Give the machine enough memory for Kafka
 (4 GB or more).
+
+See [CONTRIBUTING.md](https://github.com/cokceken/stove-dotnet/blob/main/CONTRIBUTING.md) for the skill sync and the
+release process.
 
 ## License
 

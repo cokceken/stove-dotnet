@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>Redis system for StoveDotnet: Testcontainers Redis (or an existing instance) exposed through StackExchange.Redis.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Testcontainers.Redis" />

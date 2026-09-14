@@ -1,8 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>In-process WireMock.Net fakes for third-party HTTP APIs in StoveDotnet tests, with OpenAPI-style path templates, typed request capture and per-test stub cleanup.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="WireMock.Net.Minimal" />
     <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Works around an upstream packaging issue for every project consuming this package; see the targets file. -->
+    <None Include="buildTransitive\StoveDotnet.WireMock.targets" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
 
 </Project>

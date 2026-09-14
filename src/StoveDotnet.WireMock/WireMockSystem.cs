@@ -100,27 +100,73 @@ public sealed class WireMockSystem
         return guid;
     }
 
-    /// <summary>Requests of the current test to <paramref name="path"/> (all methods when <paramref name="method"/> is null).</summary>
-    public IReadOnlyList<IRequestMessage> CallsFor(string? method, string path)
+    /// <summary>
+    /// Stubs a non-JSON text response, e.g. XML for S3-style APIs. <paramref name="path"/> may be a template such as
+    /// <c>/{bucket}/{key+}</c>.
+    /// </summary>
+    public Guid MockRaw(string method, string path, int statusCode, string body, string contentType,
+        IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
+        Stub(
+            request => request.WithPathTemplate(path).UsingMethod(method),
+            response => WithHeadersAndDelay(response.WithStatusCode(statusCode).WithHeader("Content-Type", contentType).WithBody(body), responseHeaders, delay));
+
+    /// <summary>Stubs a binary response, e.g. a file download.</summary>
+    public Guid MockRaw(string method, string path, int statusCode, byte[] body, string contentType,
+        IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
+        Stub(
+            request => request.WithPathTemplate(path).UsingMethod(method),
+            response => WithHeadersAndDelay(response.WithStatusCode(statusCode).WithHeader("Content-Type", contentType).WithBody(body), responseHeaders, delay));
+
+    /// <summary>
+    /// Requests the current test sent to this instance, optionally filtered by method and by a path or path template
+    /// (e.g. <c>/stock/{productId}</c>). Path parameters are extracted from the template.
+    /// </summary>
+    public IReadOnlyList<RecordedRequest> Requests(string? method = null, string? path = null)
     {
         var test = StoveTestContext.Require();
-        return RequestsOf(test)
-            .Where(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase))
+        var template = path is null ? null : PathTemplate.Parse(path);
+        var requests = new List<RecordedRequest>();
+        foreach (var message in RequestsOf(test))
+        {
+            if (method is not null && !string.Equals(message.Method, method, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            IReadOnlyDictionary<string, string> parameters = new Dictionary<string, string>();
+            if (template is not null && !template.TryMatch(message.Path, out parameters))
+            {
+                continue;
+            }
+
+            requests.Add(new RecordedRequest(message, parameters, Options.JsonSerializerOptions));
+        }
+
+        return requests;
+    }
+
+    /// <summary>Raw WireMock.Net request messages of the current test; prefer <see cref="Requests"/>.</summary>
+    public IReadOnlyList<IRequestMessage> CallsFor(string? method, string path)
+    {
+        var template = PathTemplate.Parse(path);
+        return RequestsOf(StoveTestContext.Require())
+            .Where(r => template.IsMatch(r.Path))
             .Where(r => method is null || string.Equals(r.Method, method, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
     /// <summary>
-    /// Asserts the current test sent exactly <paramref name="times"/> matching requests. For calls made asynchronously
-    /// by the application, pass <paramref name="within"/> to wait for them.
+    /// Asserts the current test sent exactly <paramref name="times"/> requests matching <paramref name="method"/> and
+    /// <paramref name="path"/> (a path or template) and returns them, e.g. to assert on their bodies. For calls made
+    /// asynchronously by the application, pass <paramref name="within"/> to wait for them.
     /// </summary>
-    public async Task ShouldHaveBeenCalled(string method, string path, int times = 1, TimeSpan? within = null)
+    public async Task<IReadOnlyList<RecordedRequest>> ShouldHaveBeenCalled(string method, string path, int times = 1, TimeSpan? within = null)
     {
         var test = StoveTestContext.Require();
         try
         {
             await Eventually.UntilAsync(
-                _ => ValueTask.FromResult(CallsFor(method, path).Count >= times),
+                _ => ValueTask.FromResult(Requests(method, path).Count >= times),
                 within ?? TimeSpan.Zero,
                 () => string.Empty,
                 cancellationToken: test.CancellationToken).ConfigureAwait(false);
@@ -130,15 +176,18 @@ public sealed class WireMockSystem
             // Reported below with the actual count.
         }
 
-        var actual = CallsFor(method, path).Count;
-        if (actual != times)
+        var requests = Requests(method, path);
+        if (requests.Count != times)
         {
             throw new StoveAssertionException(
-                $"{DisplayName}: expected {method} {path} to be called {times} time(s) but it was called {actual} time(s).{Environment.NewLine}{DescribeRequests(test)}");
+                $"{DisplayName}: expected {method} {path} to be called {times} time(s) but it was called {requests.Count} time(s).{Environment.NewLine}{DescribeRequests(test)}");
         }
+
+        return requests;
     }
 
-    public Task ShouldNotHaveBeenCalled(string method, string path) => ShouldHaveBeenCalled(method, path, times: 0);
+    public async Task ShouldNotHaveBeenCalled(string method, string path) =>
+        await ShouldHaveBeenCalled(method, path, times: 0).ConfigureAwait(false);
 
     public Task OnTestStartedAsync(StoveTestContext test) => Task.CompletedTask;
 
@@ -166,7 +215,7 @@ public sealed class WireMockSystem
         Stub(
             request =>
             {
-                var builder = request.WithPath(path).UsingMethod(method);
+                var builder = request.WithPathTemplate(path).UsingMethod(method);
                 return requestBody is null
                     ? builder
                     : builder.WithBody(new JsonMatcher(Serialize(requestBody), ignoreCase: false));
@@ -181,13 +230,18 @@ public sealed class WireMockSystem
                         : builder.WithHeader("Content-Type", "application/json").WithBody(Serialize(responseBody));
                 }
 
-                foreach (var (key, value) in responseHeaders ?? new Dictionary<string, string>())
-                {
-                    builder = builder.WithHeader(key, value);
-                }
-
-                return delay is null ? builder : builder.WithDelay(delay.Value);
+                return WithHeadersAndDelay(builder, responseHeaders, delay);
             });
+
+    private static IResponseBuilder WithHeadersAndDelay(IResponseBuilder builder, IDictionary<string, string>? headers, TimeSpan? delay)
+    {
+        foreach (var (key, value) in headers ?? new Dictionary<string, string>())
+        {
+            builder = builder.WithHeader(key, value);
+        }
+
+        return delay is null ? builder : builder.WithDelay(delay.Value);
+    }
 
     private string Serialize(object value) => JsonSerializer.Serialize(value, value.GetType(), Options.JsonSerializerOptions);
 

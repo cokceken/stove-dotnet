@@ -1,0 +1,16 @@
+{
+  "name": "stove-dotnet",
+  "owner": {
+    "name": "cokceken"
+  },
+  "metadata": {
+    "description": "StoveDotnet agent skills for writing .NET end-to-end tests."
+  },
+  "plugins": [
+    {
+      "name": "stove-dotnet",
+      "source": "./plugins/stove-dotnet",
+      "description": "Set up and write StoveDotnet e2e tests, diagnose failures, and generate typed WireMock fakes from API specs."
+    }
+  ]
+}

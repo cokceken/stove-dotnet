@@ -1,0 +1,81 @@
+name: release
+
+# Publishes to nuget.org when a version tag is pushed, e.g.:
+#   git tag v0.1.0-preview.1 && git push origin v0.1.0-preview.1
+# The package version comes from the tag (MinVer). Tags with a pre-release suffix create a GitHub pre-release.
+#
+# One-time setup on nuget.org: create a Trusted Publishing policy for repository cokceken/stove-dotnet with workflow
+# file release.yml, and set the repository variable NUGET_USER to the nuget.org account name owning the policy.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the GitHub release
+  id-token: write # OIDC token for NuGet Trusted Publishing
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Unit tests
+        run: dotnet test --project tests/StoveDotnet.UnitTests -c Release --no-build
+
+      - name: Integration tests
+        run: dotnet test --project tests/StoveDotnet.IntegrationTests -c Release --no-build
+
+      - name: Example e2e tests
+        run: dotnet test --project examples/OrderService.E2ETests.XunitV3 -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack -c Release --no-build -o artifacts
+
+      - name: Verify package version matches tag
+        run: |
+          expected="${GITHUB_REF_NAME#v}"
+          if [ ! -f "artifacts/StoveDotnet.${expected}.nupkg" ]; then
+            echo "Expected artifacts/StoveDotnet.${expected}.nupkg; found:" && ls artifacts
+            exit 1
+          fi
+
+      - name: Package smoke test
+        run: bash scripts/package-smoke-test.sh artifacts
+
+      - name: NuGet login (Trusted Publishing)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg artifacts/*.snupkg \
+            --title "$GITHUB_REF_NAME" --generate-notes $prerelease

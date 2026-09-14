@@ -9,19 +9,43 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-
-  <PropertyGroup Label="Packaging">
-    <Version>0.1.0</Version>
-    <Authors>StoveDotnet contributors</Authors>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageTags>e2e;testing;testcontainers;integration-testing</PackageTags>
-    <Description>Opinionated end-to-end testing orchestrator for .NET, inspired by Trendyol Stove.</Description>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(MSBuildProjectName.StartsWith('StoveDotnet')) And !$(MSBuildProjectName.Contains('Test'))">
     <IsPackable>true</IsPackable>
   </PropertyGroup>
+
+  <PropertyGroup Label="Packaging" Condition="'$(IsPackable)' == 'true'">
+    <Authors>cokceken</Authors>
+    <Copyright>Copyright (c) StoveDotnet contributors</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageTags>e2e;end-to-end;testing;integration-testing;testcontainers;wiremock;opentelemetry;aspnetcore</PackageTags>
+    <PackageProjectUrl>https://github.com/cokceken/stove-dotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cokceken/stove-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- API docs in the package, for IDEs and AI agents reading the NuGet cache. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- SourceLink (built into the .NET SDK) and symbols. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <EnablePackageValidation>true</EnablePackageValidation>
+
+    <!-- Version comes from the git tag (v0.1.0-preview.1 -> 0.1.0-preview.1); untagged builds get a preview version. -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerDefaultPreReleaseIdentifiers>preview.0</MinVerDefaultPreReleaseIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
 
 </Project>

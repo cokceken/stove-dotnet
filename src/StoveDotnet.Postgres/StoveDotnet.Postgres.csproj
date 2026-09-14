@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>PostgreSQL system for StoveDotnet: Testcontainers PostgreSQL (or an existing instance), migrations and a raw Npgsql test DSL.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers.PostgreSql" />

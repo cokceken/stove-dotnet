@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Inventory API
+  version: 1.0.0
+  description: Third-party stock service called by OrderService before accepting an order.
+paths:
+  /stock/{productId}:
+    get:
+      operationId: getStock
+      summary: Returns the available stock of a product.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stock level.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stock"
+              example:
+                available: 12
+        "404":
+          description: The product is unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Stock:
+      type: object
+      required: [available]
+      properties:
+        available:
+          type: integer
+          format: int32
+          minimum: 0
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

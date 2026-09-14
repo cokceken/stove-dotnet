@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>Core of StoveDotnet: an opinionated end-to-end testing orchestrator for .NET that runs your real application against real dependencies. Provides the builder, lifecycle, stove.Test wrapper, per-test correlation and polling helpers.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="StoveDotnet.UnitTests" />
   </ItemGroup>

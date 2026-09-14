@@ -11,10 +11,15 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # MinVer derives package versions from tags
 
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Check plugin skill copy is in sync
+        run: diff -r .agents/skills/stove-dotnet plugins/stove-dotnet/skills/stove-dotnet
 
       - name: Build
         run: dotnet build -c Release
@@ -31,7 +36,12 @@ jobs:
       - name: Pack
         run: dotnet pack -c Release --no-build -o artifacts
 
+      - name: Package smoke test
+        run: bash scripts/package-smoke-test.sh artifacts
+
       - uses: actions/upload-artifact@v4
         with:
           name: packages
-          path: artifacts/*.nupkg
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg

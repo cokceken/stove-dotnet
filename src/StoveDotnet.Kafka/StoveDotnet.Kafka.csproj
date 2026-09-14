@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Description>Kafka system for StoveDotnet: Testcontainers Kafka (or an existing broker) with black-box publish, published, consumed and failed assertions.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" />
     <PackageReference Include="Testcontainers.Kafka" />

@@ -1,0 +1,64 @@
+openapi: 3.1.0
+info:
+  title: Payments API
+  version: 1.0.0
+  description: Third-party payment provider called by OrderService to charge customers.
+paths:
+  /charges:
+    post:
+      operationId: createCharge
+      summary: Charges a customer for an order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChargeRequest"
+      responses:
+        "200":
+          description: The charge succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Charge"
+              example:
+                paymentId: pay_8f2c1
+        "402":
+          description: The charge was declined.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: card_declined
+                message: The card was declined.
+        "503":
+          description: The provider is temporarily unavailable.
+components:
+  schemas:
+    ChargeRequest:
+      type: object
+      required: [orderId, customerId, amount]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+        amount:
+          type: number
+          format: decimal
+    Charge:
+      type: object
+      required: [paymentId]
+      properties:
+        paymentId:
+          type: string
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
