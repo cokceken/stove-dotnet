@@ -39,6 +39,7 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet.Http" Version="$version" />
     <PackageReference Include="StoveDotnet.Kafka" Version="$version" />
     <PackageReference Include="StoveDotnet.Postgres" Version="$version" />
+    <PackageReference Include="StoveDotnet.SqlServer" Version="$version" />
     <PackageReference Include="StoveDotnet.Redis" Version="$version" />
     <PackageReference Include="StoveDotnet.Telemetry" Version="$version" />
     <PackageReference Include="StoveDotnet.WireMock" Version="$version" />
@@ -50,6 +51,7 @@ using StoveDotnet;
 using StoveDotnet.Http;
 using StoveDotnet.Kafka;
 using StoveDotnet.Postgres;
+using StoveDotnet.SqlServer;
 using StoveDotnet.Redis;
 using StoveDotnet.Telemetry;
 using StoveDotnet.WireMock;
@@ -57,12 +59,16 @@ using StoveDotnet.WireMock;
 var builder = StoveBuilder.Create()
     .WithTelemetry()
     .WithPostgres(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Db", c.ConnectionString)])
+    .WithSqlServer(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:SqlServer", c.ConnectionString)])
     .WithKafka()
     .WithRedis()
     .WithWireMock("payments")
     .WithHttpClient(o => o.BaseAddress = new Uri("http://localhost"));
 
 Console.WriteLine($"StoveDotnet packages restored and compiled ({builder.GetType().Name})");
+
+// Compile the bounded absence API without starting a broker in this packaging check.
+_ = (Func<StoveTestContext, Task>)(t => t.Kafka().ShouldNotBePublished<object>(_ => true, TimeSpan.FromSeconds(1)));
 
 // Runtime check without containers: start WireMock from the packages and run a real stove.Test against it.
 await using var stove = await StoveBuilder.Create().WithWireMock("payments").StartAsync();

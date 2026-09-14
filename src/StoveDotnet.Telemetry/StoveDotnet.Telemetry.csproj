@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="StoveDotnet.UnitTests" />
+    <InternalsVisibleTo Include="StoveDotnet.Hosting.AcceptanceTests" />
   </ItemGroup>
 
 </Project>

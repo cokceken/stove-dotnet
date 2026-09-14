@@ -7,7 +7,7 @@ using StackExchange.Redis;
 
 namespace OrderService;
 
-public sealed record CreateOrderRequest(string ProductId, int Quantity, string CustomerId);
+public sealed record CreateOrderRequest(string ProductId, int Quantity, string CustomerId, Guid? OrderId = null);
 
 public sealed record Order(Guid Id, string ProductId, int Quantity, string CustomerId, string Status, string? PaymentId);
 
@@ -50,7 +50,7 @@ public sealed class OrderWorkflow(
             return new CreateOrderResult.OutOfStock();
         }
 
-        var orderId = Guid.NewGuid();
+        var orderId = request.OrderId ?? Guid.NewGuid();
         var amount = request.Quantity * UnitPrice;
         var paymentId = await payments.Charge(orderId, request.CustomerId, amount, ct);
         if (paymentId is null)

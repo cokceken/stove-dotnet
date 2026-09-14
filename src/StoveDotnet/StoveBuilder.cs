@@ -49,9 +49,18 @@ public sealed class StoveBuilder
             await stove.StartAsync(cancellationToken).ConfigureAwait(false);
             return stove;
         }
-        catch
+        catch (Exception startupError)
         {
-            await stove.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                await stove.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception rollbackError)
+            {
+                throw new AggregateException("Stove failed to start and rollback also failed. The first error is the startup failure.",
+                    startupError, rollbackError);
+            }
+
             throw;
         }
     }

@@ -4,7 +4,7 @@ Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://gi
 
 StoveDotnet starts your **real** dependencies in containers, injects their connection details into your **real**
 application, runs the application in-process on a real Kestrel port, and gives every test one fluent DSL to arrange and
-assert across HTTP, PostgreSQL, Kafka, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
+assert across HTTP, PostgreSQL, SQL Server, Kafka, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
 traces and logs so a failing test explains itself.
 
 ```csharp
@@ -48,6 +48,7 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
 | `StoveDotnet.Telemetry` | `WithTelemetry()`: OTLP/HTTP receiver for traces and logs, `t.Telemetry()` |
 | `StoveDotnet.Postgres` | `WithPostgres()`: Testcontainers PostgreSQL, raw Npgsql DSL |
+| `StoveDotnet.SqlServer` | `WithSqlServer()`: Testcontainers SQL Server, native Microsoft.Data.SqlClient DSL |
 | `StoveDotnet.Kafka` | `WithKafka()`: Testcontainers Kafka, black-box publish/consume/fail assertions |
 | `StoveDotnet.Redis` | `WithRedis()`: Testcontainers Redis, StackExchange.Redis client |
 | `StoveDotnet.WireMock` | `WithWireMock()`: in-process WireMock.Net servers |
@@ -90,6 +91,9 @@ Stove = await StoveBuilder.Create()
 4. Wires up systems that need the running application.
 
 `DisposeAsync` stops the application, runs cleanup callbacks and removes containers.
+Every resource disposal is attempted even when a cleanup callback fails. Shutdown failures are collected in an
+`AggregateException`. Startup failures are rethrown unchanged when rollback succeeds; if rollback also fails, an
+`AggregateException` contains the startup failure first and the rollback failure second.
 
 ### Configuration injection
 
@@ -109,12 +113,70 @@ WireMock per third-party API or two Redis instances:
 
 ### Existing instances
 
-Postgres, Kafka and Redis can use an already running service instead of a container. This is useful for CI services or
+Postgres, SQL Server, Kafka and Redis can use an already running service instead of a container. This is useful for CI services or
 shared environments:
 
 ```csharp
 .WithPostgres(o => o.UseExisting(Environment.GetEnvironmentVariable("ORDERS_DB")!, runMigrations: true))
 ```
+
+PostgreSQL and SQL Server open a connection before starting the application, even when migrations are disabled.
+Stove does not stop an existing server. Configured cleanup callbacks still run; `runMigrations: false` only disables
+migrations, not cleanup.
+
+### SQL Server
+
+Reference `StoveDotnet.SqlServer` and use `StoveDotnet.SqlServer` and `Microsoft.Data.SqlClient` namespaces:
+
+```csharp
+var stove = await StoveBuilder.Create()
+    .WithSqlServer("orders", o =>
+    {
+        o.Database = "orders";
+        o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Orders", c.ConnectionString)];
+        o.Migrations.Add(async (ctx, ct) =>
+        {
+            await using var connection = await ctx.OpenConnectionAsync(ct);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "create table orders (id int primary key, status nvarchar(50))";
+            await command.ExecuteNonQueryAsync(ct);
+        });
+    })
+    .WithAspNetCoreApplication<Program>()
+    .StartAsync();
+
+await stove.Test(async t =>
+{
+    await t.SqlServer("orders").Execute("insert into orders values (@id, @status)",
+        new SqlParameter("id", 1), new SqlParameter("status", "Created"));
+    await t.SqlServer("orders").ShouldQuery("select status from orders where id = @id",
+        r => r.GetString(0), rows => Assert.Equal(["Created"], rows), new SqlParameter("id", 1));
+});
+await stove.DisposeAsync();
+```
+
+Managed instances create the requested database before migrations. `UseExisting(connectionString, runMigrations: true)`
+uses the database in that connection string and does not create it. `Image`, `Password` and `ConfigureContainer` apply
+to managed instances. The default image follows the SQL Server 2022 tag; set `Image` to a fixed tag or digest for a
+reproducible environment. Running the SQL Server Testcontainers image accepts its EULA; use an existing instance when
+your environment cannot run that image.
+
+`OpenConnectionAsync(ct)` returns a native `SqlConnection` for transactions, bulk copy and other provider operations.
+The caller disposes it. `ConfigureConnection` customizes each client connection before opening (for example, an
+access-token callback); migrations and cleanup receive the same connection factory. It does not configure the
+application's own SQL client. For PostgreSQL, `ConfigureDataSource` customizes the `NpgsqlDataSourceBuilder` used by Stove.
+
+Both database DSLs query once. Use `Eventually.AssertAsync` for assertions against asynchronous application writes.
+
+### Database test isolation
+
+A database belongs to a running Stove environment, not an individual `stove.Test`. Migrations run at environment startup
+and cleanup at shutdown. Named managed instances have separate containers; two named existing connections may still
+point at the same database. Correlation does not isolate rows or roll back application writes.
+
+Use unique identifiers per test for parallel tests. For tests that require an empty database, use a dedicated environment
+or explicitly reset data between sequential tests. A transaction opened by the test does not include writes made by the
+application through its own connections.
 
 ## Writing tests
 
@@ -142,11 +204,16 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
 - **Http:** `Get/Post/Put/Patch/Delete<T>(uri, body?, headers?)` returns `StoveHttpResponse<T>` with `StatusCode`,
   `Headers`, `RawBody` and a lazily deserialized `Body`. `SendRaw(HttpRequestMessage)` sends a hand-built request.
 - **Postgres:** `Execute(sql, params)`, `Query<T>(sql, map, params)`, `ShouldQuery<T>(sql, map, assert, params)` and
-  `DataSource` for raw Npgsql access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`.
+  `DataSource` for raw Npgsql access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`, `ConfigureDataSource`.
+- **SQL Server:** `Execute(sql, params)`, `Query<T>(sql, map, params)`, `ShouldQuery<T>(sql, map, assert, params)` and
+  `OpenConnectionAsync(ct)` for native SqlClient access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`,
+  `ConfigureConnection` and `UseExisting`.
 - **Kafka** (black-box, needs no application changes):
   - `Publish<T>` / `PublishRaw` send a message as the running test.
   - `ShouldBePublished<T>` waits until a matching message appears on any topic. Stove tails every topic with its own
     consumer.
+  - `ShouldNotBePublished<T>(condition, within, topic)` observes for the full interval and fails on a matching message.
+    This means no matching message was observed during that window; it cannot rule out later delivery or observer lag.
   - `ShouldBeConsumed<T>` waits until a consumer group has committed past the matching message.
   - `ShouldBeFailed<T>` waits until a matching message appears on an error topic (`.error` or `.DLT` by default).
   - `Peek<T>` returns the messages observed so far.
@@ -323,8 +390,10 @@ from specs/payments.yaml"*.
 
 ```
 src/                         library packages
-tests/                       StoveDotnet.UnitTests (no Docker: core, HTTP, WireMock, telemetry against a small test app)
-                             StoveDotnet.IntegrationTests (Docker: Postgres, Redis, Kafka)
+tests/StoveDotnet.UnitTests   core only; no application host or containers
+tests/*.AcceptanceTests      separate Hosting, Postgres, SqlServer, Redis and Kafka suites
+tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
+tests/TestApps/               small real applications using native clients, with no Stove references
 examples/                    OrderService, its OpenAPI specs, and OrderService.E2ETests.XunitV3 with typed fakes
 .agents/skills/stove-dotnet  agent skill (canonical copy)
 plugins/stove-dotnet         Claude Code plugin (copy of the skill; CI checks they match)
@@ -333,14 +402,28 @@ plugins/stove-dotnet         Claude Code plugin (copy of the skill; CI checks th
 ```shell
 dotnet build -c Release
 dotnet test --project tests/StoveDotnet.UnitTests
-dotnet test --project tests/StoveDotnet.IntegrationTests
+dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests
+dotnet test --project tests/StoveDotnet.Postgres.AcceptanceTests
+dotnet test --project tests/StoveDotnet.SqlServer.AcceptanceTests
+dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
+dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project examples/OrderService.E2ETests.XunitV3
 # the deliberately failing demo test:
 dotnet test --project examples/OrderService.E2ETests.XunitV3 -- --explicit only
 ```
 
-Podman works as the container runtime through its Docker-compatible API. Give the machine enough memory for Kafka
-(4 GB or more).
+Podman works as the container runtime through its Docker-compatible API. Run suites individually on machines with
+limited memory; the database suites each start two named database containers. CI runs the suites in separate jobs,
+and a provider failure does not prevent other suites from reporting their results.
+
+The database application contracts cover HTTP writes observed by Stove, Stove seeding read by the application,
+startup migrations, named database routing, existing endpoints, concurrency and failure handling. Module contracts
+cover native clients and lifecycle edge cases. See [module conventions](docs/modules.md).
+
+OrderService remains a focused composition example using PostgreSQL, Redis, Kafka and third-party HTTP APIs. Its tests
+cover retrieval, rejected-order side effects, payment consumption, concurrent requests and failure diagnostics. The
+optional `OrderId` on creation lets a caller identify an attempted order even when it is rejected; it is not an
+idempotency guarantee. Concurrent tests use distinct identifiers and trace-scoped WireMock stubs.
 
 See [CONTRIBUTING.md](https://github.com/cokceken/stove-dotnet/blob/main/CONTRIBUTING.md) for the skill sync and the
 release process.

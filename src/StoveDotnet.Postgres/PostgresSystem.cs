@@ -26,6 +26,9 @@ public sealed class PostgresOptions : SystemOptions<PostgresExposedConfiguration
     /// <summary>Further container customization, e.g. <c>b => b.WithCommand("-c", "max_connections=200")</c>.</summary>
     public Func<PostgreSqlBuilder, PostgreSqlBuilder>? ConfigureContainer { get; set; }
 
+    /// <summary>Configures Stove's native client (e.g. enum mappings, JSON or authentication) before it is built.</summary>
+    public Action<NpgsqlDataSourceBuilder>? ConfigureDataSource { get; set; }
+
     /// <summary>Run before the application starts, in ascending order.</summary>
     public MigrationCollection<PostgresMigrationContext> Migrations { get; } = new();
 
@@ -51,6 +54,7 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
 {
     private PostgreSqlContainer? _container;
     private NpgsqlDataSource? _dataSource;
+    private int _disposed;
 
     public PostgresSystem(string? name, PostgresOptions options)
         : base(name, options)
@@ -83,7 +87,14 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
         var csb = new NpgsqlConnectionStringBuilder(connectionString);
         var exposed = new PostgresExposedConfiguration(
             connectionString, csb.Host ?? "localhost", csb.Port, csb.Database ?? string.Empty, csb.Username ?? string.Empty, csb.Password ?? string.Empty);
-        _dataSource = NpgsqlDataSource.Create(connectionString);
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+        Options.ConfigureDataSource?.Invoke(dataSourceBuilder);
+        _dataSource = dataSourceBuilder.Build();
+        // Creating a data source is lazy. Verify connectivity even when no migrations were supplied.
+        await using (var connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false))
+        {
+        }
+
         Expose(exposed);
 
         if (runMigrations)
@@ -134,20 +145,16 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
 
     public override async ValueTask DisposeAsync()
     {
-        if (_dataSource is not null)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
         {
-            if (Options.Cleanup is not null)
-            {
-                await Options.Cleanup(_dataSource, CancellationToken.None).ConfigureAwait(false);
-            }
-
-            await _dataSource.DisposeAsync().ConfigureAwait(false);
+            return;
         }
 
-        if (_container is not null)
-        {
-            await _container.DisposeAsync().ConfigureAwait(false);
-        }
+        await DisposeResourcesAsync(
+            () => _dataSource is not null && Options.Cleanup is not null
+                ? new ValueTask(Options.Cleanup(_dataSource, CancellationToken.None)) : ValueTask.CompletedTask,
+            () => _dataSource?.DisposeAsync() ?? ValueTask.CompletedTask,
+            () => _container?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
     }
 }
 

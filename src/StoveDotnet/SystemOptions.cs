@@ -41,5 +41,8 @@ public abstract class ExposingSystem<TOptions, TExposed> : IPluggedSystem, IExpo
     public IEnumerable<KeyValuePair<string, string?>> Configuration() =>
         Options.ConfigureExposedConfiguration(ExposedConfiguration);
 
+    /// <summary>Attempts every cleanup/disposal step in order, then reports all failures together.</summary>
+    protected static ValueTask DisposeResourcesAsync(params Func<ValueTask>[] actions) => SystemDisposal.RunAsync(actions);
+
     public abstract ValueTask DisposeAsync();
 }

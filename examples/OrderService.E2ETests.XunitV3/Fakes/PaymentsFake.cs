@@ -70,7 +70,10 @@ public static class PaymentsFakeExtensions
     /// <summary>Registers the fake and points the application's Payments client at it.</summary>
     public static StoveBuilder WithPaymentsFake(this StoveBuilder builder, string baseUrlKey = "Payments:BaseUrl") =>
         builder.WithWireMock(Fakes.PaymentsFake.InstanceName, o =>
-            o.ConfigureExposedConfiguration = c => [new(baseUrlKey, c.BaseUrl.ToString())]);
+        {
+            o.ScopeStubsToTest = true;
+            o.ConfigureExposedConfiguration = c => [new(baseUrlKey, c.BaseUrl.ToString())];
+        });
 
     public static PaymentsFake PaymentsFake(this StoveTestContext test) =>
         new(test.WireMock(Fakes.PaymentsFake.InstanceName));

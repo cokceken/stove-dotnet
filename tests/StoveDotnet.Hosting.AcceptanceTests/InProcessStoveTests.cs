@@ -5,9 +5,9 @@ using StoveDotnet.Telemetry;
 using StoveDotnet.WireMock;
 using Xunit;
 
-[assembly: AssemblyFixture(typeof(StoveDotnet.UnitTests.InProcessStoveFixture))]
+[assembly: AssemblyFixture(typeof(StoveDotnet.Hosting.AcceptanceTests.InProcessStoveFixture))]
 
-namespace StoveDotnet.UnitTests;
+namespace StoveDotnet.Hosting.AcceptanceTests;
 
 /// <summary>A Stove environment that needs no container runtime: telemetry, WireMock, HTTP and the test app.</summary>
 public sealed class InProcessStoveFixture : IAsyncLifetime

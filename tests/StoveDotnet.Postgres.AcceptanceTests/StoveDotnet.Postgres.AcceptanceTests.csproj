@@ -4,6 +4,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
-    <ProjectReference Include="../../src/StoveDotnet/StoveDotnet.csproj" />
+    <ProjectReference Include="../../src/StoveDotnet.Postgres/StoveDotnet.Postgres.csproj" />
+    <ProjectReference Include="../StoveDotnet.Testing/StoveDotnet.Testing.csproj" />
+    <ProjectReference Include="../TestApps/PostgresApp/PostgresApp.csproj" />
   </ItemGroup>
 </Project>

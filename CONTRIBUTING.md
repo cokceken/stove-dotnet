@@ -4,10 +4,20 @@
 
 ```shell
 dotnet build -c Release                                          # warnings are errors
-dotnet test --project tests/StoveDotnet.UnitTests                # no Docker needed
-dotnet test --project tests/StoveDotnet.IntegrationTests         # Docker or Podman
+dotnet test --project tests/StoveDotnet.UnitTests                # core only
+dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests  # no containers
+dotnet test --project tests/StoveDotnet.Postgres.AcceptanceTests # Docker or Podman
+dotnet test --project tests/StoveDotnet.SqlServer.AcceptanceTests
+dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
+dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project examples/OrderService.E2ETests.XunitV3     # Docker or Podman
 ```
+
+Each module suite references only its own provider. Database suites share provider-neutral contracts in
+`tests/StoveDotnet.Testing` and exercise native-client applications under `tests/TestApps`. Keep core tests free of
+hosting/module dependencies and keep OrderService focused on composition. See [module conventions](docs/modules.md)
+for the coverage expected of new modules. Add each suite to `.github/workflows/test-suites.yml`; CI and release both
+run that matrix before packaging.
 
 ## Agent skill
 

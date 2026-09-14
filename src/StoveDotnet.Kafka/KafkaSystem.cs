@@ -19,6 +19,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     private IProducer<byte[]?, byte[]?>? _producer;
     private IAdminClient? _admin;
     private Task? _observer;
+    private int _disposed;
 
     public KafkaSystem(string? name, KafkaOptions options)
         : base(name, options)
@@ -88,6 +89,42 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     /// <summary>Waits until a message of the running test matching <paramref name="condition"/> appears on the broker.</summary>
     public Task<ObservedMessage<T>> ShouldBePublished<T>(Func<ObservedMessage<T>, bool> condition, TimeSpan? timeout = null, string? topic = null) =>
         WaitForMessage(condition, timeout, record => topic is null || record.Topic == topic, "published");
+
+    /// <summary>
+    /// Observes for the entire specified interval and fails if a matching message is seen. This is a bounded
+    /// observation guarantee, not proof that no message can arrive after the interval or while the observer is delayed.
+    /// </summary>
+    public async Task ShouldNotBePublished<T>(Func<ObservedMessage<T>, bool> condition, TimeSpan within, string? topic = null)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+        if (within <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(within), "An observation interval must be positive.");
+        }
+
+        var test = StoveTestContext.Require();
+        var started = TimeProvider.System.GetTimestamp();
+        while (true)
+        {
+            test.CancellationToken.ThrowIfCancellationRequested();
+            var changed = _store.Changed.NextChange();
+            if (Matching(test, record => topic is null || record.Topic == topic, condition).FirstOrDefault() is { } message)
+            {
+                throw new StoveAssertionException($"Unexpected {typeof(T).Name} observed at {message.Topic}[{message.Record.Partition}]@{message.Record.Offset}.");
+            }
+
+            var remaining = within - TimeProvider.System.GetElapsedTime(started);
+            if (remaining <= TimeSpan.Zero) return;
+            try
+            {
+                await changed.WaitAsync(remaining, test.CancellationToken).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                // Inspect once more at the end of the observation interval.
+            }
+        }
+    }
 
     /// <summary>
     /// Waits until a matching message exists and a consumer group (other than Stove's) has committed past it. Consumer
@@ -309,40 +346,34 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
 
     public override async ValueTask DisposeAsync()
     {
-        await _stopping.CancelAsync().ConfigureAwait(false);
-        if (_observer is not null)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
         {
-            await _observer.ConfigureAwait(false);
+            return;
         }
 
-        if (_admin is not null)
-        {
-            if (Options.Cleanup is not null)
+        await DisposeResourcesAsync(
+            () => new ValueTask(_stopping.CancelAsync()),
+            () => _observer is null ? ValueTask.CompletedTask : new ValueTask(_observer),
+            () => _admin is not null && Options.Cleanup is not null
+                ? new ValueTask(Options.Cleanup(_admin, CancellationToken.None)) : ValueTask.CompletedTask,
+            async () =>
             {
-                await Options.Cleanup(_admin, CancellationToken.None).ConfigureAwait(false);
-            }
-
-            if (_container is null)
-            {
-                try
+                if (_admin is not null && _container is null)
                 {
-                    await _admin.DeleteGroupsAsync([_observerGroupId]).ConfigureAwait(false);
+                    try
+                    {
+                        await _admin.DeleteGroupsAsync([_observerGroupId]).ConfigureAwait(false);
+                    }
+                    catch (DeleteGroupsException)
+                    {
+                        // The observer never committed, so the group may not exist.
+                    }
                 }
-                catch (DeleteGroupsException)
-                {
-                    // The observer never committed, so the group may not exist.
-                }
-            }
-        }
-
-        _producer?.Dispose();
-        _admin?.Dispose();
-        _stopping.Dispose();
-
-        if (_container is not null)
-        {
-            await _container.DisposeAsync().ConfigureAwait(false);
-        }
+            },
+            () => { _producer?.Dispose(); return ValueTask.CompletedTask; },
+            () => { _admin?.Dispose(); return ValueTask.CompletedTask; },
+            () => { _stopping.Dispose(); return ValueTask.CompletedTask; },
+            () => _container?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
     }
 }
 

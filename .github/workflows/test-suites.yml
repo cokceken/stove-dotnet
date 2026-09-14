@@ -1,0 +1,39 @@
+name: test suites
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: Core
+            project: tests/StoveDotnet.UnitTests
+          - suite: Hosting
+            project: tests/StoveDotnet.Hosting.AcceptanceTests
+          - suite: PostgreSQL
+            project: tests/StoveDotnet.Postgres.AcceptanceTests
+          - suite: SQL Server
+            project: tests/StoveDotnet.SqlServer.AcceptanceTests
+          - suite: Redis
+            project: tests/StoveDotnet.Redis.AcceptanceTests
+          - suite: Kafka
+            project: tests/StoveDotnet.Kafka.AcceptanceTests
+          - suite: OrderService composition
+            project: examples/OrderService.E2ETests.XunitV3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build suite and its dependencies
+        run: dotnet build "${{ matrix.project }}" -c Release
+      - name: Run suite
+        run: dotnet test --project "${{ matrix.project }}" -c Release --no-build

@@ -4,7 +4,7 @@ using System.Text;
 using StoveDotnet.WireMock;
 using Xunit;
 
-namespace StoveDotnet.UnitTests;
+namespace StoveDotnet.Hosting.AcceptanceTests;
 
 public sealed class WireMockHelperTests(InProcessStoveFixture fixture)
 {

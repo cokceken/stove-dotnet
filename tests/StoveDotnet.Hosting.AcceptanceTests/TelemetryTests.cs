@@ -1,7 +1,7 @@
 using StoveDotnet.Telemetry;
 using Xunit;
 
-namespace StoveDotnet.UnitTests;
+namespace StoveDotnet.Hosting.AcceptanceTests;
 
 public sealed class TelemetryTests
 {

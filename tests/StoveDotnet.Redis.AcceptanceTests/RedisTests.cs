@@ -1,7 +1,7 @@
 using StoveDotnet.Redis;
 using Xunit;
 
-namespace StoveDotnet.IntegrationTests;
+namespace StoveDotnet.Redis.AcceptanceTests;
 
 public sealed class RedisTests
 {

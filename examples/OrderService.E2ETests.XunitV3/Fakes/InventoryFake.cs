@@ -50,7 +50,10 @@ public static class InventoryFakeExtensions
     /// <summary>Registers the fake and points the application's Inventory client at it.</summary>
     public static StoveBuilder WithInventoryFake(this StoveBuilder builder, string baseUrlKey = "Inventory:BaseUrl") =>
         builder.WithWireMock(Fakes.InventoryFake.InstanceName, o =>
-            o.ConfigureExposedConfiguration = c => [new(baseUrlKey, c.BaseUrl.ToString())]);
+        {
+            o.ScopeStubsToTest = true;
+            o.ConfigureExposedConfiguration = c => [new(baseUrlKey, c.BaseUrl.ToString())];
+        });
 
     public static InventoryFake InventoryFake(this StoveTestContext test) =>
         new(test.WireMock(Fakes.InventoryFake.InstanceName));

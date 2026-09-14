@@ -39,6 +39,7 @@ public sealed class RedisSystem : ExposingSystem<RedisOptions, RedisExposedConfi
 {
     private RedisContainer? _container;
     private ConnectionMultiplexer? _multiplexer;
+    private int _disposed;
 
     public RedisSystem(string? name, RedisOptions options)
         : base(name, options)
@@ -86,20 +87,16 @@ public sealed class RedisSystem : ExposingSystem<RedisOptions, RedisExposedConfi
 
     public override async ValueTask DisposeAsync()
     {
-        if (_multiplexer is not null)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
         {
-            if (Options.Cleanup is not null)
-            {
-                await Options.Cleanup(_multiplexer, CancellationToken.None).ConfigureAwait(false);
-            }
-
-            await _multiplexer.DisposeAsync().ConfigureAwait(false);
+            return;
         }
 
-        if (_container is not null)
-        {
-            await _container.DisposeAsync().ConfigureAwait(false);
-        }
+        await DisposeResourcesAsync(
+            () => _multiplexer is not null && Options.Cleanup is not null
+                ? new ValueTask(Options.Cleanup(_multiplexer, CancellationToken.None)) : ValueTask.CompletedTask,
+            () => _multiplexer?.DisposeAsync() ?? ValueTask.CompletedTask,
+            () => _container?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
     }
 }
 

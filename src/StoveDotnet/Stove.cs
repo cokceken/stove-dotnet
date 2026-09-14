@@ -26,7 +26,10 @@ public sealed class Stove : IAsyncDisposable
 
     internal async Task StartAsync(CancellationToken cancellationToken)
     {
-        await Task.WhenAll(_registry.OfType<IRunAware>().Select(s => s.RunAsync(cancellationToken))).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Capture synchronous throws too, so all in-flight starts finish before rollback disposes their resources.
+        await Task.WhenAll(_registry.OfType<IRunAware>().Select(async s =>
+            await s.RunAsync(cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
 
         var configuration = CollectConfiguration();
 
@@ -34,7 +37,7 @@ public sealed class Stove : IAsyncDisposable
         {
             Application = await _applicationUnderTest.StartAsync(configuration, cancellationToken).ConfigureAwait(false);
             await Task.WhenAll(_registry.OfType<IAfterApplicationStarted>()
-                .Select(s => s.OnApplicationStartedAsync(Application, cancellationToken))).ConfigureAwait(false);
+                .Select(async s => await s.OnApplicationStartedAsync(Application, cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
         }
     }
 
@@ -202,33 +205,18 @@ public sealed class Stove : IAsyncDisposable
             return;
         }
 
-        var errors = new List<Exception>();
+        var actions = new List<Func<ValueTask>>();
         if (_applicationUnderTest is not null)
         {
-            await Collect(errors, () => _applicationUnderTest.DisposeAsync()).ConfigureAwait(false);
+            actions.Add(_applicationUnderTest.DisposeAsync);
         }
 
         foreach (var system in _registry.All.Reverse())
         {
-            await Collect(errors, () => system.DisposeAsync()).ConfigureAwait(false);
+            actions.Add(system.DisposeAsync);
         }
 
-        if (errors.Count > 0)
-        {
-            throw new AggregateException("One or more Stove systems failed to stop.", errors);
-        }
-    }
-
-    private static async Task Collect(List<Exception> errors, Func<ValueTask> action)
-    {
-        try
-        {
-            await action().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            errors.Add(ex);
-        }
+        await SystemDisposal.RunAsync(actions).ConfigureAwait(false);
     }
 }
 

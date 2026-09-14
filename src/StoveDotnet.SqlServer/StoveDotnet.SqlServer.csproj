@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>SQL Server system for StoveDotnet: Testcontainers SQL Server (or an existing instance), migrations and a native Microsoft.Data.SqlClient test DSL.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+  </ItemGroup>
+</Project>

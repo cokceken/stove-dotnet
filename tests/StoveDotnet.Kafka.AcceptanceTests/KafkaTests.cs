@@ -3,7 +3,7 @@ using Confluent.Kafka.Admin;
 using StoveDotnet.Kafka;
 using Xunit;
 
-namespace StoveDotnet.IntegrationTests;
+namespace StoveDotnet.Kafka.AcceptanceTests;
 
 public sealed class KafkaFixture : IAsyncLifetime
 {
@@ -85,6 +85,36 @@ public sealed class KafkaTests(KafkaFixture fixture) : IClassFixture<KafkaFixtur
 
             Assert.DoesNotContain(t.Kafka().Peek<OrderCreated>("orders.created"), m => m.Value.OrderId == "isolated");
         });
+    }
+
+    [Fact]
+    public Task Absence_observation_waits_for_the_full_interval() => _stove.Test(async t =>
+    {
+        var started = TimeProvider.System.GetTimestamp();
+        await t.Kafka().ShouldNotBePublished<OrderCreated>(m => m.Value.OrderId == Guid.Empty.ToString(), TimeSpan.FromMilliseconds(200));
+        Assert.True(TimeProvider.System.GetElapsedTime(started) >= TimeSpan.FromMilliseconds(200));
+    }, TestContext.Current.CancellationToken);
+
+    [Fact]
+    public Task Absence_observation_fails_when_a_message_arrives_during_the_interval() => _stove.Test(async t =>
+    {
+        var id = Guid.NewGuid().ToString();
+        var observation = t.Kafka().ShouldNotBePublished<OrderCreated>(m => m.Value.OrderId == id, TimeSpan.FromSeconds(15), "orders.created");
+        await t.Kafka().Publish("orders.created", new OrderCreated(id, 1m));
+        var error = await Assert.ThrowsAsync<StoveAssertionException>(() => observation);
+        Assert.Contains("orders.created", error.Message, StringComparison.Ordinal);
+    }, TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task Absence_observation_honors_cancellation()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _stove.Test(async t =>
+        {
+            var observation = t.Kafka().ShouldNotBePublished<OrderCreated>(_ => true, TimeSpan.FromSeconds(30));
+            cancellation.Cancel();
+            await observation;
+        }, cancellation.Token));
     }
 
     private static async Task ConsumeAndCommit(KafkaSystem kafka, string groupId, string topic, CancellationToken cancellationToken)

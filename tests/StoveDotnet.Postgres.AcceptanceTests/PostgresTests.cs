@@ -2,7 +2,7 @@ using Npgsql;
 using StoveDotnet.Postgres;
 using Xunit;
 
-namespace StoveDotnet.IntegrationTests;
+namespace StoveDotnet.Postgres.AcceptanceTests;
 
 public sealed class PostgresTests
 {

@@ -20,7 +20,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tests:
+    uses: ./.github/workflows/test-suites.yml
+
   release:
+    needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -34,15 +38,6 @@ jobs:
 
       - name: Build
         run: dotnet build -c Release
-
-      - name: Unit tests
-        run: dotnet test --project tests/StoveDotnet.UnitTests -c Release --no-build
-
-      - name: Integration tests
-        run: dotnet test --project tests/StoveDotnet.IntegrationTests -c Release --no-build
-
-      - name: Example e2e tests
-        run: dotnet test --project examples/OrderService.E2ETests.XunitV3 -c Release --no-build
 
       - name: Pack
         run: dotnet pack -c Release --no-build -o artifacts
