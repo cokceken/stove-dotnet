@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+  </ItemGroup>
+
+</Project>

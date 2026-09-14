@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="WireMock.Net.Minimal" />
+    <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+  </ItemGroup>
+
+</Project>

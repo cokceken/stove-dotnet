@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Unit tests
+        run: dotnet test --project tests/StoveDotnet.UnitTests -c Release --no-build
+
+      - name: Integration tests
+        run: dotnet test --project tests/StoveDotnet.IntegrationTests -c Release --no-build
+
+      - name: Example e2e tests
+        run: dotnet test --project examples/OrderService.E2ETests.XunitV3 -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack -c Release --no-build -o artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/*.nupkg

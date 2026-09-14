@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/OrderService.E2ETests.XunitV3/OrderService.E2ETests.XunitV3.csproj" />
+    <Project Path="examples/OrderService/OrderService.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
+    <Project Path="src/StoveDotnet.Http/StoveDotnet.Http.csproj" />
+    <Project Path="src/StoveDotnet.Kafka/StoveDotnet.Kafka.csproj" />
+    <Project Path="src/StoveDotnet.Postgres/StoveDotnet.Postgres.csproj" />
+    <Project Path="src/StoveDotnet.Redis/StoveDotnet.Redis.csproj" />
+    <Project Path="src/StoveDotnet.Telemetry/StoveDotnet.Telemetry.csproj" />
+    <Project Path="src/StoveDotnet.WireMock/StoveDotnet.WireMock.csproj" />
+    <Project Path="src/StoveDotnet/StoveDotnet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StoveDotnet.IntegrationTests/StoveDotnet.IntegrationTests.csproj" />
+    <Project Path="tests/StoveDotnet.TestApp/StoveDotnet.TestApp.csproj" />
+    <Project Path="tests/StoveDotnet.UnitTests/StoveDotnet.UnitTests.csproj" />
+  </Folder>
+</Solution>

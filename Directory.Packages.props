@@ -1,0 +1,27 @@
+<Project>
+
+  <ItemGroup Label="Library">
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.Kafka" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.2.1" />
+    <PackageVersion Include="WireMock.Net.Minimal" Version="2.15.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.36.1" />
+    <PackageVersion Include="Grpc.Tools" Version="2.84.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Examples and tests">
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
+    <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
+  </ItemGroup>
+
+</Project>

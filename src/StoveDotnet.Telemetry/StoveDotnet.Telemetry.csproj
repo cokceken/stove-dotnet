@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+    <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Vendored from https://github.com/open-telemetry/opentelemetry-proto (v1.9.0, Apache-2.0). Message types only. -->
+    <Protobuf Include="Protos\**\*.proto" ProtoRoot="Protos" GrpcServices="None" Access="Internal" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="StoveDotnet.UnitTests" />
+  </ItemGroup>
+
+</Project>
