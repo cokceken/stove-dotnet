@@ -1,5 +1,8 @@
 # Module conventions
 
+For priorities and implementation status, see the [roadmap](../ROADMAP.md). For the agreed design rationale, see
+[architecture decisions](decisions.md).
+
 Each module is a separate `StoveDotnet.Xxx` package with a reference to the core and its native client/container packages.
 Keep provider-specific clients and parameters accessible; do not hide them behind a universal database API.
 

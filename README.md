@@ -388,6 +388,9 @@ from specs/payments.yaml"*.
 
 ## Repository layout and development
 
+See the [project roadmap](ROADMAP.md) for implemented work, remaining gaps and proposed next modules, and
+[architecture decisions](docs/decisions.md) for the agreed design direction.
+
 ```
 src/                         library packages
 tests/StoveDotnet.UnitTests   core only; no application host or containers
