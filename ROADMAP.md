@@ -1,10 +1,11 @@
 # Project roadmap
 
-Updated: 2026-09-14. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, Kafka hardening and RabbitMQ now implemented.
+Updated: 2026-09-15. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, Kafka hardening, RabbitMQ and framework adoption examples now implemented.
 
-StoveDotnet's next direction is broader module coverage, starting with databases. The lifecycle and test structure
-are now suitable for adding modules incrementally. Each addition should include a useful testing experience, a real
-application acceptance suite and a consumable package.
+StoveDotnet's immediate direction is adoption in a real consumer project, using contract-focused end-to-end tests
+to identify practical gaps. Framework examples now provide a starting point. Broader module coverage remains on the
+roadmap; prioritize the dependencies that the pilot actually needs. Each addition should include a useful testing
+experience, a real application acceptance suite and a consumable package. A dashboard is not a current priority.
 
 This document separates implemented work from accepted decisions and proposed future scope. **Implemented** means
 present in the repository; it does not imply a particular NuGet release or a successful remote CI run. Future ordering
@@ -26,12 +27,21 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | Test organization | Core-only unit tests; separate hosting, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka and RabbitMQ suites; provider-neutral database contracts |
 | Real test applications | Hosting, PostgreSQL, SQL Server, MongoDB, MySQL and RabbitMQ apps under `tests/TestApps`, with no Stove dependency |
 | Composition example | OrderService retains PostgreSQL, Redis, Kafka and external HTTP dependencies; eight active tests cover workflows, retrieval, rejection, concurrency and diagnostics |
+| Framework adoption | Separate xUnit v3, NUnit, MSTest and TUnit examples on .NET 10/MTP, five tests each; runner failure/skip/filter checks and teardown audits; isolated package-consumer verification |
 | CI and packages | Shared CI/release matrix with separate suite jobs, fail-fast disabled, packaging gated on tests and an isolated package smoke test |
 
 SQL Server is implemented; it is no longer a future-module candidate. The repository contains twelve library packages:
 core, ASP.NET Core, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and WireMock.
 
-### Last completed local verification
+### Local verification history
+
+The framework adoption work adds twenty passing example tests on Windows/Podman, plus four filtered runs,
+four expected-failure runs and four skip/inconclusive runs with cleanup checks. See the
+[framework guide](docs/test-frameworks.md) and [verification script](scripts/verify-framework-examples.ps1).
+The same sixteen runner processes passed against locally packed `0.1.0-preview.2` packages from a fresh
+consumer directory and NuGet cache. The full Release build passed with zero warnings/errors. No remote CI
+run or package publication is claimed by this verification.
+This work does not claim verification of every IDE or VSTest adapter combination.
 
 The messaging implementation session on 2026-09-14 verified the Release build (zero warnings/errors), all twelve
 packages and an isolated-cache package smoke test, with containers running on Windows x64/Podman. The recorded suite

@@ -25,6 +25,12 @@ requirements live in [module conventions](modules.md).
 
 ## What the original Stove informs
 
+Framework adoption now has executable evidence: separate xUnit v3, NUnit, MSTest and TUnit examples share
+only application/environment setup. CI checks native assertions, cancellation, runner failure/skip outcomes,
+filtering and teardown on .NET 10/MTP, then repeats against isolated package consumers. The core remains free
+of framework dependencies. The immediate next step is a real consumer pilot; dashboard integration is deferred
+while existing failure output serves diagnosis. See the [adopter guide](test-frameworks.md).
+
 The local original-Stove checkout was reviewed during the initial assessment. Useful references include structured
 operation reporting, explicit container/provided runtime capabilities, migration behavior and separate gRPC client/mock
 modules. Its Spring Kafka integration can observe consumer outcomes directly, whereas StoveDotnet's current Kafka

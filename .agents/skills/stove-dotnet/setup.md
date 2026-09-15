@@ -174,3 +174,11 @@ Map `RabbitMqExposedConfiguration.ConnectionString` to the app's actual configur
 channel in either mode; later disposal still runs if it fails. Stove removes its exclusive observer queue but does not
 remove user topology unless cleanup explicitly does so. `Connection` is native; callers own channels created from it.
 There are no observer bindings by default: publishing/native access works, but assertions require explicit bindings.
+
+### Runnable framework references
+
+In the StoveDotnet repository, `examples/Frameworks` provides independent xUnit v3, NUnit, MSTest and TUnit
+examples, and `docs/test-frameworks.md` documents adoption on .NET 10 / Microsoft.Testing.Platform.
+MSTest assembly hooks are static methods in a nonstatic `[TestClass]`. Current TUnit uses
+`TestContext.Current!.Execution.CancellationToken`; NUnit uses `TestContext.CurrentContext.CancellationToken`,
+and MSTest uses the injected `TestContext.CancellationToken`. Do not copy xUnit's token accessor to every framework.

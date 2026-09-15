@@ -3,6 +3,14 @@
     <Project Path="examples/OrderService.E2ETests.XunitV3/OrderService.E2ETests.XunitV3.csproj" />
     <Project Path="examples/OrderService/OrderService.csproj" />
   </Folder>
+  <Folder Name="/examples/Frameworks/">
+    <Project Path="examples/Frameworks/MSTest/FrameworkExamples.MSTest.csproj" />
+    <Project Path="examples/Frameworks/NUnit/FrameworkExamples.NUnit.csproj" />
+    <Project Path="examples/Frameworks/SampleApi/FrameworkExamples.SampleApi.csproj" />
+    <Project Path="examples/Frameworks/Shared/FrameworkExamples.Shared.csproj" />
+    <Project Path="examples/Frameworks/TUnit/FrameworkExamples.TUnit.csproj" />
+    <Project Path="examples/Frameworks/Xunit/FrameworkExamples.Xunit.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
     <Project Path="src/StoveDotnet.Http/StoveDotnet.Http.csproj" />

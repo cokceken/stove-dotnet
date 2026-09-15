@@ -230,3 +230,11 @@ Stove observes copies on its own queue; it never consumes the work queue. A mand
 so even a confirmed observed message does not prove application processing. Verify a business side effect. There is no
 RabbitMQ `ShouldBeConsumed` API. Native `Connection` supports caller-owned channels; pass cancellation and serialize
 concurrent native channel access. Observer connection/channel loss or consumer cancellation invalidates assertions.
+
+### Runnable framework references
+
+In the StoveDotnet repository, `examples/Frameworks` provides independent xUnit v3, NUnit, MSTest and TUnit
+examples, and `docs/test-frameworks.md` documents adoption on .NET 10 / Microsoft.Testing.Platform.
+MSTest assembly hooks are static methods in a nonstatic `[TestClass]`. Current TUnit uses
+`TestContext.Current!.Execution.CancellationToken`; NUnit uses `TestContext.CurrentContext.CancellationToken`,
+and MSTest uses the injected `TestContext.CancellationToken`. Do not copy xUnit's token accessor to every framework.

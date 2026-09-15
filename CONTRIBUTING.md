@@ -77,3 +77,12 @@ git push origin v0.1.0-preview.1
 The workflow builds, runs all tests, packs, checks that the package version matches the tag, runs the package smoke
 test, pushes the packages and symbols to nuget.org, and creates a GitHub release. Tags with a `-suffix` become
 pre-releases. Packages on nuget.org cannot be deleted, only unlisted, so tag deliberately.
+
+## Framework adoption examples
+
+`examples/Frameworks` contains separate xUnit v3, NUnit, MSTest and TUnit projects, with framework-neutral
+application/environment projects. Keep the framework lifecycle and assertions visible in each example.
+Run `pwsh -File scripts/verify-framework-examples.ps1` with Docker or Podman running to verify full and filtered
+runs, intentional failure/skip outcomes, failure evidence and cleanup. Add `-NoBuild` after a Release build.
+After packing, run with `-UsePackages` to repeat the checks in a fresh consumer directory and package cache.
+CI/release run both forms and retain verification logs. See [the adopter guide](docs/test-frameworks.md).

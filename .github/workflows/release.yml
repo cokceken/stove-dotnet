@@ -53,6 +53,16 @@ jobs:
       - name: Package smoke test
         run: bash scripts/package-smoke-test.sh artifacts
 
+      - name: Verify frameworks against isolated NuGet packages
+        shell: pwsh
+        run: ./scripts/verify-framework-examples.ps1 -UsePackages -ResultsDirectory artifacts/framework-packages
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: framework-package-verification
+          path: artifacts/framework-packages
+
       - name: NuGet login (Trusted Publishing)
         uses: NuGet/login@v1
         id: nuget-login

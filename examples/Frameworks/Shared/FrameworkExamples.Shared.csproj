@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../SampleApi/FrameworkExamples.SampleApi.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(StovePackageVersion)' == ''">
+    <ProjectReference Include="../../../src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
+    <ProjectReference Include="../../../src/StoveDotnet.Http/StoveDotnet.Http.csproj" />
+    <ProjectReference Include="../../../src/StoveDotnet.Postgres/StoveDotnet.Postgres.csproj" />
+    <ProjectReference Include="../../../src/StoveDotnet.WireMock/StoveDotnet.WireMock.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(StovePackageVersion)' != ''">
+    <PackageReference Include="StoveDotnet.AspNetCore" VersionOverride="$(StovePackageVersion)" />
+    <PackageReference Include="StoveDotnet.Http" VersionOverride="$(StovePackageVersion)" />
+    <PackageReference Include="StoveDotnet.Postgres" VersionOverride="$(StovePackageVersion)" />
+    <PackageReference Include="StoveDotnet.WireMock" VersionOverride="$(StovePackageVersion)" />
+  </ItemGroup>
+</Project>

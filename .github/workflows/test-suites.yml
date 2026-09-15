@@ -43,3 +43,27 @@ jobs:
         run: dotnet build "${{ matrix.project }}" -c Release
       - name: Run suite
         run: dotnet test --project "${{ matrix.project }}" -c Release --no-build
+
+  frameworks:
+    name: Framework / ${{ matrix.framework }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [Xunit, NUnit, MSTest, TUnit]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Verify framework examples and runner outcomes
+        shell: pwsh
+        run: ./scripts/verify-framework-examples.ps1 -Framework ${{ matrix.framework }} -ResultsDirectory artifacts/framework-tests
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: framework-${{ matrix.framework }}
+          path: artifacts/framework-tests

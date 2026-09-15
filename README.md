@@ -370,57 +370,13 @@ Application code must propagate trace context across boundaries:
 
 ## Test frameworks
 
-Stove only needs to be started once and disposed at the end. The example uses xUnit v3:
+Runnable examples demonstrate **xUnit v3, NUnit, MSTest and TUnit**, each with its own lifecycle hooks and
+native assertions against the same real ASP.NET Core application, PostgreSQL container and WireMock catalog.
 
-```csharp
-[assembly: AssemblyFixture(typeof(StoveFixture))]
-
-public sealed class StoveFixture : IAsyncLifetime
-{
-    public Stove Stove { get; private set; } = null!;
-    public async ValueTask InitializeAsync() => Stove = await StoveSetup.Build().StartAsync();
-    public async ValueTask DisposeAsync() => await Stove.DisposeAsync();
-}
-
-public sealed class OrderTests(StoveFixture fixture)
-{
-    [Fact]
-    public Task Creates_order() => fixture.Stove.Test(async t => { /* ... */ });
-}
-```
-
-<details>
-<summary>NUnit, TUnit and MSTest</summary>
-
-```csharp
-// NUnit
-[SetUpFixture]
-public sealed class StoveSetUp
-{
-    public static Stove Stove { get; private set; } = null!;
-    [OneTimeSetUp] public async Task Start() => Stove = await StoveSetup.Build().StartAsync();
-    [OneTimeTearDown] public async Task Stop() => await Stove.DisposeAsync();
-}
-
-// TUnit
-public static class StoveHooks
-{
-    public static Stove Stove { get; private set; } = null!;
-    [Before(TestSession)] public static async Task Start() => Stove = await StoveSetup.Build().StartAsync();
-    [After(TestSession)] public static async Task Stop() => await Stove.DisposeAsync();
-}
-
-// MSTest
-[TestClass]
-public static class StoveHooks
-{
-    public static Stove Stove { get; private set; } = null!;
-    [AssemblyInitialize] public static async Task Start(TestContext _) => Stove = await StoveSetup.Build().StartAsync();
-    [AssemblyCleanup] public static async Task Stop() => await Stove.DisposeAsync();
-}
-```
-
-</details>
+See the [adopter guide](docs/test-frameworks.md) for package setup, cancellation, parallelism and single-test
+commands, and the [example projects](examples/Frameworks/README.md) for code you can run and adapt.
+The examples target .NET 10 with Microsoft.Testing.Platform. CI checks normal, filtered, failed and skipped
+runs, verifies teardown, and repeats the checks against isolated NuGet consumers before publishing.
 
 ## AI agents
 
