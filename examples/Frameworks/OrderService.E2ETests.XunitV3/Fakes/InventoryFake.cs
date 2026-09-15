@@ -4,7 +4,7 @@ using StoveDotnet.WireMock;
 namespace OrderService.E2ETests.Fakes;
 
 /// <summary>
-/// Fake of the Inventory API, generated from <c>examples/OrderService/specs/inventory-api.yaml</c>.
+/// Fake of the Inventory API, generated from <c>examples/Frameworks/OrderService/specs/inventory-api.yaml</c>.
 /// Covers only the operations OrderService calls: <c>getStock</c>.
 /// Note: OrderService reads stock with <c>GetFromJsonAsync</c>, so <see cref="ProductUnknown"/> makes it respond 500.
 /// </summary>

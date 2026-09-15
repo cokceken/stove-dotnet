@@ -4,7 +4,7 @@ using StoveDotnet.WireMock;
 namespace OrderService.E2ETests.Fakes;
 
 /// <summary>
-/// Fake of the Payments API, generated from <c>examples/OrderService/specs/payments-api.yaml</c>.
+/// Fake of the Payments API, generated from <c>examples/Frameworks/OrderService/specs/payments-api.yaml</c>.
 /// Covers only the operations OrderService calls: <c>createCharge</c>.
 /// </summary>
 public sealed class PaymentsFake(WireMockSystem wireMock)

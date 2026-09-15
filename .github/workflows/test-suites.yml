@@ -31,7 +31,7 @@ jobs:
           - suite: Kafka
             project: tests/StoveDotnet.Kafka.AcceptanceTests
           - suite: OrderService composition
-            project: examples/OrderService.E2ETests.XunitV3
+            project: examples/Frameworks/OrderService.E2ETests.XunitV3
     steps:
       - uses: actions/checkout@v7
         with:

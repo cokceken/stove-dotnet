@@ -4,6 +4,11 @@ Choose a runnable example: [xUnit v3](Xunit/OrderTests.cs), [NUnit](NUnit/OrderT
 [MSTest](MSTest/OrderTests.cs), or [TUnit](TUnit/OrderTests.cs).
 See the [adopter guide](../../docs/test-frameworks.md) for package setup, lifecycle, cancellation and filtering.
 
+For a larger composition example, see [OrderService](OrderService/Program.cs) and its
+[xUnit v3 tests](OrderService.E2ETests.XunitV3/OrderTests.cs). This separate application combines PostgreSQL,
+Redis, Kafka and typed WireMock fakes generated from OpenAPI contracts. Run it from the repository root with
+`dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3 -c Release`.
+
 From the repository root, with the .NET 10 SDK and Docker or Podman running:
 
 ```shell

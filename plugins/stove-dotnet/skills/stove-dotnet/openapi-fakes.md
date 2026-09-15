@@ -95,8 +95,8 @@ Constraints (`minimum`, `pattern`, `maxLength`) are not enforced in records. Use
 
 ## Template
 
-This mirrors `examples/OrderService.E2ETests.XunitV3/Fakes/PaymentsFake.cs` in the stove-dotnet repository, which is
-generated from `examples/OrderService/specs/payments-api.yaml` and runs in CI.
+This mirrors `examples/Frameworks/OrderService.E2ETests.XunitV3/Fakes/PaymentsFake.cs` in the stove-dotnet repository, which is
+generated from `examples/Frameworks/OrderService/specs/payments-api.yaml` and runs in CI.
 
 ```csharp
 using StoveDotnet;

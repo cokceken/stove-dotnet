@@ -153,7 +153,7 @@ public sealed class OrderTests(StoveFixture fixture)
     }
 
     // Fails on purpose to show Stove's failure output (trace tree, logs, observed calls and messages).
-    // Run it explicitly: dotnet test --project examples/OrderService.E2ETests.XunitV3 -- --explicit only
+    // Run it explicitly: dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3 -- --explicit only
     [Fact(Explicit = true)]
     public Task Failure_output_demo() => _stove.Test(async t =>
     {

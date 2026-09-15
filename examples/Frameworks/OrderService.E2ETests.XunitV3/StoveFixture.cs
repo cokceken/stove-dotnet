@@ -36,7 +36,7 @@ public sealed class StoveFixture : IAsyncLifetime
                     new TopicSpecification { Name = "payments.completed", NumPartitions = 1, ReplicationFactor = 1 },
                 ]));
             })
-            // Third-party APIs, faked from their OpenAPI specs (see Fakes/ and examples/OrderService/specs/).
+            // Third-party APIs, faked from their OpenAPI specs (see Fakes/ and examples/Frameworks/OrderService/specs/).
             .WithInventoryFake()
             .WithPaymentsFake()
             .WithHttpClient()

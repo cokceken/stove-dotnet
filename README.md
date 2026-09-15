@@ -300,8 +300,8 @@ var charge = await t.PaymentsFake().ShouldHaveCharged(c => c.Amount == 20m);
 ```
 
 The example project contains two fakes generated from OpenAPI specs:
-[`Fakes/`](https://github.com/cokceken/stove-dotnet/tree/main/examples/OrderService.E2ETests.XunitV3/Fakes) from
-[`specs/`](https://github.com/cokceken/stove-dotnet/tree/main/examples/OrderService/specs). The
+[`Fakes/`](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService.E2ETests.XunitV3/Fakes) from
+[`specs/`](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService/specs). The
 [agent skill](#ai-agents) teaches coding agents to generate fakes like these, including for SDKs such as AWS S3.
 
 ## Telemetry and failure reports
@@ -412,7 +412,7 @@ tests/StoveDotnet.UnitTests   core only; no application host or containers
 tests/*.AcceptanceTests      separate Hosting, database, Redis, Kafka and RabbitMq suites
 tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
 tests/TestApps/               small real applications using native clients, with no Stove references
-examples/                    OrderService, its OpenAPI specs, and OrderService.E2ETests.XunitV3 with typed fakes
+examples/Frameworks/         Framework examples, shared SampleApi, and OrderService composition tests with typed fakes
 .agents/skills/stove-dotnet  agent skill (canonical copy)
 plugins/stove-dotnet         Claude Code plugin (copy of the skill; CI checks they match)
 ```
@@ -428,9 +428,9 @@ dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project tests/StoveDotnet.RabbitMq.AcceptanceTests
-dotnet test --project examples/OrderService.E2ETests.XunitV3
+dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3
 # the deliberately failing demo test:
-dotnet test --project examples/OrderService.E2ETests.XunitV3 -- --explicit only
+dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3 -- --explicit only
 ```
 
 Podman works as the container runtime through its Docker-compatible API. Run suites individually on machines with

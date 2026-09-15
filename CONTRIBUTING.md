@@ -13,7 +13,7 @@ dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project tests/StoveDotnet.RabbitMq.AcceptanceTests
-dotnet test --project examples/OrderService.E2ETests.XunitV3     # Docker or Podman
+dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3     # Docker or Podman
 ```
 
 Each module suite references only its own provider. Database suites share provider-neutral contracts in
@@ -35,7 +35,7 @@ run that matrix before packaging.
   CI fails when the two copies differ.
 - **Keep the skill honest:**
   - API signatures in the guides must match `src/`.
-  - The fake template in `openapi-fakes.md` mirrors `examples/OrderService.E2ETests.XunitV3/Fakes/`, which runs in CI.
+  - The fake template in `openapi-fakes.md` mirrors `examples/Frameworks/OrderService.E2ETests.XunitV3/Fakes/`, which runs in CI.
 - **Validate:** `claude plugin validate . --strict` (marketplace) and `claude plugin validate plugins/stove-dotnet --strict`.
 - **Plugin version:** bump `version` in `plugins/stove-dotnet/.claude-plugin/plugin.json` when the skill changes in a
   release.
