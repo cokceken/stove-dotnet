@@ -86,3 +86,7 @@ Run `pwsh -File scripts/verify-framework-examples.ps1` with Docker or Podman run
 runs, intentional failure/skip outcomes, failure evidence and cleanup. Add `-NoBuild` after a Release build.
 After packing, run with `-UsePackages` to repeat the checks in a fresh consumer directory and package cache.
 CI/release run both forms and retain verification logs. See [the adopter guide](docs/test-frameworks.md).
+
+`pwsh -File scripts/tests/framework-output.Tests.ps1` checks the runner summary parser without containers.
+It covers plain and ANSI-colored output with Linux and Windows line endings, and rejects incorrect or missing
+counts. Verification preserves raw logs while removing terminal color codes from the text it validates.

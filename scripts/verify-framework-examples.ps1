@@ -11,6 +11,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false # Failure probes intentionally return nonzero.
+. (Join-Path $PSScriptRoot 'framework-output.ps1')
 $repo = Split-Path $PSScriptRoot -Parent
 $root = $repo
 if (!$ResultsDirectory) { $ResultsDirectory = Join-Path $repo "artifacts/framework-tests/$([guid]::NewGuid())" }
@@ -78,16 +79,14 @@ try {
                 $log = "$results/$name-$mode.log"
                 & dotnet @arguments *> $log
                 $code = $LASTEXITCODE
-                $output = Get-Content -LiteralPath $log -Raw
+                $output = ConvertTo-PlainFrameworkOutput (Get-Content -LiteralPath $log -Raw)
                 $total = if ($mode -eq 'full') { 5 } else { 1 }
                 $failed = if ($mode -eq 'failure') { 1 } else { 0 }
                 $skipped = if ($mode -eq 'skip') { 1 } else { 0 }
                 $passed = $total - $failed - $skipped
                 $codes = if ($mode -eq 'failure') { @(2) } elseif ($mode -eq 'skip') { @(0, 8) } else { @(0) }
                 if ($code -notin $codes) { throw "$name/$mode unexpected exit $code. See $log" }
-                foreach ($entry in @{total=$total; failed=$failed; succeeded=$passed; skipped=$skipped}.GetEnumerator()) {
-                    if ($output -notmatch "(?m)^\s*$($entry.Key):\s*$($entry.Value)\s*$") { throw "$name/$mode unexpected summary ($($entry.Key)). See $log" }
-                }
+                Assert-FrameworkSummary -Output $output -Expected @{total=$total; failed=$failed; succeeded=$passed; skipped=$skipped} -Context "$name/$mode (log: $log)"
                 if ($mode -eq 'failure') {
                     foreach ($marker in @('intentional-framework-failure', 'Stove test:', 'Trace id:', 'wiremock')) {
                         if (!$output.Contains($marker)) { throw "$name failure output missing '$marker'. See $log" }
