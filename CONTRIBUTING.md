@@ -80,6 +80,10 @@ pre-releases. Packages on nuget.org cannot be deleted, only unlisted, so tag del
 
 ## Framework adoption examples
 
+`dotnet test --project examples/MultiApplication/Tests -c Release` verifies the separate API/worker flow using
+PostgreSQL and RabbitMQ. Core application lifecycle tests and container-free hosting tests cover name resolution,
+configuration isolation, readiness, rollback, client targeting and application log attribution.
+
 `examples/Frameworks` contains separate xUnit v3, NUnit, MSTest and TUnit projects, with framework-neutral
 application/environment projects. Keep the framework lifecycle and assertions visible in each example.
 Run `pwsh -File scripts/verify-framework-examples.ps1` with Docker or Podman running to verify full and filtered

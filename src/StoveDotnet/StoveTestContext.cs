@@ -53,6 +53,8 @@ public sealed class StoveTestContext
     public IApplicationContext Application =>
         Stove.Application ?? throw new InvalidOperationException("Stove was started without an application under test.");
 
+    public IApplicationContext GetApplication(string? name = null) => Stove.GetApplication(name);
+
     /// <summary>Resolves a registered system. See <c>StoveBuilder</c> for name resolution rules.</summary>
     public T GetSystem<T>(string? name = null) where T : class, IPluggedSystem => Stove.Registry.Resolve<T>(name);
 

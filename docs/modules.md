@@ -18,6 +18,10 @@ Keep provider-specific clients and parameters accessible; do not hide them behin
 - Make disposal safe after partial startup and on repeated calls. Use `ExposingSystem.DisposeResourcesAsync` to attempt
   cleanup, client disposal and container disposal independently. Release temporary connections if opening fails.
 - Keep migration ordering local to each module; registration order does not establish dependencies between systems.
+- Application adapters are separate from dependency systems: applications start sequentially after dependency readiness.
+  Use `IAfterApplicationsStarted` and `stove.GetApplication(name)` for explicit application binding. Legacy
+  `IAfterApplicationStarted` hooks resolve the default/only application and therefore reject ambiguous topologies.
+  An application adapter may implement `IFailureDetailsProvider`; Stove prefixes its evidence with the application name.
 
 ## Test operations
 

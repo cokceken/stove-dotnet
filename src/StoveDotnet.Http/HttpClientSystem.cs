@@ -7,6 +7,8 @@ namespace StoveDotnet.Http;
 
 public sealed class HttpClientOptions
 {
+    /// <summary>Name of the application to bind to. Null resolves the default or only application.</summary>
+    public string? ApplicationName { get; set; }
     /// <summary>Base address for relative URIs. Defaults to the application under test's Kestrel address.</summary>
     public Uri? BaseAddress { get; set; }
 
@@ -19,7 +21,7 @@ public sealed class HttpClientOptions
 }
 
 /// <summary>Calls the application under test over real HTTP, tagging every request with the running test's trace.</summary>
-public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted
+public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted, IAfterApplicationsStarted
 {
     private readonly HttpClientOptions _options;
     private HttpClient? _client;
@@ -31,6 +33,13 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted
     }
 
     public string? Name { get; }
+
+    public Task OnApplicationsStartedAsync(Stove stove, CancellationToken cancellationToken)
+    {
+        if (_options.BaseAddress is not null) return Task.CompletedTask;
+        if (_options.ApplicationName is null && stove.Application is null) return Task.CompletedTask;
+        return OnApplicationStartedAsync(stove.GetApplication(_options.ApplicationName), cancellationToken);
+    }
 
     public Task OnApplicationStartedAsync(IApplicationContext application, CancellationToken cancellationToken)
     {

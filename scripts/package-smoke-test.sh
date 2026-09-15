@@ -36,6 +36,7 @@ cat > Smoke.csproj <<EOF
   <ItemGroup>
     <PackageReference Include="StoveDotnet" Version="$version" />
     <PackageReference Include="StoveDotnet.AspNetCore" Version="$version" />
+    <PackageReference Include="StoveDotnet.Hosting" Version="$version" />
     <PackageReference Include="StoveDotnet.Http" Version="$version" />
     <PackageReference Include="StoveDotnet.Kafka" Version="$version" />
     <PackageReference Include="StoveDotnet.Postgres" Version="$version" />
@@ -51,6 +52,10 @@ cat > Smoke.csproj <<EOF
 EOF
 cat > Program.cs <<'EOF'
 using StoveDotnet;
+using StoveDotnet.Hosting;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using StoveDotnet.Http;
 using StoveDotnet.Kafka;
 using StoveDotnet.Postgres;
@@ -103,6 +108,17 @@ await stove.Test(async t =>
     }
 });
 Console.WriteLine("StoveDotnet.WireMock works at runtime");
+await using var workers = await StoveBuilder.Create()
+    .WithHostApplication("worker", configuration =>
+    {
+        var host = Host.CreateApplicationBuilder();
+        host.Configuration.AddInMemoryCollection(configuration);
+        return host.Build();
+    }, o => o.Configuration["Role"] = "worker")
+    .StartAsync();
+if (workers.GetApplication("worker").Services.GetRequiredService<IConfiguration>()["Role"] != "worker")
+    throw new InvalidOperationException("Named host configuration was not applied.");
+Console.WriteLine("StoveDotnet.Hosting works at runtime");
 EOF
 
 dotnet build -c Release --nologo -v quiet

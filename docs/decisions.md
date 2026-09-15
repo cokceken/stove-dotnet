@@ -25,6 +25,12 @@ requirements live in [module conventions](modules.md).
 
 ## What the original Stove informs
 
+Named in-process applications are now supported. APIs and Generic Host workers keep separate configuration and
+lifetimes while sharing dependencies. Registration order controls startup/readiness; reverse order controls shutdown.
+HTTP clients explicitly target applications when no default exists. Core stays independent of Microsoft hosting APIs;
+`StoveDotnet.Hosting` provides worker lifecycle and application-local log collection. Separate-process hosting and
+global instrumentation isolation remain outside this increment. See [the adoption guide](multiple-applications.md).
+
 Framework adoption now has executable evidence: separate xUnit v3, NUnit, MSTest and TUnit examples share
 only application/environment setup. CI checks native assertions, cancellation, runner failure/skip outcomes,
 filtering and teardown on .NET 10/MTP, then repeats against isolated package consumers. The core remains free

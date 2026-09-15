@@ -17,7 +17,7 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | Area | Present behavior |
 | --- | --- |
 | Core | Small lifecycle capabilities, named instances, typed configuration injection, migrations, cancellation, test correlation and failure wrapping |
-| Application hosting | Real ASP.NET Core application on Kestrel, HTTP DSL and access to application services |
+| Application hosting | Named ASP.NET Core and Generic Host applications, per-app configuration/readiness, targeted HTTP clients, named service access and correlated application logs; API/worker composition example |
 | Dependencies | PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and named in-process WireMock servers |
 | Telemetry | OTLP traces/logs, test correlation and failure details |
 | Lifecycle hardening | Attempt all disposal steps despite cleanup failures; retain startup and rollback errors; wait for in-flight starts before rollback |
@@ -30,10 +30,16 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | Framework adoption | Separate xUnit v3, NUnit, MSTest and TUnit examples on .NET 10/MTP, five tests each; runner failure/skip/filter checks and teardown audits; isolated package-consumer verification |
 | CI and packages | Shared CI/release matrix with separate suite jobs, fail-fast disabled, packaging gated on tests and an isolated package smoke test |
 
-SQL Server is implemented; it is no longer a future-module candidate. The repository contains twelve library packages:
-core, ASP.NET Core, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and WireMock.
+SQL Server is implemented; it is no longer a future-module candidate. The repository contains thirteen library packages:
+core, ASP.NET Core, Generic Host hosting, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and WireMock.
 
 ### Local verification history
+
+Named-host adoption verification: Release solution build with zero warnings/errors; 37 core tests, 31 hosting tests,
+two API/worker tests and eight existing OrderService tests passed locally on Windows/Podman. Thirteen packages were
+packed, and the isolated package smoke check started a named Generic Host. The four framework package-consumer suites
+also passed their full, filtered, expected-failure and skip/cleanup checks. These are local results, not a remote CI
+or publication claim. See [multiple applications](docs/multiple-applications.md) for scope and limitations.
 
 The framework adoption work adds twenty passing example tests on Windows/Podman, plus four filtered runs,
 four expected-failure runs and four skip/inconclusive runs with cleanup checks. See the

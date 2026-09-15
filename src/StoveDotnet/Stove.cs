@@ -8,19 +8,30 @@ namespace StoveDotnet;
 public sealed class Stove : IAsyncDisposable
 {
     private readonly SystemRegistry _registry;
-    private readonly IApplicationUnderTest? _applicationUnderTest;
+    private readonly IReadOnlyList<ApplicationRegistration> _applications;
+    private readonly Dictionary<string, IApplicationContext> _contexts = new(StringComparer.Ordinal);
     private readonly StoveOptions _options;
     private int _disposed;
 
-    internal Stove(SystemRegistry registry, IApplicationUnderTest? applicationUnderTest, StoveOptions options)
+    internal Stove(SystemRegistry registry, IReadOnlyList<ApplicationRegistration> applications, StoveOptions options)
     {
         _registry = registry;
-        _applicationUnderTest = applicationUnderTest;
+        _applications = applications;
         _options = options;
     }
 
     /// <summary>The running application, or <c>null</c> when Stove runs without one.</summary>
-    public IApplicationContext? Application { get; private set; }
+    public IApplicationContext? Application => _contexts.Count == 0 ? null : GetApplication();
+
+    /// <summary>Resolves an exact name, the unnamed default, or the only application. Ambiguous defaults fail.</summary>
+    public IApplicationContext GetApplication(string? name = null)
+    {
+        if (_contexts.TryGetValue(name ?? "", out var context)) return context;
+        if (name is null && _contexts.Count == 1) return _contexts.Values.Single();
+        throw new InvalidOperationException(name is null
+            ? "No default application is available. Specify an application name when multiple named applications are registered."
+            : $"Application '{name}' is not available. Registered applications: {string.Join(", ", _contexts.Keys)}.");
+    }
 
     internal SystemRegistry Registry => _registry;
 
@@ -33,12 +44,27 @@ public sealed class Stove : IAsyncDisposable
 
         var configuration = CollectConfiguration();
 
-        if (_applicationUnderTest is not null)
+        foreach (var registration in _applications)
         {
-            Application = await _applicationUnderTest.StartAsync(configuration, cancellationToken).ConfigureAwait(false);
-            await Task.WhenAll(_registry.OfType<IAfterApplicationStarted>()
-                .Select(async s => await s.OnApplicationStartedAsync(Application, cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var local = new Dictionary<string, string?>(configuration, StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in registration.Options.Configuration) local[pair.Key] = pair.Value;
+            try
+            {
+                var context = await registration.Application.StartAsync(local, cancellationToken).ConfigureAwait(false);
+                if (registration.Options.ReadyAsync is { } ready) await ready(context, cancellationToken).ConfigureAwait(false);
+                _contexts.Add(registration.Name ?? "", context);
+            }
+            catch (Exception ex) when (registration.Name is not null && ex is not OperationCanceledException)
+            {
+                throw new InvalidOperationException($"Application '{registration.Name}' failed to start or become ready.", ex);
+            }
         }
+        await Task.WhenAll(_registry.OfType<IAfterApplicationsStarted>()
+            .Select(async s => await s.OnApplicationsStartedAsync(this, cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
+        if (_contexts.Count > 0)
+            await Task.WhenAll(_registry.OfType<IAfterApplicationStarted>().Where(s => s is not IAfterApplicationsStarted)
+                .Select(async s => await s.OnApplicationStartedAsync(GetApplication(), cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
     }
 
     private Dictionary<string, string?> CollectConfiguration()
@@ -143,6 +169,17 @@ public sealed class Stove : IAsyncDisposable
     {
         using var timeout = new CancellationTokenSource(_options.FailureDetailsTimeout);
         var details = new List<FailureDetails>();
+        foreach (var registration in _applications)
+        {
+            if (registration.Application is not IFailureDetailsProvider provider) continue;
+            var title = $"application:{registration.Name ?? "(default)"}";
+            try
+            {
+                var detail = await provider.DescribeAsync(test, timeout.Token).ConfigureAwait(false);
+                if (detail is not null) details.Add(new FailureDetails($"{title} / {detail.Title}", detail.Content));
+            }
+            catch (Exception ex) { details.Add(new FailureDetails(title, $"(failed to collect details: {ex.Message})")); }
+        }
         foreach (var provider in _registry.OfType<IFailureDetailsProvider>())
         {
             try
@@ -206,9 +243,16 @@ public sealed class Stove : IAsyncDisposable
         }
 
         var actions = new List<Func<ValueTask>>();
-        if (_applicationUnderTest is not null)
+        foreach (var registration in _applications.Reverse())
         {
-            actions.Add(_applicationUnderTest.DisposeAsync);
+            actions.Add(async () =>
+            {
+                try { await registration.Application.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception ex) when (registration.Name is not null)
+                {
+                    throw new InvalidOperationException($"Application '{registration.Name}' failed to stop.", ex);
+                }
+            });
         }
 
         foreach (var system in _registry.All.Reverse())

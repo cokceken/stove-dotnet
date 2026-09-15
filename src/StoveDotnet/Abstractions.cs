@@ -51,5 +51,6 @@ public interface IApplicationContext
 {
     IServiceProvider Services { get; }
 
+    /// <summary>The HTTP endpoint. Non-HTTP hosts throw when this is accessed; use their Services instead.</summary>
     Uri BaseAddress { get; }
 }

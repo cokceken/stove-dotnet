@@ -8,6 +8,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
+    <ProjectReference Include="../StoveDotnet.Hosting/StoveDotnet.Hosting.csproj" />
   </ItemGroup>
 
 </Project>

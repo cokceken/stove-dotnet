@@ -182,3 +182,20 @@ examples, and `docs/test-frameworks.md` documents adoption on .NET 10 / Microsof
 MSTest assembly hooks are static methods in a nonstatic `[TestClass]`. Current TUnit uses
 `TestContext.Current!.Execution.CancellationToken`; NUnit uses `TestContext.CurrentContext.CancellationToken`,
 and MSTest uses the injected `TestContext.CancellationToken`. Do not copy xUnit's token accessor to every framework.
+
+## Multiple applications
+
+Use `WithAspNetCoreApplication<Program>("api", o => o.Configuration["Key"] = "value")` and
+`WithHostApplication("worker", WorkerApplication.Build)` (namespace/package `StoveDotnet.Hosting`). The worker
+factory receives shared configuration and must apply it before reading options and building the real, unstarted host.
+Applications start in registration order after dependencies; `ReadyAsync` finishes before the next app starts.
+Stove stops hosts in reverse order before dependencies. Do not use process environment variables for per-host settings.
+
+Bind clients explicitly: `WithHttpClient("api", o => o.ApplicationName = "api")`, then `t.Http("api")`.
+`ApplicationName` is independent from the HTTP client name. An explicit BaseAddress overrides application binding.
+`t.GetApplication("worker").Services` selects the worker; `t.Using<MyService>("api", action)` selects an API service scope.
+Unnamed access resolves the unnamed default or the only application; multiple named apps without a default are ambiguous.
+A Generic Host has no HTTP BaseAddress. Existing single-application setup remains valid.
+
+`examples/MultiApplication` verifies HTTP -> RabbitMQ -> worker -> PostgreSQL -> HTTP. See
+`docs/multiple-applications.md` for readiness, named failure logs, package setup and in-process isolation limitations.

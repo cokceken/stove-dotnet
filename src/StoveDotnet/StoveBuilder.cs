@@ -4,7 +4,7 @@ namespace StoveDotnet;
 public sealed class StoveBuilder
 {
     private readonly SystemRegistry _registry = new();
-    private IApplicationUnderTest? _application;
+    private readonly List<ApplicationRegistration> _applications = [];
 
     private StoveBuilder()
     {
@@ -22,15 +22,21 @@ public sealed class StoveBuilder
     }
 
     /// <summary>Sets the application under test. Module packages expose friendlier extension methods on top of this.</summary>
-    public StoveBuilder WithApplication(IApplicationUnderTest application)
+    public StoveBuilder WithApplication(IApplicationUnderTest application) => WithApplication(null, application);
+
+    /// <summary>Registers an application. Applications start in registration order and stop in reverse order.</summary>
+    public StoveBuilder WithApplication(string? name, IApplicationUnderTest application, ApplicationOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(application);
-        if (_application is not null)
+        if (name is not null && string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Application name must not be blank.", nameof(name));
+        if (_applications.Any(a => string.Equals(a.Name, name, StringComparison.Ordinal)))
         {
-            throw new InvalidOperationException("An application under test is already registered.");
+            throw new InvalidOperationException($"An application under test is already registered with name '{name ?? "(default)"}'.");
         }
 
-        _application = application;
+        if (_applications.Any(a => ReferenceEquals(a.Application, application)))
+            throw new InvalidOperationException("The same application instance cannot be registered twice.");
+        _applications.Add(new ApplicationRegistration(name, application, options ?? new ApplicationOptions()));
         return this;
     }
 
@@ -43,7 +49,7 @@ public sealed class StoveBuilder
     /// <summary>Starts every system, then the application, and returns the running <see cref="Stove"/>.</summary>
     public async Task<Stove> StartAsync(CancellationToken cancellationToken = default)
     {
-        var stove = new Stove(_registry, _application, Options);
+        var stove = new Stove(_registry, _applications.ToArray(), Options);
         try
         {
             await stove.StartAsync(cancellationToken).ConfigureAwait(false);

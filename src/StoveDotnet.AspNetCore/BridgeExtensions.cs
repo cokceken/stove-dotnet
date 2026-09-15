@@ -5,6 +5,19 @@ namespace StoveDotnet.AspNetCore;
 /// <summary>Access to the application's own services, resolved from a fresh DI scope.</summary>
 public static class BridgeExtensions
 {
+    public static IServiceProvider Services(this StoveTestContext test, string name) => test.GetApplication(name).Services;
+
+    public static async Task Using<T>(this StoveTestContext test, string application, Func<T, Task> action) where T : notnull
+    {
+        await using var scope = test.GetApplication(application).Services.CreateAsyncScope();
+        await action(scope.ServiceProvider.GetRequiredService<T>()).ConfigureAwait(false);
+    }
+
+    public static async Task<TResult> Using<T, TResult>(this StoveTestContext test, string application, Func<T, Task<TResult>> action) where T : notnull
+    {
+        await using var scope = test.GetApplication(application).Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<T>()).ConfigureAwait(false);
+    }
     public static IServiceProvider Services(this StoveTestContext test) => test.Application.Services;
 
     public static async Task Using<T>(this StoveTestContext test, Func<T, Task> action) where T : notnull

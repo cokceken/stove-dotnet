@@ -45,6 +45,7 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 |---|---|
 | `StoveDotnet` | Builder, lifecycle, `stove.Test`, correlation, `Eventually`, migrations |
 | `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication<Program>()` (WebApplicationFactory + real Kestrel), DI bridge `t.Using<T>()` |
+| `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown |
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
 | `StoveDotnet.Telemetry` | `WithTelemetry()`: OTLP/HTTP receiver for traces and logs, `t.Telemetry()` |
 | `StoveDotnet.Postgres` | `WithPostgres()`: Testcontainers PostgreSQL, raw Npgsql DSL |
@@ -68,6 +69,9 @@ dotnet add package StoveDotnet.Postgres --prerelease
 ```
 
 ## Setting up
+
+For separate APIs and workers, see [named applications and HTTP clients](docs/multiple-applications.md) and the
+[API/worker example](examples/MultiApplication/README.md). Existing single-application setup remains unchanged.
 
 ```csharp
 Stove = await StoveBuilder.Create()

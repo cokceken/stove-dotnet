@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using StoveDotnet.Hosting;
 
 namespace StoveDotnet.AspNetCore;
 
-public sealed class AspNetCoreApplicationOptions
+public sealed class AspNetCoreApplicationOptions : ApplicationOptions
 {
     /// <summary>Kestrel port; 0 picks a free port.</summary>
     public int Port { get; set; }
@@ -22,8 +24,9 @@ public sealed class AspNetCoreApplicationOptions
 }
 
 /// <summary>Runs an ASP.NET Core application in-process on a real Kestrel port.</summary>
-public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUnderTest where TEntryPoint : class
+public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUnderTest, IFailureDetailsProvider where TEntryPoint : class
 {
+    private readonly ApplicationLogCollector _logs = new();
     private readonly AspNetCoreApplicationOptions _options;
     private StoveWebApplicationFactory? _factory;
 
@@ -34,7 +37,7 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
 
     public async Task<IApplicationContext> StartAsync(IReadOnlyDictionary<string, string?> configuration, CancellationToken cancellationToken)
     {
-        _factory = new StoveWebApplicationFactory(configuration, _options);
+        _factory = new StoveWebApplicationFactory(configuration, _options, _logs);
         _factory.UseKestrel(_options.Port);
         await Task.Run(_factory.StartServer, cancellationToken).ConfigureAwait(false);
 
@@ -53,9 +56,11 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
         }
     }
 
+    public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken) => _logs.DescribeAsync(test, cancellationToken);
+
     private sealed class StoveWebApplicationFactory(
         IReadOnlyDictionary<string, string?> configuration,
-        AspNetCoreApplicationOptions options) : WebApplicationFactory<TEntryPoint>
+        AspNetCoreApplicationOptions options, ApplicationLogCollector logs) : WebApplicationFactory<TEntryPoint>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -71,6 +76,7 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
             }
 
             options.ConfigureWebHost?.Invoke(builder);
+            builder.ConfigureLogging(logging => logging.AddProvider(logs));
         }
     }
 
@@ -83,9 +89,14 @@ public static class AspNetCoreStoveBuilderExtensions
     public static StoveBuilder WithAspNetCoreApplication<TEntryPoint>(
         this StoveBuilder builder,
         Action<AspNetCoreApplicationOptions>? configure = null) where TEntryPoint : class
+        => builder.WithAspNetCoreApplication<TEntryPoint>(null, configure);
+
+    public static StoveBuilder WithAspNetCoreApplication<TEntryPoint>(
+        this StoveBuilder builder, string? name,
+        Action<AspNetCoreApplicationOptions>? configure = null) where TEntryPoint : class
     {
         var options = new AspNetCoreApplicationOptions();
         configure?.Invoke(options);
-        return builder.WithApplication(new AspNetCoreApplicationUnderTest<TEntryPoint>(options));
+        return builder.WithApplication(name, new AspNetCoreApplicationUnderTest<TEntryPoint>(options), options);
     }
 }

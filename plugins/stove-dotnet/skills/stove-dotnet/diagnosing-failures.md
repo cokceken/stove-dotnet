@@ -88,3 +88,9 @@ must agree when present, and malformed headers are excluded. `SingleActiveTest` 
 time, so it cannot safely distinguish delayed previous work. RabbitMQ assertions also require explicit bindings to
 named exchanges. A cancelled/lost observer fails assertions; restart the environment to restore complete observation.
 RabbitMQ failure details show routes, sizes and message ids without including payload bodies.
+
+Named hosts attach correlated Information-or-higher application logs under `application:<name>` in failure output.
+These retain the latest 1,000 correlated entries per host and are filtered to the failing trace, not a complete log archive.
+Workers must propagate traceparent and start a consumer Activity to correlate logs. Application naming does not isolate
+process-wide OpenTelemetry instrumentation; multiple providers can observe the same spans. Verify worker business results
+with bounded polling, not publication alone. Background host liveness monitoring is not provided in this increment.
