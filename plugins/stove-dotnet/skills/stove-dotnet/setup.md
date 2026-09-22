@@ -200,6 +200,17 @@ A Generic Host has no HTTP BaseAddress. Existing single-application setup remain
 `examples/MultiApplication` verifies HTTP -> RabbitMQ -> worker -> PostgreSQL -> HTTP. See
 `docs/multiple-applications.md` for readiness, named failure logs, package setup and in-process isolation limitations.
 
+## Custom dependency containers
+
+`StoveDotnet.Containers` provides `WithContainer(name?, configure)`. Set `CreateContainer` to a factory returning a
+fresh, unstarted Testcontainers `IContainer`; use the native builder for image, environment, commands, files and
+random ports. Always configure a service-specific `WithWaitStrategy`. `InitializeAsync(container, ct)` optionally
+creates buckets/indexes or seeds data after readiness and before application startup. Dispose temporary SDK clients.
+`ConfigureExposedConfiguration` receives `c.Container`; resolve `Hostname` and `GetMappedPublicPort` there.
+Stove owns the returned container and rollback; do not enable reuse, disable cleanup or return a shared instance.
+Already-running containers are rejected without taking ownership. Separate networks/volumes remain caller-owned.
+Repository `examples/CustomContainer` demonstrates a MinIO container behind a real API; see `docs/custom-containers.md`.
+
 ## Optional test time and OIDC
 
 Add `StoveDotnet.Time` only when application time needs control. Create a fixture-owned Microsoft `FakeTimeProvider`;

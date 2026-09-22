@@ -1,5 +1,12 @@
 <Solution>
   <Folder Name="/examples/" />
+  <Folder Name="/examples/CustomContainer/" />
+  <Folder Name="/examples/CustomContainer/Api/">
+    <Project Path="examples/CustomContainer/Api/CustomContainer.Api.csproj" />
+  </Folder>
+  <Folder Name="/examples/CustomContainer/Tests/">
+    <Project Path="examples/CustomContainer/Tests/CustomContainer.Tests.csproj" />
+  </Folder>
   <Folder Name="/examples/Frameworks/">
     <Project Path="examples/Frameworks/MSTest/FrameworkExamples.MSTest.csproj" />
     <Project Path="examples/Frameworks/NUnit/FrameworkExamples.NUnit.csproj" />
@@ -16,6 +23,7 @@
     <Project Path="examples/MultiApplication/Worker/MultiApplication.Worker.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/StoveDotnet.Containers/StoveDotnet.Containers.csproj" />
     <Project Path="src/StoveDotnet.Hosting/StoveDotnet.Hosting.csproj" />
     <Project Path="src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
     <Project Path="src/StoveDotnet.Http/StoveDotnet.Http.csproj" />
@@ -33,6 +41,7 @@
     <Project Path="src/StoveDotnet/StoveDotnet.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/StoveDotnet.Containers.AcceptanceTests/StoveDotnet.Containers.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Hosting.AcceptanceTests/StoveDotnet.Hosting.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Kafka.AcceptanceTests/StoveDotnet.Kafka.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.MongoDb.AcceptanceTests/StoveDotnet.MongoDb.AcceptanceTests.csproj" />

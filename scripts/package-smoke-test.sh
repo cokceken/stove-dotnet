@@ -37,6 +37,7 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet" Version="$version" />
     <PackageReference Include="StoveDotnet.AspNetCore" Version="$version" />
     <PackageReference Include="StoveDotnet.Hosting" Version="$version" />
+    <PackageReference Include="StoveDotnet.Containers" Version="$version" />
     <PackageReference Include="StoveDotnet.Time" Version="$version" />
     <PackageReference Include="StoveDotnet.Oidc" Version="$version" />
     <PackageReference Include="StoveDotnet.Http" Version="$version" />
@@ -55,6 +56,8 @@ EOF
 cat > Program.cs <<'EOF'
 using StoveDotnet;
 using StoveDotnet.Hosting;
+using StoveDotnet.Containers;
+using DotNet.Testcontainers.Builders;
 using StoveDotnet.Time;
 using StoveDotnet.Oidc;
 using Microsoft.Extensions.Time.Testing;
@@ -76,6 +79,11 @@ using StoveDotnet.Telemetry;
 using StoveDotnet.WireMock;
 
 var builder = StoveBuilder.Create()
+    .WithContainer("custom", o =>
+    {
+        o.CreateContainer = () => new ContainerBuilder("alpine:3.22").WithCommand("sleep", "300").Build();
+        o.ConfigureExposedConfiguration = c => [new("Custom:Host", c.Container.Hostname)];
+    })
     .WithTelemetry()
     .WithPostgres(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Db", c.ConnectionString)])
     .WithSqlServer(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:SqlServer", c.ConnectionString)])

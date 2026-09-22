@@ -6,6 +6,10 @@ For priorities and implementation status, see the [roadmap](../ROADMAP.md). For 
 Each module is a separate `StoveDotnet.Xxx` package with a reference to the core and its native client/container packages.
 Keep provider-specific clients and parameters accessible; do not hide them behind a universal database API.
 
+For dependencies without a dedicated module, `StoveDotnet.Containers` adapts a native container factory to the same
+lifecycle/configuration conventions. It deliberately has no vendor clients or automatic resets. See
+[custom containers](custom-containers.md) and the executable MinIO API example before introducing a specialized module.
+
 ## Registration and lifecycle
 
 - Offer `WithXxx(configure)` and `WithXxx(name, configure)` plus `t.Xxx(name)`.

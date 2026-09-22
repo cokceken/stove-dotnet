@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><Description>Bring your own Testcontainers dependency with StoveDotnet lifecycle, configuration and diagnostics.</Description></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers" />
+    <ProjectReference Include="../StoveDotnet/StoveDotnet.csproj" />
+  </ItemGroup>
+</Project>

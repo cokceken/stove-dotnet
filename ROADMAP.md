@@ -35,11 +35,20 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | Identity | Optional generic OIDC discovery/JWKS and configurable signed/invalid tokens, tested through real JWT bearer authentication |
 | Isolation | Shared unique-data tests, concurrent independently owned API/worker/database/broker environments and serialized shared-clock fixtures |
 
-SQL Server is implemented; it is no longer a future-module candidate. The repository contains fifteen library packages:
+SQL Server is implemented; it is no longer a future-module candidate. The repository contains sixteen library packages:
 core, ASP.NET Core, Generic Host hosting, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ,
-WireMock, Time and OIDC. See [practical testing](docs/practical-testing.md) for consumer APIs and compatibility decisions.
+WireMock, Time, OIDC and Containers. See [practical testing](docs/practical-testing.md) for consumer APIs and compatibility decisions.
+Generic container support now covers user-supplied images, native readiness, initialization, exposed configuration and
+owned cleanup, with a real MinIO/API example. See [custom containers](docs/custom-containers.md). Dedicated modules
+can be prioritized for specialized testing APIs rather than basic image startup.
 
 ### Local verification history
+
+Custom containers (2026-09-22): Release solution build passed with zero warnings/errors. Six container acceptance tests,
+three MinIO/API example tests, 46 core tests and 35 hosting tests passed on Windows/Podman (90 total). Sixteen packages
+were packed locally as `0.1.0-preview.2.5`. The smoke script's consumer ran from a fresh directory/cache through PowerShell;
+an additional package-only runtime check started a custom container, executed a native command and disposed it.
+Both new suites are in the shared CI matrix, documentation links resolve and skill copies match. No packages were published.
 
 Practical consumer improvements (2026-09-22): Release solution build passed with zero warnings/errors on Windows/Podman.
 The suites passed 203 tests: core 46, hosting/HTTP 35, Time 5, OIDC 14, PostgreSQL 16, SQL Server 14, MongoDB 13,

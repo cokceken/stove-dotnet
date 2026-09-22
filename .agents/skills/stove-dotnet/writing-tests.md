@@ -30,6 +30,15 @@ Assert with the project's assertion library. Stove's own helpers throw `StoveAss
 
 ## Module DSL
 
+### Custom containers (`t.Container(name?)`)
+
+Use `StoveDotnet.Containers` for dependency images without dedicated modules. `t.Container("storage").Container`
+returns the native Testcontainers `IContainer`: use its mapped host/ports with your SDK and forward test cancellation
+to native operations. Stove owns the container; you own SDK clients. There is no implicit reset or protocol-specific
+assertion/correlation. Use unique keys for shared fixtures or separate containers for isolation. Logs are opt-in through
+`IncludeLogs`, with `MaxLogLength` and `RedactLogs`; they are shared, not test-correlated. Redaction affects only Stove's
+excerpt, not native startup errors or application/client logs. See repository `docs/custom-containers.md`.
+
 ### HTTP (`t.Http(name?)`)
 
 ```csharp

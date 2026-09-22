@@ -16,6 +16,10 @@ jobs:
             project: tests/StoveDotnet.UnitTests
           - suite: Hosting
             project: tests/StoveDotnet.Hosting.AcceptanceTests
+          - suite: Custom containers
+            project: tests/StoveDotnet.Containers.AcceptanceTests
+          - suite: Object storage composition
+            project: examples/CustomContainer/Tests
           - suite: OIDC
             project: tests/StoveDotnet.Oidc.AcceptanceTests
           - suite: Test time

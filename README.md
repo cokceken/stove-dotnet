@@ -46,6 +46,7 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet` | Builder, lifecycle, `stove.Test`, correlation, `Eventually`, migrations |
 | `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication<Program>()` (WebApplicationFactory + real Kestrel), DI bridge `t.Using<T>()` |
 | `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown |
+| `StoveDotnet.Containers` | `WithContainer("storage", configure)`: bring your own Testcontainers image, readiness, initialization and application configuration |
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
 | `StoveDotnet.Time` | Explicit `UseStoveTime(clock)` injection and `t.Clock(application)` using Microsoft's FakeTimeProvider |
 | `StoveDotnet.Oidc` | `WithOidc()` / `t.Oidc()`: local discovery, JWKS and signed test tokens for real bearer validation |
@@ -71,6 +72,9 @@ dotnet add package StoveDotnet.Postgres --prerelease
 ```
 
 ## Setting up
+
+For dependencies without a dedicated module, see [custom containers](docs/custom-containers.md) and the
+[MinIO upload/download example](examples/CustomContainer/README.md). This uses real Docker/Podman containers.
 
 See [practical testing](docs/practical-testing.md) for fluent HTTP status assertions, safe diagnostics, custom requests,
 cancellation-aware waits, controllable time and OIDC. The [isolation examples](examples/Isolation/README.md) cover shared
