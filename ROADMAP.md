@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated: 2026-09-15. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, Kafka hardening, RabbitMQ and framework adoption examples now implemented.
+Updated: 2026-09-22. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, messaging hardening, framework adoption and practical RailSense-driven testing improvements are implemented.
 
 StoveDotnet's immediate direction is adoption in a real consumer project, using contract-focused end-to-end tests
 to identify practical gaps. Framework examples now provide a starting point. Broader module coverage remains on the
@@ -29,11 +29,27 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | Composition example | OrderService retains PostgreSQL, Redis, Kafka and external HTTP dependencies; eight active tests cover workflows, retrieval, rejection, concurrency and diagnostics |
 | Framework adoption | Separate xUnit v3, NUnit, MSTest and TUnit examples on .NET 10/MTP, five tests each; runner failure/skip/filter checks and teardown audits; isolated package-consumer verification |
 | CI and packages | Shared CI/release matrix with separate suite jobs, fail-fast disabled, packaging gated on tests and an isolated package smoke test |
+| HTTP adoption | Fluent expected status, bounded/redacted diagnostics, correlated hand-built request wrappers and lazy typed responses |
+| Waiting | Effective deadline tokens, configurable retry, value diagnostics and sequential bounded throughout sampling; legacy retry behavior retained |
+| Test time | Optional Microsoft FakeTimeProvider integration with explicit fixture ownership, timers and shared/independent host examples |
+| Identity | Optional generic OIDC discovery/JWKS and configurable signed/invalid tokens, tested through real JWT bearer authentication |
+| Isolation | Shared unique-data tests, concurrent independently owned API/worker/database/broker environments and serialized shared-clock fixtures |
 
-SQL Server is implemented; it is no longer a future-module candidate. The repository contains thirteen library packages:
-core, ASP.NET Core, Generic Host hosting, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ and WireMock.
+SQL Server is implemented; it is no longer a future-module candidate. The repository contains fifteen library packages:
+core, ASP.NET Core, Generic Host hosting, HTTP, telemetry, PostgreSQL, SQL Server, MongoDB, MySQL, Redis, Kafka, RabbitMQ,
+WireMock, Time and OIDC. See [practical testing](docs/practical-testing.md) for consumer APIs and compatibility decisions.
 
 ### Local verification history
+
+Practical consumer improvements (2026-09-22): Release solution build passed with zero warnings/errors on Windows/Podman.
+The suites passed 203 tests: core 46, hosting/HTTP 35, Time 5, OIDC 14, PostgreSQL 16, SQL Server 14, MongoDB 13,
+MySQL 16, Redis 1, Kafka 11, RabbitMQ 21, API/worker isolation 3 and OrderService 8. The intentionally failing
+OrderService demonstration remained skipped. Fifteen packages were packed locally as `0.1.0-preview.2.4`.
+The smoke script's standalone consumer was extracted and run through PowerShell with a fresh NuGet cache; restore,
+compilation, WireMock/Generic Host runtime, fake timers and OIDC discovery/token issuance passed.
+All four framework package consumers passed full (20 tests), filtered, expected-failure and skip/cleanup checks.
+The 19 runner-output parser checks passed, guide links resolve and skill copies match. No remote CI, release or
+publication is claimed. RailSense was inspected only. Remaining limits are documented in [practical testing](docs/practical-testing.md).
 
 Named-host adoption verification: Release solution build with zero warnings/errors; 37 core tests, 31 hosting tests,
 two API/worker tests and eight existing OrderService tests passed locally on Windows/Podman. Thirteen packages were

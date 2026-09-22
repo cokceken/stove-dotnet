@@ -36,13 +36,20 @@ Assert with the project's assertion library. Stove's own helpers throw `StoveAss
 StoveHttpResponse<T> r = await t.Http().Get<T>("/orders/1", headers: null);
 StoveHttpResponse    r = await t.Http().Post("/orders", body);          // also Put, Patch, Delete; generic <T> variants
 r.StatusCode; r.Headers; r.RawBody; r.IsSuccessStatusCode;
-T body = r.Body;            // generic only; deserialized lazily, throws with the raw body if it is not T
+T body = r.Expect(HttpStatusCode.OK).Body; // generic only; lazy, with bounded/redacted diagnostics on failure
+using var request = new HttpRequestMessage(HttpMethod.Get, "/orders/1");
+StoveHttpResponse<T> custom = await t.Http().Send<T>(request, t.CancellationToken);
 HttpResponseMessage raw = await t.Http().SendRaw(new HttpRequestMessage(...));
 ```
 
 - Bodies are serialized with System.Text.Json web defaults (camelCase).
 - Redirects are not followed.
 - For auth, add headers per call or use `HttpClientOptions.DefaultHeaders`.
+- `Expect(status)` returns the same typed/untyped wrapper without deserializing. Custom `Send` preserves correlation;
+  the caller owns its request. `SendRaw` leaves response disposal to the caller.
+- `HttpClientOptions.Diagnostics` bounds previews (2,048 characters by default), masks credential headers and URL
+  queries, and accepts `RedactUrl`, `RedactRequestBody` and `RedactResponseBody`. Request-body capture is opt-in.
+  Add project-specific sensitive headers. `RawBody` and wire data are unchanged; other log producers need their own redaction.
 
 ### Postgres (`t.Postgres(name?)`)
 
@@ -149,6 +156,26 @@ await Eventually.AssertAsync(async () =>
 Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `within:`, telemetry
 `ShouldContainSpan`, or `Eventually`.
 
+The old `AssertAsync(Func<Task>, timeout, ct)` retries all non-cancellation exceptions. The token-aware
+`AssertAsync(Func<CancellationToken, Task>, timeout, options?, ct)` retries only `StoveAssertionException` by default;
+configure `EventuallyOptions.RetryOn` to include framework assertion exceptions or selected transient errors.
+Forward the effective token to I/O. `UntilAsync<T>(probe, matches, timeout, options?, describeValue?, ct)` returns the
+matching value and reports the last observation on timeout; redact it with `describeValue` when needed.
+`ThroughoutAsync(assertion, duration, pollInterval?, ct)` samples sequentially with immediate failure, no retries or final
+boundary probe. Cancellation is cooperative: Stove awaits an unfinished probe instead of overlapping or abandoning it.
+Caller cancellation is distinct from timeout. See repository `docs/practical-testing.md` for compatibility details.
+
+### Application time and identity
+
+`StoveDotnet.Time` provides `services.UseStoveTime(clock)` for a fixture-owned Microsoft `FakeTimeProvider` and
+`t.Clock("api")` for lookup. Advance only after the application has armed its provider-aware timers. Shared clocks
+require serialized mutation; independent clocks/hosts can run in parallel. This does not change PostgreSQL, external
+systems or JWT validation time. Never assume advancing time drains all asynchronous work.
+
+`StoveDotnet.Oidc` provides `WithOidc(name?, configure)` and `t.Oidc(name?).IssueToken(configure?)` with issuer, audience,
+claims, expiry and signature options. Configure the real JWT bearer pipeline from exposed issuer/metadata/audience;
+permit HTTP metadata only in tests. Keep domain roles in the consumer. This module has no interactive login/token endpoint.
+
 ## Correlation and parallel tests
 
 - Each test has its own W3C trace. Stove's HTTP calls and broker publishes carry `traceparent` and `X-Stove-Test-Id`.
@@ -160,6 +187,8 @@ Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMoc
   Kafka/RabbitMQ producers must copy `traceparent`. If they overlap on the same third-party endpoint, set
   `WireMockOptions.ScopeStubsToTest = true`.
 - Prefer unique data per test (new ids, distinct product names) so tests stay independent of each other's rows.
+- A transaction in test code cannot roll back HTTP or background-worker writes on independent connections. Use
+  independently owned databases/brokers/hosts for resets or colliding data; see repository `examples/Isolation`.
 
 ## Test design guidance
 

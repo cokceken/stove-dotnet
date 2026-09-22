@@ -14,8 +14,8 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
     t.InventoryFake().StockAvailable("chair", available: 5);           // typed fakes generated from OpenAPI specs
     var payments = t.PaymentsFake().ChargeSucceeds(paymentId: "pay-1");
 
-    var response = await t.Http().Post<Order>("/orders", new CreateOrderRequest("chair", 2, "customer-1"));
-    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    var response = (await t.Http().Post<Order>("/orders", new CreateOrderRequest("chair", 2, "customer-1")))
+        .Expect(HttpStatusCode.Created);
 
     await t.Postgres().ShouldQuery(
         "select status from orders where id = @id", r => r.GetString(0),
@@ -30,13 +30,13 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 
 ## Principles
 
-- **The real system runs.** Stove never replaces application services. If you want to swap something, that is your
-  decision, made through the web host hook.
+- **The real system runs.** Stove does not automatically replace application services. Overrides are explicit through
+  the host hook; optional `UseStoveTime(clock)` registers a fixture-owned test clock.
 - **Every e2e test goes through `stove.Test`.** The test is named after its method. Systems are reachable only through
   the test context `t`. Stove owns the test's scope: correlation, per-test cleanup and failure reporting.
 - **No test framework lock-in.** Stove ships no xUnit, NUnit, TUnit or MSTest extensions. You start Stove once per test
   run from your framework's hook (see [Test frameworks](#test-frameworks)).
-- **No assertion library.** DSL methods return values or take callbacks; assert with whatever you already use.
+- **Use your assertion library.** DSL methods return values or take callbacks; HTTP also offers fluent status checks.
 - **Lightweight.** No dashboard and no agents. One OTLP/HTTP endpoint.
 
 ## Packages
@@ -47,6 +47,8 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication<Program>()` (WebApplicationFactory + real Kestrel), DI bridge `t.Using<T>()` |
 | `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown |
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
+| `StoveDotnet.Time` | Explicit `UseStoveTime(clock)` injection and `t.Clock(application)` using Microsoft's FakeTimeProvider |
+| `StoveDotnet.Oidc` | `WithOidc()` / `t.Oidc()`: local discovery, JWKS and signed test tokens for real bearer validation |
 | `StoveDotnet.Telemetry` | `WithTelemetry()`: OTLP/HTTP receiver for traces and logs, `t.Telemetry()` |
 | `StoveDotnet.Postgres` | `WithPostgres()`: Testcontainers PostgreSQL, raw Npgsql DSL |
 | `StoveDotnet.SqlServer` | `WithSqlServer()`: Testcontainers SQL Server, native Microsoft.Data.SqlClient DSL |
@@ -69,6 +71,11 @@ dotnet add package StoveDotnet.Postgres --prerelease
 ```
 
 ## Setting up
+
+See [practical testing](docs/practical-testing.md) for fluent HTTP status assertions, safe diagnostics, custom requests,
+cancellation-aware waits, controllable time and OIDC. The [isolation examples](examples/Isolation/README.md) cover shared
+hosts, independent databases/hosts and background workers. New modules must be published before consuming them from NuGet;
+their presence in this checkout does not imply a release.
 
 For separate APIs and workers, see [named applications and HTTP clients](docs/multiple-applications.md) and the
 [API/worker example](examples/MultiApplication/README.md). Existing single-application setup remains unchanged.

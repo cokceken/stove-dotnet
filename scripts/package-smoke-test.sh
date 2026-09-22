@@ -37,6 +37,8 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet" Version="$version" />
     <PackageReference Include="StoveDotnet.AspNetCore" Version="$version" />
     <PackageReference Include="StoveDotnet.Hosting" Version="$version" />
+    <PackageReference Include="StoveDotnet.Time" Version="$version" />
+    <PackageReference Include="StoveDotnet.Oidc" Version="$version" />
     <PackageReference Include="StoveDotnet.Http" Version="$version" />
     <PackageReference Include="StoveDotnet.Kafka" Version="$version" />
     <PackageReference Include="StoveDotnet.Postgres" Version="$version" />
@@ -53,6 +55,9 @@ EOF
 cat > Program.cs <<'EOF'
 using StoveDotnet;
 using StoveDotnet.Hosting;
+using StoveDotnet.Time;
+using StoveDotnet.Oidc;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,10 +99,15 @@ _ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").ShouldQuery<BsonD
 _ = (Func<StoveTestContext, Task>)(t => t.MySql().Execute("select @id", new MySqlParameter("id", 1)));
 
 // Runtime check without containers: start WireMock from the packages and run a real stove.Test against it.
-await using var stove = await StoveBuilder.Create().WithWireMock("payments").StartAsync();
+await using var stove = await StoveBuilder.Create().WithWireMock("payments").WithOidc().StartAsync();
 await stove.Test(async t =>
 {
     var payments = t.WireMock("payments");
+    var oidc = t.Oidc();
+    if (oidc.IssueToken().Split('.').Length != 3) throw new InvalidOperationException("Invalid JWT shape.");
+    using var metadataClient = new HttpClient();
+    var metadata = await metadataClient.GetStringAsync(oidc.ExposedConfiguration.MetadataAddress);
+    if (!metadata.Contains("jwks_uri", StringComparison.Ordinal)) throw new InvalidOperationException("OIDC discovery is unavailable.");
     payments.MockGet("/items/{id}", responseBody: new { ok = true });
     using var client = new HttpClient { BaseAddress = payments.ExposedConfiguration.BaseUrl };
     var body = await client.GetStringAsync("/items/42");
@@ -108,17 +118,23 @@ await stove.Test(async t =>
     }
 });
 Console.WriteLine("StoveDotnet.WireMock works at runtime");
+var clock = new FakeTimeProvider();
 await using var workers = await StoveBuilder.Create()
     .WithHostApplication("worker", configuration =>
     {
         var host = Host.CreateApplicationBuilder();
         host.Configuration.AddInMemoryCollection(configuration);
+        host.Services.UseStoveTime(clock);
         return host.Build();
     }, o => o.Configuration["Role"] = "worker")
     .StartAsync();
 if (workers.GetApplication("worker").Services.GetRequiredService<IConfiguration>()["Role"] != "worker")
     throw new InvalidOperationException("Named host configuration was not applied.");
 Console.WriteLine("StoveDotnet.Hosting works at runtime");
+var timer = Task.Delay(TimeSpan.FromHours(1), clock);
+clock.Advance(TimeSpan.FromHours(1));
+await timer.WaitAsync(TimeSpan.FromSeconds(5));
+Console.WriteLine("StoveDotnet.Time and StoveDotnet.Oidc work at runtime");
 EOF
 
 dotnet build -c Release --nologo -v quiet

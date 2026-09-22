@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><Description>Local OpenID Connect discovery, JWKS and signed test tokens for real JWT bearer validation.</Description></PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <ProjectReference Include="../StoveDotnet/StoveDotnet.csproj" />
+  </ItemGroup>
+</Project>

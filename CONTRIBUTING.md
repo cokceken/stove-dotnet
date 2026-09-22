@@ -6,6 +6,8 @@
 dotnet build -c Release                                          # warnings are errors
 dotnet test --project tests/StoveDotnet.UnitTests                # core only
 dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests  # no containers
+dotnet test --project tests/StoveDotnet.Time.AcceptanceTests     # no containers
+dotnet test --project tests/StoveDotnet.Oidc.AcceptanceTests     # real JWT bearer, no containers
 dotnet test --project tests/StoveDotnet.Postgres.AcceptanceTests # Docker or Podman
 dotnet test --project tests/StoveDotnet.SqlServer.AcceptanceTests
 dotnet test --project tests/StoveDotnet.MongoDb.AcceptanceTests
@@ -83,6 +85,9 @@ pre-releases. Packages on nuget.org cannot be deleted, only unlisted, so tag del
 `dotnet test --project examples/MultiApplication/Tests -c Release` verifies the separate API/worker flow using
 PostgreSQL and RabbitMQ. Core application lifecycle tests and container-free hosting tests cover name resolution,
 configuration isolation, readiness, rollback, client targeting and application log attribution.
+The isolation scenario starts independent environments concurrently with the same business key. Time tests cover
+HTTP delays, worker timers and serialized shared-clock fixtures; OIDC tests exercise the real bearer pipeline.
+See `docs/practical-testing.md` and `examples/Isolation` for the supported ownership and cancellation semantics.
 
 `examples/Frameworks` contains separate xUnit v3, NUnit, MSTest and TUnit projects, with framework-neutral
 application/environment projects. Keep the framework lifecycle and assertions visible in each example.

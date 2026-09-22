@@ -7,6 +7,7 @@ namespace StoveDotnet.Http;
 
 public sealed class HttpClientOptions
 {
+    public HttpDiagnosticsOptions Diagnostics { get; } = new();
     /// <summary>Name of the application to bind to. Null resolves the default or only application.</summary>
     public string? ApplicationName { get; set; }
     /// <summary>Base address for relative URIs. Defaults to the application under test's Kestrel address.</summary>
@@ -97,20 +98,42 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
             request.Headers.TryAddWithoutValidation(key, value);
         }
 
-        using var response = await SendRaw(request).ConfigureAwait(false);
-        var test = StoveTestContext.Require();
-        var rawBody = await response.Content.ReadAsStringAsync(test.CancellationToken).ConfigureAwait(false);
-        var responseHeaders = response.Headers.Concat(response.Content.Headers)
-            .ToDictionary(h => h.Key, h => (IReadOnlyList<string>)h.Value.ToList(), StringComparer.OrdinalIgnoreCase);
-
-        return new StoveHttpResponse(response.StatusCode, responseHeaders, rawBody);
+        return await Send(request).ConfigureAwait(false);
     }
 
-    /// <summary>Sends a hand-built request; correlation headers are still added.</summary>
-    public async Task<HttpResponseMessage> SendRaw(HttpRequestMessage request)
+    /// <summary>Sends caller-owned content with correlation and returns a buffered Stove response. The caller owns the request.</summary>
+    public async Task<StoveHttpResponse> Send(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var test = StoveTestContext.Require();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(test.CancellationToken, cancellationToken);
+        var requestBody = _options.Diagnostics.IncludeRequestBody && request.Content is not null
+            ? _options.Diagnostics.Body(await request.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false), request: true) : null;
+        using var response = await SendRaw(request, linked.Token).ConfigureAwait(false);
+        var rawBody = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
+        var responseHeaders = response.Headers.Concat(response.Content.Headers)
+            .ToDictionary(h => h.Key, h => (IReadOnlyList<string>)h.Value.ToList(), StringComparer.OrdinalIgnoreCase);
+        var diagnostic = $"{request.Method} {_options.Diagnostics.Url(request.RequestUri)} → {(int)response.StatusCode} {response.StatusCode}\n"
+            + $"Request headers:\n{_options.Diagnostics.Headers(request.Headers)}\n"
+            + (requestBody is null ? "" : $"Request body: {requestBody}\n")
+            + $"Response headers:\n{_options.Diagnostics.Headers(response.Headers)}\n{_options.Diagnostics.Headers(response.Content.Headers)}\n"
+            + $"Response body: {_options.Diagnostics.Body(rawBody)}";
+        return new StoveHttpResponse(response.StatusCode, responseHeaders, rawBody, diagnostic);
+    }
+
+    public async Task<StoveHttpResponse<T>> Send<T>(HttpRequestMessage request, CancellationToken cancellationToken = default) =>
+        new(await Send(request, cancellationToken).ConfigureAwait(false), _options.JsonSerializerOptions);
+
+    /// <summary>Sends a hand-built request; correlation headers are still added.</summary>
+    public Task<HttpResponseMessage> SendRaw(HttpRequestMessage request) => SendRaw(request, default);
+
+    public async Task<HttpResponseMessage> SendRaw(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var test = StoveTestContext.Require();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(test.CancellationToken, cancellationToken);
+        foreach (var (key, value) in _options.DefaultHeaders)
+            if (!request.Headers.Contains(key)) request.Headers.TryAddWithoutValidation(key, value);
         foreach (var (key, value) in test.CorrelationHeaders())
         {
             request.Headers.Remove(key);
@@ -120,7 +143,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
         // The application's HttpClient instrumentation also observes this call and re-propagates Activity.Current;
         // keep it inside the test's trace.
         using var activity = test.StartCorrelatedActivity("stove.http");
-        return await Client().SendAsync(request, test.CancellationToken).ConfigureAwait(false);
+        return await Client().SendAsync(request, linked.Token).ConfigureAwait(false);
     }
 
     private HttpClient Client() => _client ??= new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false })
@@ -139,6 +162,19 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
 
 public class StoveHttpResponse(HttpStatusCode statusCode, IReadOnlyDictionary<string, IReadOnlyList<string>> headers, string rawBody)
 {
+    private readonly string _diagnostic = $"{(int)statusCode} {statusCode}: {new HttpDiagnosticsOptions().Body(rawBody)}";
+
+    internal StoveHttpResponse(HttpStatusCode statusCode, IReadOnlyDictionary<string, IReadOnlyList<string>> headers, string rawBody, string diagnostic)
+        : this(statusCode, headers, rawBody) => _diagnostic = diagnostic;
+
+    protected StoveHttpResponse(StoveHttpResponse response) : this(response.StatusCode, response.Headers, response.RawBody, response._diagnostic) { }
+
+    public StoveHttpResponse Expect(HttpStatusCode expected)
+    {
+        if (StatusCode != expected)
+            throw new StoveAssertionException($"Expected HTTP {(int)expected} {expected}, actual {(int)StatusCode} {StatusCode}.\n{this}");
+        return this;
+    }
     public HttpStatusCode StatusCode { get; } = statusCode;
 
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Headers { get; } = headers;
@@ -147,15 +183,16 @@ public class StoveHttpResponse(HttpStatusCode statusCode, IReadOnlyDictionary<st
 
     public bool IsSuccessStatusCode => (int)StatusCode is >= 200 and < 300;
 
-    public override string ToString() => $"{(int)StatusCode} {StatusCode}: {RawBody}";
+    public override string ToString() => _diagnostic;
 }
 
 public sealed class StoveHttpResponse<T>(StoveHttpResponse response, JsonSerializerOptions jsonSerializerOptions)
-    : StoveHttpResponse(response.StatusCode, response.Headers, response.RawBody)
+    : StoveHttpResponse(response)
 {
+    public new StoveHttpResponse<T> Expect(HttpStatusCode expected) { base.Expect(expected); return this; }
     private readonly Lazy<T> _body = new(() => Deserialize(response, jsonSerializerOptions));
 
-    /// <summary>The JSON body deserialized on first access; throws with the raw body when it cannot be deserialized.</summary>
+    /// <summary>The JSON body deserialized on first access; failures include bounded, redacted response diagnostics.</summary>
     public T Body => _body.Value;
 
     private static T Deserialize(StoveHttpResponse response, JsonSerializerOptions options)
@@ -168,7 +205,7 @@ public sealed class StoveHttpResponse<T>(StoveHttpResponse response, JsonSeriali
         catch (JsonException ex)
         {
             throw new InvalidOperationException(
-                $"Could not deserialize the response body to {typeof(T).Name}. Response: {response}", ex);
+                $"Could not deserialize the response body to {typeof(T).Name}: invalid JSON or incompatible body at line {ex.LineNumber}, byte {ex.BytePositionInLine}. Response: {response}");
         }
     }
 }

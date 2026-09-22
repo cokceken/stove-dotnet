@@ -22,11 +22,13 @@
     <Project Path="src/StoveDotnet.Kafka/StoveDotnet.Kafka.csproj" />
     <Project Path="src/StoveDotnet.MongoDb/StoveDotnet.MongoDb.csproj" />
     <Project Path="src/StoveDotnet.MySql/StoveDotnet.MySql.csproj" />
+    <Project Path="src/StoveDotnet.Oidc/StoveDotnet.Oidc.csproj" />
     <Project Path="src/StoveDotnet.Postgres/StoveDotnet.Postgres.csproj" />
     <Project Path="src/StoveDotnet.RabbitMq/StoveDotnet.RabbitMq.csproj" />
     <Project Path="src/StoveDotnet.Redis/StoveDotnet.Redis.csproj" />
     <Project Path="src/StoveDotnet.SqlServer/StoveDotnet.SqlServer.csproj" />
     <Project Path="src/StoveDotnet.Telemetry/StoveDotnet.Telemetry.csproj" />
+    <Project Path="src/StoveDotnet.Time/StoveDotnet.Time.csproj" />
     <Project Path="src/StoveDotnet.WireMock/StoveDotnet.WireMock.csproj" />
     <Project Path="src/StoveDotnet/StoveDotnet.csproj" />
   </Folder>
@@ -35,11 +37,13 @@
     <Project Path="tests/StoveDotnet.Kafka.AcceptanceTests/StoveDotnet.Kafka.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.MongoDb.AcceptanceTests/StoveDotnet.MongoDb.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.MySql.AcceptanceTests/StoveDotnet.MySql.AcceptanceTests.csproj" />
+    <Project Path="tests/StoveDotnet.Oidc.AcceptanceTests/StoveDotnet.Oidc.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Postgres.AcceptanceTests/StoveDotnet.Postgres.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.RabbitMq.AcceptanceTests/StoveDotnet.RabbitMq.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Redis.AcceptanceTests/StoveDotnet.Redis.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.SqlServer.AcceptanceTests/StoveDotnet.SqlServer.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Testing/StoveDotnet.Testing.csproj" />
+    <Project Path="tests/StoveDotnet.Time.AcceptanceTests/StoveDotnet.Time.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.UnitTests/StoveDotnet.UnitTests.csproj" />
     <Project Path="tests/TestApps/HostingApp/HostingApp.csproj" />
     <Project Path="tests/TestApps/MongoDbApp/MongoDbApp.csproj" />
@@ -47,5 +51,9 @@
     <Project Path="tests/TestApps/RabbitMqApp/RabbitMqApp.csproj" />
     <Project Path="tests/TestApps/PostgresApp/PostgresApp.csproj" />
     <Project Path="tests/TestApps/SqlServerApp/SqlServerApp.csproj" />
+  </Folder>
+  <Folder Name="/tests/TestApps/">
+    <Project Path="tests/TestApps/ClockApp/ClockApp.csproj" />
+    <Project Path="tests/TestApps/OidcApp/OidcApp.csproj" />
   </Folder>
 </Solution>

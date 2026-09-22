@@ -16,7 +16,9 @@ public sealed class EnvironmentFixture : IAsyncLifetime
 {
     public Stove Stove { get; private set; } = null!;
 
-    public async ValueTask InitializeAsync() => Stove = await StoveBuilder.Create()
+    public async ValueTask InitializeAsync() => Stove = await Build().StartAsync(TestContext.Current.CancellationToken);
+
+    internal static StoveBuilder Build() => StoveBuilder.Create()
         .WithPostgres(o =>
         {
             o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Orders", c.ConnectionString)];
@@ -39,8 +41,7 @@ public sealed class EnvironmentFixture : IAsyncLifetime
         })
         .WithHostApplication("worker", WorkerApplication.Build)
         .WithAspNetCoreApplication<Program>("api")
-        .WithHttpClient("api", o => o.ApplicationName = "api")
-        .StartAsync(TestContext.Current.CancellationToken);
+        .WithHttpClient("api", o => o.ApplicationName = "api");
 
     public async ValueTask DisposeAsync() { GC.SuppressFinalize(this); await Stove.DisposeAsync(); }
 }
@@ -56,13 +57,13 @@ public sealed class OrderTests(EnvironmentFixture fixture)
     private Task ProcessOrder(string product) => fixture.Stove.Test(async t =>
     {
         var id = Guid.NewGuid();
-        Assert.Equal(HttpStatusCode.Accepted, (await t.Http("api").Post("/orders", new { id, product })).StatusCode);
+        (await t.Http("api").Post("/orders", new { id, product })).Expect(HttpStatusCode.Accepted);
         await t.RabbitMq().ShouldBePublished<OrderResponse>(m => m.Value.Id == id);
         // An observed message is insufficient: only the worker can create this persisted result.
-        await Eventually.AssertAsync(async () =>
+        await Eventually.AssertAsync(async ct =>
         {
-            var result = await t.Http("api").Get<OrderResponse>($"/orders/{id}");
-            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/orders/{id}");
+            var result = (await t.Http("api").Send<OrderResponse>(request, ct)).Expect(HttpStatusCode.OK);
             Assert.Equal(product, result.Body.Product);
         }, TimeSpan.FromSeconds(10), cancellationToken: t.CancellationToken);
     }, TestContext.Current.CancellationToken);

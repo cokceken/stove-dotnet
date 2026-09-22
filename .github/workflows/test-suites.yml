@@ -16,6 +16,10 @@ jobs:
             project: tests/StoveDotnet.UnitTests
           - suite: Hosting
             project: tests/StoveDotnet.Hosting.AcceptanceTests
+          - suite: OIDC
+            project: tests/StoveDotnet.Oidc.AcceptanceTests
+          - suite: Test time
+            project: tests/StoveDotnet.Time.AcceptanceTests
           - suite: PostgreSQL
             project: tests/StoveDotnet.Postgres.AcceptanceTests
           - suite: SQL Server

@@ -199,3 +199,15 @@ A Generic Host has no HTTP BaseAddress. Existing single-application setup remain
 
 `examples/MultiApplication` verifies HTTP -> RabbitMQ -> worker -> PostgreSQL -> HTTP. See
 `docs/multiple-applications.md` for readiness, named failure logs, package setup and in-process isolation limitations.
+
+## Optional test time and OIDC
+
+Add `StoveDotnet.Time` only when application time needs control. Create a fixture-owned Microsoft `FakeTimeProvider`;
+call `services.UseStoveTime(clock)` in the worker factory or ASP.NET Core `ConfigureTestServices`. Share that exact
+instance only where intentional, and serialize shared-clock mutation. There is no automatic clock or reset.
+
+Add `StoveDotnet.Oidc` for generic signed JWT scenarios. Register `WithOidc(o => ...)` and map its exposed `Issuer`,
+`MetadataAddress` and `Audience` through `ConfigureExposedConfiguration` to the application's actual auth keys.
+The real bearer handler must use the local metadata address and permit HTTP metadata in tests. Token issuance is
+`t.Oidc().IssueToken(o => o.Claims["sub"] = "alice")`; keep provider-specific roles outside the module.
+See repository `docs/practical-testing.md` and the Time/Oidc acceptance suites for executable setup.

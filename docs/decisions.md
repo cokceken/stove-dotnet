@@ -25,6 +25,21 @@ requirements live in [module conventions](modules.md).
 
 ## What the original Stove informs
 
+### Practical consumer evidence: RailSense
+
+RailSense's response/upload helpers, waits, clock and fake OIDC server informed the reusable features in
+[practical testing](practical-testing.md). The consumer was inspected without modification. Accepted decisions:
+
+- Extend HTTP wrappers with fluent status checks and configurable bounded/redacted diagnostics; retain raw access
+  and lazy deserialization. Raw response data remains caller-controlled.
+- Preserve legacy retry behavior and add token-aware overloads with explicit retry selection. Await cooperative probes
+  sequentially; never abandon timed-out work and start overlapping probes. Absence sampling has a bounded, documented scope.
+- Use Microsoft's `FakeTimeProvider` in an optional package. Fixtures explicitly own clocks and register them per app;
+  avoid a second timer scheduler. External database and token-validation clocks remain independent.
+- Reuse named applications for shared unique-data and independent environment examples. No implicit transaction/reset API.
+- Keep the optional OIDC module generic: local discovery/JWKS and signed token scenarios verified through JWT bearer.
+  Domain roles and interactive identity-provider flows stay outside this module.
+
 Named in-process applications are now supported. APIs and Generic Host workers keep separate configuration and
 lifetimes while sharing dependencies. Registration order controls startup/readiness; reverse order controls shutdown.
 HTTP clients explicitly target applications when no default exists. Core stays independent of Microsoft hosting APIs;

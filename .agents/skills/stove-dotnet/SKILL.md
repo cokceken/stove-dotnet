@@ -63,6 +63,8 @@ Namespaces:
 | `StoveDotnet` | `StoveBuilder`, `Stove`, `StoveTestContext`, `Eventually`, exceptions |
 | `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication`, `t.Using<T>()` |
 | `StoveDotnet.Http` | `WithHttpClient`, `t.Http()` |
+| `StoveDotnet.Time` | Opt-in `UseStoveTime(clock)`, `t.Clock(application?)` |
+| `StoveDotnet.Oidc` | `WithOidc`, `t.Oidc(name?).IssueToken()` |
 | `StoveDotnet.Postgres` | `WithPostgres`, `t.Postgres()` |
 | `StoveDotnet.MongoDb` | `WithMongoDb`, `t.MongoDb()` |
 | `StoveDotnet.MySql` | `WithMySql`, `t.MySql()` |
@@ -78,8 +80,9 @@ Namespaces:
   `stove.Test` calls; both throw.
 - Do not invent framework extensions or attributes (no `[StoveTest]`, no `UseStove()`). None exist.
 - Do not add a test name parameter. The name comes from the calling method.
-- Stove never replaces application services. Do not register fakes into the app's DI container to stand in for a
+- Stove does not automatically replace application services. Do not register fakes into the app's DI container to stand in for a
   dependency Stove already provides. Point the app at the Stove system through configuration instead.
+  `UseStoveTime` is an explicit exception: the fixture supplies a Microsoft `FakeTimeProvider` for application time.
 - Exposed configuration keys must be unique across systems. Use the app's real keys.
 - Named instances: `t.WireMock("payments")`. `t.WireMock()` resolves the unnamed instance, or the only instance of
   that kind. If several exist and none is unnamed, it throws.
@@ -89,7 +92,7 @@ Namespaces:
 - `ShouldBeConsumed` needs a consumer group that **commits** offsets. Pass the app's group id with `consumerGroup:`.
 - Kafka publishes default to System.Text.Json web settings (camelCase). Messages that fail to deserialize to `T` never
   match.
-- Assertions use the project's existing assertion library. Stove ships none.
+- General assertions use the project's existing assertion library. HTTP responses also offer fluent `Expect(status)`.
 - Keep setups minimal: register only the systems the app under test actually uses.
 
 - Kafka and RabbitMQ observation is strict by default: propagate matching test id or valid `traceparent`; both must
