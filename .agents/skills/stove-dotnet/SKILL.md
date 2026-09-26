@@ -1,6 +1,6 @@
 ---
 name: stove-dotnet
-description: Use when adding StoveDotnet to a .NET project, writing or debugging StoveDotnet end-to-end tests (stove.Test, Postgres, Kafka, Redis, WireMock, HTTP, telemetry), reading a StoveTestFailedException, or generating typed WireMock fakes for third-party APIs from OpenAPI/Swagger specs, SDKs or other API definitions.
+description: Use when adding StoveDotnet to a .NET project, writing or debugging StoveDotnet end-to-end tests (stove.Test, databases, Kafka, RabbitMQ, Azure Service Bus, Redis, WireMock, HTTP, telemetry), reading a StoveTestFailedException, or generating typed WireMock fakes for third-party APIs from OpenAPI/Swagger specs, SDKs or other API definitions.
 ---
 
 # StoveDotnet skill router
@@ -71,6 +71,7 @@ Namespaces:
 | `StoveDotnet.MySql` | `WithMySql`, `t.MySql()` |
 | `StoveDotnet.Kafka` | `WithKafka`, `t.Kafka()` |
 | `StoveDotnet.RabbitMq` | `WithRabbitMq`, `t.RabbitMq()` |
+| `StoveDotnet.Azure.ServiceBus` | `WithAzureServiceBus`, `t.AzureServiceBus()` |
 | `StoveDotnet.Redis` | `WithRedis`, `t.Redis()` |
 | `StoveDotnet.WireMock` | `WithWireMock`, `t.WireMock()`, `PathTemplate`, `RecordedRequest` |
 | `StoveDotnet.Telemetry` | `WithTelemetry`, `t.Telemetry()` |
@@ -102,3 +103,6 @@ Namespaces:
   finished-test records are not replayed. Fallback uses observer arrival time and cannot identify delayed old messages.
 - RabbitMQ observes dedicated exchange bindings on its own queue. Publisher confirms, routing and observed copies do
   not prove application processing; verify a business side effect instead.
+- Azure Service Bus `Peek`/`ShouldBeScheduled` are non-destructive, but `Receive` locks the real queue/subscription.
+  Never overlap it with the application or another test receiver on the same entity. Correlation cannot prevent a
+  competing receiver from acquiring the message first; verify application consumption through a business side effect.

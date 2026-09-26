@@ -36,6 +36,8 @@ jobs:
             project: tests/StoveDotnet.Redis.AcceptanceTests
           - suite: RabbitMQ
             project: tests/StoveDotnet.RabbitMq.AcceptanceTests
+          - suite: Azure Service Bus
+            project: tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests
           - suite: Kafka
             project: tests/StoveDotnet.Kafka.AcceptanceTests
           - suite: OrderService composition

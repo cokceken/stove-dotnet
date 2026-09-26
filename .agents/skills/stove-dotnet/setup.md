@@ -10,11 +10,11 @@ project. Add only the packages you need:
 | `StoveDotnet` | always |
 | `StoveDotnet.AspNetCore` | the app is ASP.NET Core; also provides `t.Using<T>()` |
 | `StoveDotnet.Http` | tests call the app's HTTP API |
-| `StoveDotnet.Postgres` / `.SqlServer` / `.MongoDb` / `.MySql` / `.Kafka` / `.RabbitMq` / `.Redis` | the app uses them |
+| `StoveDotnet.Postgres` / `.SqlServer` / `.MongoDb` / `.MySql` / `.Kafka` / `.RabbitMq` / `.Azure.ServiceBus` / `.Redis` | the app uses them |
 | `StoveDotnet.WireMock` | the app calls third-party HTTP APIs (see `openapi-fakes.md`) |
 | `StoveDotnet.Telemetry` | the app has (or can get) OpenTelemetry; strongly recommended |
 
-Requirements: .NET 10, and Docker or Podman for database, Kafka, RabbitMQ and Redis container modules.
+Requirements: .NET 10, and Docker or Podman for database, Kafka, RabbitMQ, Azure Service Bus and Redis container modules.
 
 The app must expose its entry point to `WebApplicationFactory`. Add this to the end of the app's `Program.cs` if it is
 missing:
@@ -35,6 +35,7 @@ with `Configure<T>(section)`.
 | MySQL | `MySqlExposedConfiguration` | `ConnectionString, Host, Port, Database, Username, Password` |
 | Postgres | `PostgresExposedConfiguration` | `ConnectionString, Host, Port, Database, Username, Password` |
 | Kafka | `KafkaExposedConfiguration` | `BootstrapServers` |
+| Azure Service Bus | `AzureServiceBusExposedConfiguration` | `FullyQualifiedNamespace, ConnectionString, IsEmulator` |
 | Redis | `RedisExposedConfiguration` | `ConnectionString, Host, Port` |
 | WireMock | `WireMockExposedConfiguration` | `BaseUrl (Uri), Host, Port` |
 | Telemetry | `TelemetryExposedConfiguration` | `Endpoint (Uri)` |
@@ -174,6 +175,30 @@ Map `RabbitMqExposedConfiguration.ConnectionString` to the app's actual configur
 channel in either mode; later disposal still runs if it fails. Stove removes its exclusive observer queue but does not
 remove user topology unless cleanup explicitly does so. `Connection` is native; callers own channels created from it.
 There are no observer bindings by default: publishing/native access works, but assertions require explicit bindings.
+
+## Azure Service Bus
+
+Use `StoveDotnet.Azure.ServiceBus`. The managed official emulator defaults to `servicebus-emulator:2.0.0`, also starts its SQL Server dependency and requires
+`AcceptLicenseAgreement = true`. Declare stable typed topology before startup:
+
+```csharp
+.WithAzureServiceBus(o =>
+{
+    o.AcceptLicenseAgreement = true;
+    o.Topology.Queue("commands").Topic("events", subscriptions: t => t.Subscription("billing"));
+    o.ConfigureExposedConfiguration = c => [new("ServiceBus:ConnectionString", c.ConnectionString)];
+})
+```
+
+For Azure, use `o.UseExisting("namespace.servicebus.windows.net", new DefaultAzureCredential(),
+runTopologySetup: false)`. Any `TokenCredential` is accepted and remains caller-owned. The emulator cannot validate
+Entra ID/managed identity, so authentication/RBAC claims require a real namespace. Stove's credential configures only
+Stove's client; the application retains its production client setup. Existing topology setup defaults off because
+sender/receiver identities should not need the Data Owner role.
+
+Typed topology creates missing queues, topics, subscriptions and rules before the application starts; it does not
+update existing entity properties or purge shared entities. `Client` and `AdministrationClient` expose native SDKs.
+See `docs/azure-service-bus.md` in the repository for scheduling, cleanup and parallelism boundaries.
 
 ### Runnable framework references
 

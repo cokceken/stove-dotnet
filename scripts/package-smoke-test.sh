@@ -47,6 +47,7 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet.MongoDb" Version="$version" />
     <PackageReference Include="StoveDotnet.MySql" Version="$version" />
     <PackageReference Include="StoveDotnet.RabbitMq" Version="$version" />
+    <PackageReference Include="StoveDotnet.Azure.ServiceBus" Version="$version" />
     <PackageReference Include="StoveDotnet.Redis" Version="$version" />
     <PackageReference Include="StoveDotnet.Telemetry" Version="$version" />
     <PackageReference Include="StoveDotnet.WireMock" Version="$version" />
@@ -74,6 +75,8 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MySqlConnector;
 using StoveDotnet.RabbitMq;
+using StoveDotnet.Azure.ServiceBus;
+using Azure.Identity;
 using StoveDotnet.Redis;
 using StoveDotnet.Telemetry;
 using StoveDotnet.WireMock;
@@ -91,6 +94,11 @@ var builder = StoveBuilder.Create()
     .WithMySql(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:MySql", c.ConnectionString)])
     .WithKafka(o => o.Observation.MaxMessagesPerTest = 1000)
     .WithRabbitMq(o => { o.Bindings.Add(new("events", "#")); o.Observation.UncorrelatedMessages = UncorrelatedMessagePolicy.Exclude; })
+    .WithAzureServiceBus(o =>
+    {
+        o.AcceptLicenseAgreement = true;
+        o.Topology.Queue("commands").Topic("events", subscriptions: t => t.Subscription("tests"));
+    })
     .WithRedis()
     .WithWireMock("payments")
     .WithHttpClient(o => o.BaseAddress = new Uri("http://localhost"));
@@ -101,6 +109,15 @@ Console.WriteLine($"StoveDotnet packages restored and compiled ({builder.GetType
 _ = (Func<StoveTestContext, Task>)(t => t.Kafka().ShouldNotBePublished<object>(_ => true, TimeSpan.FromSeconds(1)));
 
 _ = (Func<StoveTestContext, Task>)(t => t.RabbitMq().ShouldNotBePublished<object>(_ => true, TimeSpan.FromSeconds(1)));
+
+_ = (Func<StoveTestContext, Task>)(async t =>
+{
+    await t.AzureServiceBus().Queue("commands").Publish(new { id = t.TestId });
+    await t.AzureServiceBus().Queue("commands").ShouldBeScheduled<object>(_ => true);
+});
+
+_ = StoveBuilder.Create().WithAzureServiceBus(o =>
+    o.UseExisting("example.servicebus.windows.net", new DefaultAzureCredential(), runTopologySetup: false));
 
 // Compile native document/relational APIs without containers.
 _ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Empty, _ => { }));

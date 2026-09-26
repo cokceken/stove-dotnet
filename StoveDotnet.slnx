@@ -23,6 +23,7 @@
     <Project Path="examples/MultiApplication/Worker/MultiApplication.Worker.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/StoveDotnet.Azure.ServiceBus/StoveDotnet.Azure.ServiceBus.csproj" />
     <Project Path="src/StoveDotnet.Containers/StoveDotnet.Containers.csproj" />
     <Project Path="src/StoveDotnet.Hosting/StoveDotnet.Hosting.csproj" />
     <Project Path="src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
@@ -41,6 +42,7 @@
     <Project Path="src/StoveDotnet/StoveDotnet.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests/StoveDotnet.Azure.ServiceBus.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Containers.AcceptanceTests/StoveDotnet.Containers.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Hosting.AcceptanceTests/StoveDotnet.Hosting.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Kafka.AcceptanceTests/StoveDotnet.Kafka.AcceptanceTests.csproj" />
@@ -62,6 +64,7 @@
     <Project Path="tests/TestApps/SqlServerApp/SqlServerApp.csproj" />
   </Folder>
   <Folder Name="/tests/TestApps/">
+    <Project Path="tests/TestApps/AzureServiceBusApp/AzureServiceBusApp.csproj" />
     <Project Path="tests/TestApps/ClockApp/ClockApp.csproj" />
     <Project Path="tests/TestApps/OidcApp/OidcApp.csproj" />
   </Folder>

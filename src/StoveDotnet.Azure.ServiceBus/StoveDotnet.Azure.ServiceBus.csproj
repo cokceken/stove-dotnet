@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Azure Service Bus for StoveDotnet: managed emulator or Azure endpoints, typed topology, correlated messaging, scheduling and explicit settlement.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" />
+    <PackageReference Include="Testcontainers.ServiceBus" />
+    <ProjectReference Include="../StoveDotnet/StoveDotnet.csproj" />
+  </ItemGroup>
+</Project>

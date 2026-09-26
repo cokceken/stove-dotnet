@@ -22,6 +22,8 @@ requirements live in [module conventions](modules.md).
 | D14 | MySQL uses MySqlConnector and the relational acceptance contract | Default `mysql:8.4` is tested with MySqlConnector 2.6.2; callbacks and parameters remain native; MariaDB parity is not claimed |
 | D15 | Bound broker evidence per test and require correlation by default | Kafka/RabbitMQ share count/byte limits; overflow invalidates assertions. Headerless fallback is opt-in and limited to one active scope; arrival time cannot identify delayed old work |
 | D16 | RabbitMQ observes dedicated queues and exposes native confirms | Bind an exclusive queue to named exchanges; never compete for application messages. Keep publisher confirms, routing and application processing distinct; fail on observer loss rather than hide gaps with recovery |
+| D17 | Azure is a package family; Service Bus is independently consumable | `StoveDotnet.Azure.ServiceBus` owns its SDK/emulator dependencies; a future `StoveDotnet.Azure` may be a convenience meta-package |
+| D18 | Service Bus separates broker state, destructive receive and business processing | Peek scheduled state without waiting; explicit receive settlement may compete, and successful processing requires a business-visible assertion |
 
 ## What the original Stove informs
 
@@ -70,8 +72,9 @@ dependency graphs and Compose orchestration are outside this increment. A real M
 
 The database-first direction and the architecture/testing rules above are accepted. MongoDB's API/topology/transaction
 scope and MySQL's driver/version policy are implemented (D13/D14). Broker retention/correlation and RabbitMQ observation
-are now implemented (D15/D16). gRPC streaming scope and cloud emulator choices are not finalized. The roadmap proposes
-a sequence and initial boundaries for those decisions. They should be resolved with their module's implementation and acceptance evidence.
+are now implemented (D15/D16). Azure Service Bus is implemented under D17/D18. gRPC streaming scope and other cloud
+emulator choices are not finalized. The roadmap proposes a sequence and initial boundaries for those decisions. They
+should be resolved with their module's implementation and acceptance evidence.
 
 When changing an accepted decision, record the new requirement, the tradeoff and which earlier decision it replaces.
 Do not silently rewrite an implemented limitation as a guaranteed capability.

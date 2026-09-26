@@ -4,7 +4,7 @@ Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://gi
 
 StoveDotnet starts your **real** dependencies in containers, injects their connection details into your **real**
 application, runs the application in-process on a real Kestrel port, and gives every test one fluent DSL to arrange and
-assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
+assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Azure Service Bus, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
 traces and logs so a failing test explains itself.
 
 ```csharp
@@ -57,13 +57,14 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.MySql` | `WithMySql()`: MySQL, native MySqlConnector DSL |
 | `StoveDotnet.Kafka` | `WithKafka()`: Testcontainers Kafka, black-box publish/consume/fail assertions |
 | `StoveDotnet.RabbitMq` | `WithRabbitMq()`: confirmed publishing, dedicated observation queues, native RabbitMQ.Client |
+| `StoveDotnet.Azure.ServiceBus` | `WithAzureServiceBus()`: official emulator or Azure namespace, typed topology, scheduling and explicit settlement |
 | `StoveDotnet.Redis` | `WithRedis()`: Testcontainers Redis, StackExchange.Redis client |
 | `StoveDotnet.WireMock` | `WithWireMock()`: in-process WireMock.Net servers |
 
 Requirements: .NET 10 and a Docker-compatible container runtime (Docker or Podman) for the container modules.
 
 Published packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet). Install the ones you need into
-your e2e test project. MongoDB, MySQL and RabbitMQ are implemented in this checkout; their publication is not implied by this table:
+your e2e test project. MongoDB, MySQL, RabbitMQ and Azure Service Bus are implemented in this checkout; their publication is not implied by this table:
 
 ```shell
 dotnet add package StoveDotnet.AspNetCore --prerelease
@@ -131,7 +132,7 @@ WireMock per third-party API or two Redis instances:
 
 ### Existing instances
 
-Postgres, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ and Redis can use an already running service instead of a container. This is useful for CI services or
+Postgres, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Azure Service Bus and Redis can use an already running service instead of a container. This is useful for CI services or
 shared environments:
 
 ```csharp
@@ -286,6 +287,9 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
 - **RabbitMQ:** `Publish` / `PublishRaw` await broker confirms; `ShouldBePublished`, `ShouldNotBePublished` and `Peek`
   inspect copies on Stove's exclusive queue. Configure `Bindings` and ordered `Setup`; native `Connection` is available.
   Observation does not prove application processing. See [setup and guarantees](docs/messaging.md).
+- **Azure Service Bus:** typed queues/topics/subscriptions, correlated `Publish`/`Schedule`, non-destructive `Peek` and
+  `ShouldBeScheduled`, plus destructive `Receive` with explicit Complete/Abandon/DeadLetter/Defer settlement. Existing
+  Azure namespaces accept any `TokenCredential`. See [authentication, scheduling and parallelism](docs/azure-service-bus.md).
 - **Redis:** `Multiplexer` and `Database(db)`, plus `Migrations` and `Cleanup` options.
 - **WireMock:**
   - `MockGet/MockPost/MockPut/MockPatch/MockDelete(path, statusCode, responseBody, requestBody?, headers?, delay?)`.
@@ -365,7 +369,7 @@ the WireMock calls above come from the in-process WireMock servers.
 
 ### Correlation and parallel tests
 
-Kafka and RabbitMQ accept messages carrying the active test's id or a valid matching `traceparent`. If both headers
+Kafka, RabbitMQ and Azure Service Bus accept messages carrying the active test's id or a valid matching `traceparent`. If both headers
 are present, both must agree. Malformed or conflicting headers are excluded. Headerless messages are excluded by
 default; the explicit `SingleActiveTest` fallback uses observer arrival time and cannot distinguish a delayed old
 message from current work. Use strict correlation for parallel tests and existing brokers.
@@ -379,7 +383,7 @@ Other modules keep their existing correlation behavior; telemetry may include da
 Application code must propagate trace context across boundaries:
 
 - ASP.NET Core and HttpClient instrumentation propagate W3C context.
-- Kafka and RabbitMQ producers must forward `traceparent` (or the test id) into message headers. The native-client test
+- Kafka, RabbitMQ and Azure Service Bus producers must forward `traceparent` (or the test id) into message properties. The native-client test
   apps demonstrate this without referencing Stove.
 - For WireMock stubs that differ between parallel tests, set `ScopeStubsToTest = true`.
 
@@ -424,7 +428,7 @@ See the [project roadmap](ROADMAP.md) for implemented work, remaining gaps and p
 ```
 src/                         library packages
 tests/StoveDotnet.UnitTests   core only; no application host or containers
-tests/*.AcceptanceTests      separate Hosting, database, Redis, Kafka and RabbitMq suites
+tests/*.AcceptanceTests      separate Hosting, database, Redis, Kafka, RabbitMq and Azure Service Bus suites
 tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
 tests/TestApps/               small real applications using native clients, with no Stove references
 examples/Frameworks/         Framework examples, shared SampleApi, and OrderService composition tests with typed fakes
@@ -443,6 +447,7 @@ dotnet test --project tests/StoveDotnet.MySql.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Redis.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project tests/StoveDotnet.RabbitMq.AcceptanceTests
+dotnet test --project tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests
 dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3
 # the deliberately failing demo test:
 dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3 -- --explicit only

@@ -88,3 +88,10 @@ RabbitMQ owns an exclusive observation queue with explicit exchange bindings and
 queues. Its independent native-client app proves application processing through an HTTP-readable effect. Confirms,
 mandatory routing, observed copies and processing have separate tests. The suite also covers lost/cancelled observers,
 existing endpoints, cleanup failures, overlapping scopes and packaged API consumption.
+
+Azure Service Bus is a service-specific package under the `StoveDotnet.Azure.*` family; a future `StoveDotnet.Azure`
+meta-package may reference independent service packages without merging their SDK/emulator dependencies. Its typed
+topology is stable for the environment. Peek/scheduled assertions are non-destructive and strictly correlated, while
+`Receive` is explicitly destructive and unsafe when another test or the application competes on the same entity.
+TokenCredential support applies to existing Azure namespaces; the official emulator supports connection strings only.
+See [Azure Service Bus](azure-service-bus.md) for the parallelism and cleanup contract.

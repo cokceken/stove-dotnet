@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <ProjectReference Include="../../src/StoveDotnet.Azure.ServiceBus/StoveDotnet.Azure.ServiceBus.csproj" />
+    <ProjectReference Include="../../src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
+    <ProjectReference Include="../../src/StoveDotnet.Http/StoveDotnet.Http.csproj" />
+    <ProjectReference Include="../TestApps/AzureServiceBusApp/AzureServiceBusApp.csproj" />
+  </ItemGroup>
+</Project>

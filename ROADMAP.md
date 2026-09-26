@@ -1,6 +1,6 @@
 # Project roadmap
 
-Updated: 2026-09-22. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, messaging hardening, framework adoption and practical RailSense-driven testing improvements are implemented.
+Updated: 2026-09-26. Original baseline: `09e4a04` (`individual tests for modules`); database expansion, messaging hardening, Azure Service Bus, framework adoption and practical RailSense-driven testing improvements are implemented.
 
 StoveDotnet's immediate direction is adoption in a real consumer project, using contract-focused end-to-end tests
 to identify practical gaps. Framework examples now provide a starting point. Broader module coverage remains on the
@@ -98,8 +98,8 @@ composition coverage. Splitting projects did not automatically give every module
 
 ## Recommended module sequence
 
-Database-first expansion and the sequence below are accepted. MongoDB, MySQL, Kafka retention/correlation hardening
-and RabbitMQ are implemented. gRPC and cloud scope still need the design/acceptance evidence described below.
+Database-first expansion and the sequence below are accepted. MongoDB, MySQL, Kafka retention/correlation hardening,
+RabbitMQ and Azure Service Bus are implemented. gRPC and other cloud services still need design/acceptance evidence.
 
 | Milestone | Status | Why this comes next |
 | --- | --- | --- |
@@ -109,7 +109,8 @@ and RabbitMQ are implemented. gRPC and cloud scope still need the design/accepta
 | Kafka retention/correlation | Implemented | Bounded per-test evidence, strict default matching and explicit incomplete-observation failures |
 | RabbitMQ | Implemented | Adds another messaging model; requires precise observation and processing guarantees |
 | gRPC client | Next proposed module | Adds a new application boundary; keep dependency mocking a separate increment |
-| Selected AWS/Azure services | Exploratory | Choose individual services and verify emulator behavior before committing scope |
+| Azure Service Bus | Implemented | Typed queues/topics/subscriptions, scheduling, explicit settlement and TokenCredential support |
+| Other selected AWS/Azure services | Exploratory | Choose individual services and verify emulator behavior before committing scope |
 
 This ranking reflects project fit and implementation scope, not measured adoption data. Reorder it when concrete user
 demand warrants doing so. Testcontainers for .NET already provides MongoDB, MySQL and RabbitMQ modules, allowing Stove
@@ -170,10 +171,16 @@ Start gRPC with generated clients, metadata/correlation, deadlines, cancellation
 application. Explicitly scope unary versus streaming support. A gRPC dependency mock belongs in a separate module or
 increment, following the original Stove's client/mock separation.
 
-For cloud support, the first candidates are Azure Blob Storage and AWS S3, followed by SQS/SNS or Azure Service Bus
-according to demand. Prefer service-specific modules over an all-purpose AWS/Azure package. Emulator choice, API
-coverage, authentication differences, licensing, platform support and parallel-test isolation need a feasibility
-check before committing each service. Share emulator lifecycle internally only when the chosen services need it.
+Azure Service Bus is implemented as the first `StoveDotnet.Azure.*` service package. It supports the official emulator,
+typed queues/topics/subscriptions/rules, existing connection strings, existing namespaces with `TokenCredential`,
+correlated publish/schedule/peek and explicit destructive receive settlement. Scheduled assertions inspect broker state
+without waiting and cancel discovered test schedules at scope end. The emulator cannot verify Entra/RBAC behavior and
+is not universally parallel-safe; see [the module guide](docs/azure-service-bus.md).
+
+Future candidates include Azure Blob Storage, AWS S3 and SQS/SNS. Prefer service-specific modules over an all-purpose
+AWS/Azure binary; a convenience `StoveDotnet.Azure` meta-package may reference independent Azure service packages.
+Emulator choice, API coverage, authentication differences, licensing, platform support and parallel-test isolation
+need a feasibility check before committing each service. Share emulator lifecycle internally only when demonstrated.
 
 ## Existing-module work that remains
 

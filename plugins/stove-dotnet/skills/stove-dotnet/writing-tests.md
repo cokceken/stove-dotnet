@@ -105,6 +105,32 @@ How it works:
 `t.Redis().Database()` returns a StackExchange.Redis `IDatabase`, and `t.Redis().Multiplexer` returns an
 `IConnectionMultiplexer`. There are no assertion helpers; use the client directly.
 
+### Azure Service Bus (`t.AzureServiceBus(name?)`)
+
+```csharp
+await t.AzureServiceBus().Queue("commands").Publish(new StartOrder(id));
+await t.AzureServiceBus().Queue("reminders").Schedule(new SendReminder(id), DateTimeOffset.UtcNow.AddDays(7));
+AzureServiceBusMessage<SendReminder> scheduled = await t.AzureServiceBus().Queue("reminders")
+    .ShouldBeScheduled<SendReminder>(m => m.Value.Id == id);
+IReadOnlyList<AzureServiceBusMessage<SendReminder>> messages = await t.AzureServiceBus().Queue("reminders").Peek<SendReminder>();
+
+await using AzureServiceBusDelivery<OrderCreated> delivery = await t.AzureServiceBus()
+    .Subscription("events", "billing").Receive<OrderCreated>();
+await delivery.Complete(); // or Abandon, DeadLetter, Defer
+```
+
+- `Publish` and `Schedule` add `traceparent` and `X-Stove-Test-Id`. Verify application consumption with a business
+  side effect; there is no `ShouldBeConsumed` inference from broker settlement.
+- `Peek` and `ShouldBeScheduled` are non-destructive and strictly correlated. They scan at most `MaxPeekMessages`.
+  Discovered test schedules are cancelled at scope end by default, so a seven-day message does not activate later.
+- `Receive` is destructive peek-lock consumption with explicit settlement. Do not use it on an entity also consumed by
+  the application or another overlapping test. Service Bus locks before client-side correlation can inspect a message;
+  test headers cannot prevent competing consumers.
+- Parallel correlated publish-to-application and scheduled peek scenarios can share stable topology when business ids
+  are unique. Serialize tests involving shared sessions, ordering, duplicate detection, counts, dead letters, purges or
+  destructive receives, or give them separate entities/environments.
+- `Client` and `AdministrationClient` expose native Azure SDK clients. Caller-created senders/receivers are caller-owned.
+
 ### WireMock (`t.WireMock(name)`)
 
 Prefer a typed fake per third-party API (see `openapi-fakes.md`). The raw API:
@@ -189,11 +215,11 @@ permit HTTP metadata only in tests. Keep domain roles in the consumer. This modu
 
 - Each test has its own W3C trace. Stove's HTTP calls and broker publishes carry `traceparent` and `X-Stove-Test-Id`.
   Calls made directly in the body (a raw `HttpClient`, SDK clients) also join the trace through the current `Activity`.
-- Kafka/RabbitMQ messages need matching correlation by default; both headers must agree when present. Headerless
+- Kafka/RabbitMQ/Azure Service Bus messages need matching correlation by default; both headers must agree when present. Headerless
   messages are excluded unless the explicit `SingleActiveTest` fallback applies. That fallback cannot distinguish
   delayed previous work from a new single scope. Other modules retain their existing permissive headerless behavior.
 - **Parallel tests** need the app to propagate trace context. ASP.NET Core and HttpClient instrumentation do this;
-  Kafka/RabbitMQ producers must copy `traceparent`. If they overlap on the same third-party endpoint, set
+  Kafka/RabbitMQ/Azure Service Bus producers must copy `traceparent`. If they overlap on the same third-party endpoint, set
   `WireMockOptions.ScopeStubsToTest = true`.
 - Prefer unique data per test (new ids, distinct product names) so tests stay independent of each other's rows.
 - A transaction in test code cannot roll back HTTP or background-worker writes on independent connections. Use
