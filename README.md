@@ -1,8 +1,14 @@
 # StoveDotnet
 
+[![CI](https://github.com/cokceken/stove-dotnet/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/cokceken/stove-dotnet/actions/workflows/ci.yml?query=branch%3Amain)
+[![Documentation](https://github.com/cokceken/stove-dotnet/actions/workflows/pages.yml/badge.svg?branch=main&event=push)](https://github.com/cokceken/stove-dotnet/actions/workflows/pages.yml?query=branch%3Amain)
+[![NuGet](https://img.shields.io/nuget/v/StoveDotnet.svg)](https://www.nuget.org/packages/StoveDotnet)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cokceken/stove-dotnet/badge)](https://scorecard.dev/viewer/?uri=github.com/cokceken/stove-dotnet)
+
 Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://github.com/Trendyol/stove).
 
 [Documentation](https://cokceken.github.io/stove-dotnet/) ·
+[Compatibility and trust](https://cokceken.github.io/stove-dotnet/compatibility/) ·
 [NuGet packages](https://www.nuget.org/packages?q=StoveDotnet) ·
 [Roadmap](ROADMAP.md) ·
 [Security](SECURITY.md)

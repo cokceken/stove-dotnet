@@ -9,6 +9,10 @@
   </div>
 </div>
 
+[![CI](https://github.com/cokceken/stove-dotnet/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/cokceken/stove-dotnet/actions/workflows/ci.yml?query=branch%3Amain)
+[![NuGet](https://img.shields.io/nuget/v/StoveDotnet.svg)](https://www.nuget.org/packages/StoveDotnet)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cokceken/stove-dotnet/badge)](https://scorecard.dev/viewer/?uri=github.com/cokceken/stove-dotnet)
+
 ```csharp
 [Fact]
 public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
@@ -65,6 +69,7 @@ managed-identity-compatible tests.
 ## Choose a path
 
 - [Build your first Stove test](getting-started.md)
+- [Review verified compatibility and security evidence](compatibility.md)
 - [Understand correlation, waiting and isolation](practical-testing.md)
 - [Test an API and worker together](multiple-applications.md)
 - [Use Kafka and RabbitMQ safely in parallel tests](messaging.md)
