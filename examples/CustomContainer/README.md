@@ -8,9 +8,10 @@ the MinIO SDK, then maps endpoint/credentials/bucket into the [API](Api/Program.
 dotnet test --project examples/CustomContainer/Tests -c Release
 ```
 
-Requires .NET 10 and Docker or Podman. The tested image is `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`;
-substitute your own image/tag or registry in the factory as needed. This pinned compatibility example is not a
-production storage deployment recommendation. The generic library does not choose a storage vendor or image.
+Requires .NET 10 and Docker or Podman. MinIO withdrew its official container images in September 2026, so the example
+uses the source-built `ghcr.io/coollabsio/minio` mirror of the final community security release, pinned by digest.
+Substitute an image you build or trust from your own registry as needed. This compatibility example is not a production
+storage deployment recommendation. The generic library does not choose a storage vendor or image.
 
 The API refuses startup unless the bucket already exists. Tests upload and download through HTTP, check missing-object
 behavior, and overlap scenarios using distinct object keys. This exercises **HTTP → API → MinIO SDK → real container**.
