@@ -19,6 +19,7 @@ theme:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Compatibility and trust: compatibility.md
   - Testing applications:
       - Practical testing: practical-testing.md
       - APIs and workers: multiple-applications.md
