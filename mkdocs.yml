@@ -47,6 +47,6 @@ plugins:
 extra_css:
   - stylesheets/extra.css
 
-copyright: StoveDotnet is available under the MIT License.
+copyright: StoveDotnet is available under the Apache License 2.0.
 
 strict: true
