@@ -82,6 +82,8 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      GH_REPO: ${{ github.repository }}
     environment:
       name: nuget.org
       url: https://www.nuget.org/profiles/${{ vars.NUGET_USER }}
