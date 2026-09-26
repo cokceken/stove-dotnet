@@ -4,7 +4,7 @@ One Stove environment can start multiple named applications against shared depen
 its own host, service provider, configuration overrides and readiness check. All hosts run **inside the test process**;
 this does not launch `dotnet run` or isolate static state, environment variables, assemblies or instrumentation.
 
-See the [runnable API/worker example](../examples/MultiApplication/README.md). Its worker is a separate executable
+See the [runnable API/worker example](https://github.com/cokceken/stove-dotnet/blob/main/examples/MultiApplication/README.md). Its worker is a separate executable
 project that exposes its real host factory. The API publishes to RabbitMQ; the worker persists to PostgreSQL;
 the test waits until the result can be read through the API. Neither application references Stove.
 

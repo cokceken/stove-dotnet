@@ -2,7 +2,7 @@
 
 Stove has no test framework dependency. Your framework owns setup, assertions and teardown; Stove owns
 the application and dependencies inside that lifetime. Start with one test project and the modules your
-application actually needs. The [runnable examples](../examples/Frameworks/README.md) use PostgreSQL and an
+application actually needs. The [runnable examples](https://github.com/cokceken/stove-dotnet/blob/main/examples/Frameworks/README.md) use PostgreSQL and an
 HTTP catalog contract so you can follow a complete request through a real application.
 
 ## Choose a framework and runner
@@ -13,10 +13,10 @@ independence on MTP, not verified compatibility with every VSTest or IDE configu
 
 | Framework / tested packages | Lifetime in the example | Token passed to `stove.Test` |
 | --- | --- | --- |
-| [xUnit v3](../examples/Frameworks/Xunit/OrderTests.cs), `xunit.v3` 4.0.1 | Assembly fixture, `IAsyncLifetime` | `TestContext.Current.CancellationToken` |
-| [NUnit](../examples/Frameworks/NUnit/OrderTests.cs), `NUnit` 4.6.1 + `NUnit3TestAdapter` 6.3.0 | Namespace `SetUpFixture`, `OneTimeSetUp` / `OneTimeTearDown` | `TestContext.CurrentContext.CancellationToken` |
-| [MSTest](../examples/Frameworks/MSTest/OrderTests.cs), `MSTest` 4.4.0 | Static `AssemblyInitialize` / `AssemblyCleanup` in a nonstatic `[TestClass]` | Injected `TestContext.CancellationToken` |
-| [TUnit](../examples/Frameworks/TUnit/OrderTests.cs), `TUnit` 1.67.0 | Static `Before(TestSession)` / `After(TestSession)` | `TestContext.Current!.Execution.CancellationToken` |
+| [xUnit v3](https://github.com/cokceken/stove-dotnet/blob/main/examples/Frameworks/Xunit/OrderTests.cs), `xunit.v3` 4.0.1 | Assembly fixture, `IAsyncLifetime` | `TestContext.Current.CancellationToken` |
+| [NUnit](https://github.com/cokceken/stove-dotnet/blob/main/examples/Frameworks/NUnit/OrderTests.cs), `NUnit` 4.6.1 + `NUnit3TestAdapter` 6.3.0 | Namespace `SetUpFixture`, `OneTimeSetUp` / `OneTimeTearDown` | `TestContext.CurrentContext.CancellationToken` |
+| [MSTest](https://github.com/cokceken/stove-dotnet/blob/main/examples/Frameworks/MSTest/OrderTests.cs), `MSTest` 4.4.0 | Static `AssemblyInitialize` / `AssemblyCleanup` in a nonstatic `[TestClass]` | Injected `TestContext.CancellationToken` |
+| [TUnit](https://github.com/cokceken/stove-dotnet/blob/main/examples/Frameworks/TUnit/OrderTests.cs), `TUnit` 1.67.0 | Static `Before(TestSession)` / `After(TestSession)` | `TestContext.Current!.Execution.CancellationToken` |
 
 Keep NUnit tests within the setup fixture's namespace. Assembly/session hooks run once per runner process,
 not once across every test project or CI shard. NUnit and MSTest examples explicitly enable method parallelism;
@@ -72,7 +72,7 @@ is not detected automatically. The examples require no manually provisioned data
 
 ## Adapt the environment to your application
 
-Use [ExampleEnvironment](../examples/Frameworks/Shared/ExampleEnvironment.cs) as a small setup reference:
+Use [ExampleEnvironment](https://github.com/cokceken/stove-dotnet/blob/main/examples/Frameworks/Shared/ExampleEnvironment.cs) as a small setup reference:
 
 1. Register only the dependencies the application needs. Map each module's exposed configuration to the actual
    application configuration keys before starting the application.
@@ -106,5 +106,5 @@ dotnet test --project examples/Frameworks/TUnit -c Release --treenode-filter "/*
 Use your own project path in a consumer. These are .NET 10 MTP commands; no extra `--` separator is needed.
 An assertion failure inside `stove.Test` produces `StoveTestFailedException` with the original failure, test name,
 trace ID and module evidence in runner output. Cancellation and recognized framework skip/inconclusive exceptions
-pass through. The [verification script](../scripts/verify-framework-examples.ps1) tests these outcomes in actual
+pass through. The [verification script](https://github.com/cokceken/stove-dotnet/blob/main/scripts/verify-framework-examples.ps1) tests these outcomes in actual
 runner processes and checks teardown; the ordinary example suites contain no deliberately failing tests.
