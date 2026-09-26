@@ -24,7 +24,7 @@ public sealed class StorageFixture : IAsyncLifetime
             // MinIO withdrew its official images in September 2026. This source-built mirror is pinned to the
             // final community security release by digest; users can substitute an image from their own registry.
             o.CreateContainer = () => new ContainerBuilder(
-                    "ghcr.io/coollabsio/minio@sha256:7520deab26e83d3a36231bb449f86548a4b9ab2507eb388f87d1f70ef5e8c1f3")
+                    "ghcr.io/coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9")
                 .WithEnvironment("MINIO_ROOT_USER", AccessKey)
                 .WithEnvironment("MINIO_ROOT_PASSWORD", SecretKey)
                 .WithCommand("server", "/data")
