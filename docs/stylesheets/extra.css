@@ -1,0 +1,173 @@
+:root {
+  --stove-ink: #16202a;
+  --stove-muted: #526273;
+  --stove-border: #dbe2ea;
+  --stove-surface: #f6f8fb;
+  --stove-accent: #6d3de7;
+  --stove-accent-dark: #4d24b8;
+  --stove-warm: #f39b32;
+}
+
+body {
+  color: var(--stove-ink);
+}
+
+.navbar {
+  background: #17132b;
+  border: 0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.navbar-brand,
+.navbar-nav > li > a {
+  color: #fff !important;
+}
+
+.navbar-brand::before {
+  color: var(--stove-warm);
+  content: "●";
+  font-size: 0.72em;
+  margin-right: 0.55rem;
+  vertical-align: 0.12em;
+}
+
+a {
+  color: var(--stove-accent-dark);
+}
+
+a:hover,
+a:focus {
+  color: var(--stove-accent);
+}
+
+h1,
+h2,
+h3 {
+  color: #211a3a;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h1 {
+  margin-bottom: 1.2rem;
+}
+
+h2 {
+  border-bottom: 1px solid var(--stove-border);
+  margin-top: 2.4rem;
+  padding-bottom: 0.45rem;
+}
+
+code {
+  color: #5b2dc0;
+}
+
+pre code {
+  color: inherit;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 92% 10%, rgba(243, 155, 50, 0.24), transparent 28%),
+    linear-gradient(135deg, #21183c, #4d2a91);
+  border-radius: 1rem;
+  color: #fff;
+  margin: 0 0 2rem;
+  overflow: hidden;
+  padding: clamp(1.8rem, 5vw, 3.8rem);
+}
+
+.hero__eyebrow {
+  color: #f8bb6f;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin-bottom: 0.7rem;
+  text-transform: uppercase;
+}
+
+.hero__lead {
+  font-size: clamp(1.45rem, 3vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.18;
+  max-width: 800px;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.6rem;
+}
+
+.button {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 0.55rem;
+  color: #fff !important;
+  display: inline-block;
+  font-weight: 700;
+  padding: 0.72rem 1rem;
+  text-decoration: none !important;
+}
+
+.button:hover,
+.button:focus {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.button--primary {
+  background: var(--stove-warm);
+  border-color: var(--stove-warm);
+  color: #26182c !important;
+}
+
+.button--primary:hover,
+.button--primary:focus {
+  background: #ffb45d;
+}
+
+.feature-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1.2rem 0 2rem;
+}
+
+.feature-card {
+  background: var(--stove-surface);
+  border: 1px solid var(--stove-border);
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.2rem;
+}
+
+.feature-card h3 {
+  font-size: 1.05rem;
+  margin: 0 0 0.45rem;
+}
+
+.feature-card p {
+  color: var(--stove-muted);
+  margin: 0;
+}
+
+.admonition {
+  background: #fff9ed;
+  border-left: 4px solid var(--stove-warm);
+  border-radius: 0.25rem;
+  padding: 0.9rem 1rem;
+}
+
+.admonition-title {
+  font-weight: 800;
+}
+
+@media (max-width: 767px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    border-radius: 0.7rem;
+  }
+}

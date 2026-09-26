@@ -1,6 +1,6 @@
 # Module conventions
 
-For priorities and implementation status, see the [roadmap](../ROADMAP.md). For the agreed design rationale, see
+For priorities and implementation status, see the [roadmap](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md). For the agreed design rationale, see
 [architecture decisions](decisions.md).
 
 Each module is a separate `StoveDotnet.Xxx` package with a reference to the core and its native client/container packages.

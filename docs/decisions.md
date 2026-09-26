@@ -1,7 +1,7 @@
 # Architecture and product decisions
 
 Recorded: 2026-09-14. These decisions summarize the agreed direction from the module review and test restructuring.
-Implementation status and proposed future milestones live in the [roadmap](../ROADMAP.md). Detailed module authoring
+Implementation status and proposed future milestones live in the [roadmap](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md). Detailed module authoring
 requirements live in [module conventions](modules.md).
 
 | ID | Accepted decision | Reason and consequence |

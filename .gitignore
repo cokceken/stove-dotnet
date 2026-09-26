@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Vendored OTLP protos live in directories named "logs", which the rule above ignores
 !/src/StoveDotnet.Telemetry/Protos/**/logs/
+
+# Generated documentation site
+/site/

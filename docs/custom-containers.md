@@ -39,7 +39,7 @@ builder.WithContainer("storage", o =>
 });
 ```
 
-`InitializeStorage` is your callback, not a Stove API. The [complete fixture](../examples/CustomContainer/Tests/StorageTests.cs)
+`InitializeStorage` is your callback, not a Stove API. The [complete fixture](https://github.com/cokceken/stove-dotnet/blob/main/examples/CustomContainer/Tests/StorageTests.cs)
 uses the MinIO SDK to create a bucket and maps the bucket name too. The image tag is a pinned example, not a default
 chosen by the library. The factory can also return a container built by a specialized Testcontainers module.
 
@@ -90,7 +90,7 @@ await stove.Test(async t =>
 `t.Container()` resolves the unnamed or only instance; multiple named instances without a default require a name.
 Do not stop/dispose the native instance during other tests. Containers are fixture-owned, not reset per test, and
 generic services do not automatically propagate Stove correlation. Use unique keys/buckets/indexes for parallel tests,
-or independent containers when state must be reset. See [isolation recipes](../examples/Isolation/README.md).
+or independent containers when state must be reset. See [isolation recipes](https://github.com/cokceken/stove-dotnet/blob/main/examples/Isolation/README.md).
 
 ## Failure output
 

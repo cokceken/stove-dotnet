@@ -61,7 +61,7 @@ Configure those producers independently; do not log `RawBody` or tokens. Nor doe
 buffering: `SendRaw` retains HttpClient's default buffered completion too. Use an explicitly configured native HTTP
 client with streaming completion for workloads where buffering a whole response is unsuitable.
 
-Executable examples: [HTTP acceptance tests](../tests/StoveDotnet.Hosting.AcceptanceTests/HttpResponseTests.cs).
+Executable examples: [HTTP acceptance tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Hosting.AcceptanceTests/HttpResponseTests.cs).
 
 ## Eventual assertions and effective cancellation
 
@@ -148,7 +148,7 @@ t.Clock("api").Advance(TimeSpan.FromMinutes(5));
 The fixture creates and owns the clock. `UseStoveTime` explicitly replaces `TimeProvider` registrations; it is never
 enabled automatically. Pass the same instance to hosts that must share time, or create separate instances per host or
 isolated fixture. No clock is silently reset between tests. Tests that mutate a shared clock must be serialized; tests
-with independent hosts/clocks may run concurrently. See [serialized shared-clock tests](../tests/StoveDotnet.Time.AcceptanceTests/SharedClockTests.cs).
+with independent hosts/clocks may run concurrently. See [serialized shared-clock tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Time.AcceptanceTests/SharedClockTests.cs).
 
 Advancement changes `GetUtcNow` and fires timers created through that provider, including provider-aware `Task.Delay`
 and `PeriodicTimer`. Await the observable effect after advancing: asynchronous continuations are not necessarily done
@@ -156,7 +156,7 @@ when `Advance` returns, and periodic consumers can coalesce ticks. Ordinary `Tas
 `now()`, token validators and external services retain their own clocks. Explicitly injecting a clock into token issuance
 does not synchronize a JWT validator. Moving the clock backwards is not a reset strategy; build another fixture instead.
 
-[Time acceptance tests](../tests/StoveDotnet.Time.AcceptanceTests/TimeTests.cs) exercise real HTTP delays, hosted worker
+[Time acceptance tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Time.AcceptanceTests/TimeTests.cs) exercise real HTTP delays, hosted worker
 timers, shared ownership, independent parallel hosts and timer cleanup.
 
 ## Optional OIDC module
@@ -187,7 +187,7 @@ var token = t.Oidc("identity").IssueToken(o =>
 ```
 
 Your real application reads these keys into its JWT bearer configuration, as in the
-[acceptance application](../tests/TestApps/OidcApp/Program.cs). Keep signature, issuer, audience and lifetime validation
+[acceptance application](https://github.com/cokceken/stove-dotnet/blob/main/tests/TestApps/OidcApp/Program.cs). Keep signature, issuer, audience and lifetime validation
 enabled; only permit HTTP metadata in the test environment. No validation handler or authenticated principal is replaced.
 
 The default issuer is the local server URL. A custom `OidcOptions.Issuer` changes discovery/token identity while discovery
@@ -199,7 +199,7 @@ options rather than the claims dictionary. Tokens default to subject `stove-user
 For expired tokens, put both issuance and expiration in the past; for future-valid tokens, set future issuance/not-before.
 Token time defaults to `TimeProvider.System`; `OidcOptions.TimeProvider` explicitly changes issuance only. Validator clock
 skew belongs to the application (the tests set it to zero). A missing header and malformed token can simply be sent by
-the client. The [acceptance suite](../tests/StoveDotnet.Oidc.AcceptanceTests/OidcTests.cs) verifies 200/204, 401, 403,
+the client. The [acceptance suite](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Oidc.AcceptanceTests/OidcTests.cs) verifies 200/204, 401, 403,
 custom issuers, HTTP metadata/key retrieval, independent named keys and cleanup through a real bearer pipeline.
 
 This is a test token issuer, not a full identity provider: no login UI, authorization-code/refresh-token flow, key rotation,
@@ -207,7 +207,7 @@ revocation or user store. Only public key parameters are served; private keys an
 
 ## Choosing isolation
 
-See the [runnable isolation examples](../examples/Isolation/README.md). Start with shared hosts and unique data when
+See the [runnable isolation examples](https://github.com/cokceken/stove-dotnet/blob/main/examples/Isolation/README.md). Start with shared hosts and unique data when
 business behavior is scoped by a key. Use independently owned environments for global state, destructive reset, schema
 changes, exclusive consumers or clock-dependent behavior. A test-side database transaction cannot roll back writes made
 over independent HTTP requests or background-worker connections.

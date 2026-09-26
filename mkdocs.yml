@@ -1,0 +1,52 @@
+site_name: StoveDotnet
+site_description: Opinionated end-to-end testing for .NET with real applications and real dependencies.
+site_url: https://cokceken.github.io/stove-dotnet/
+repo_url: https://github.com/cokceken/stove-dotnet
+repo_name: cokceken/stove-dotnet
+edit_uri: edit/main/docs/
+
+theme:
+  name: mkdocs
+  locale: en
+  highlightjs: true
+  hljs_languages:
+    - bash
+    - csharp
+    - powershell
+    - yaml
+  navigation_depth: 3
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Testing applications:
+      - Practical testing: practical-testing.md
+      - APIs and workers: multiple-applications.md
+      - Test frameworks: test-frameworks.md
+  - Dependencies:
+      - Databases: database-modules.md
+      - Kafka and RabbitMQ: messaging.md
+      - Azure Service Bus: azure-service-bus.md
+      - Custom containers: custom-containers.md
+  - Project:
+      - Module conventions: modules.md
+      - Architecture decisions: decisions.md
+      - Release security: release-security.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - fenced_code
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra_css:
+  - stylesheets/extra.css
+
+copyright: StoveDotnet is available under the MIT License.
+
+strict: true

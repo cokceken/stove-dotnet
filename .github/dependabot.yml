@@ -23,3 +23,15 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Amsterdam
+    groups:
+      documentation-dependencies:
+        patterns:
+          - "*"

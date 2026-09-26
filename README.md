@@ -2,6 +2,11 @@
 
 Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://github.com/Trendyol/stove).
 
+[Documentation](https://cokceken.github.io/stove-dotnet/) ·
+[NuGet packages](https://www.nuget.org/packages?q=StoveDotnet) ·
+[Roadmap](ROADMAP.md) ·
+[Security](SECURITY.md)
+
 StoveDotnet starts your **real** dependencies in containers, injects their connection details into your **real**
 application, runs the application in-process on a real Kestrel port, and gives every test one fluent DSL to arrange and
 assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Azure Service Bus, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
