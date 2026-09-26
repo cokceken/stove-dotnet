@@ -65,11 +65,14 @@ Releases are published by `.github/workflows/release.yml` when a `v*` tag is pus
 
 1. Sign in to nuget.org with the account that will own the packages.
 2. Under **Trusted Publishing**, add a policy: repository owner `cokceken`, repository `stove-dotnet`, workflow file
-   `release.yml`, no environment.
+   `release.yml`, environment `nuget.org`. The environment claim is required: a policy without it also trusts release
+   jobs that have not passed the protected GitHub environment.
 3. In the GitHub repository settings, go to **Secrets and variables → Actions → Variables** and add `NUGET_USER` with
    that nuget.org account name.
-4. Optional: request ID prefix reservation for `StoveDotnet` on nuget.org, so only your account can publish
-   `StoveDotnet.*`.
+4. Configure the GitHub `nuget.org` environment to allow only `v*` tags and require a reviewer. When there is a second
+   maintainer, enable **Prevent self-review**.
+5. Request ID prefix reservation for `StoveDotnet` on nuget.org, so only the owning account can publish
+   `StoveDotnet` and `StoveDotnet.*`.
 
 **Each release:**
 
@@ -79,9 +82,16 @@ git tag v0.1.0-preview.1
 git push origin v0.1.0-preview.1
 ```
 
-The workflow builds, runs all tests, packs, checks that the package version matches the tag, runs the package smoke
-test, pushes the packages and symbols to nuget.org, and creates a GitHub release. Tags with a `-suffix` become
-pre-releases. Packages on nuget.org cannot be deleted, only unlisted, so tag deliberately.
+Only tag a commit already contained in `origin/main`. The workflow runs all tests, builds and packs without publishing
+permissions, verifies the exact IDs in `eng/package-manifest.txt`, runs isolated package checks, and uploads a one-day
+artifact. The separate `publish` job then waits for approval on the `nuget.org` environment, exchanges its OIDC token
+for a short-lived NuGet API key, creates a draft GitHub release, pushes the packages, and publishes the now-immutable
+release. Tags with a `-suffix` become pre-releases.
+
+There is deliberately no `--skip-duplicate`: a duplicate or partially published version stops the release for manual
+investigation. Packages on nuget.org cannot be deleted, only unlisted, so tag deliberately. If a run fails after the
+draft release is created, inspect the nuget.org package state and delete the draft only after deciding how to recover.
+See `docs/release-security.md` for the trust boundaries and administrative controls.
 
 ## Framework adoption examples
 

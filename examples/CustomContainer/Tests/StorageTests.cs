@@ -21,8 +21,10 @@ public sealed class StorageFixture : IAsyncLifetime
     public async ValueTask InitializeAsync() => Stove = await StoveBuilder.Create()
         .WithContainer("storage", o =>
         {
-            // Pin the image; users can substitute an image they build or pull from their own registry.
-            o.CreateContainer = () => new ContainerBuilder("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+            // MinIO withdrew its official images in September 2026. This source-built mirror is pinned to the
+            // final community security release by digest; users can substitute an image from their own registry.
+            o.CreateContainer = () => new ContainerBuilder(
+                    "ghcr.io/coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9")
                 .WithEnvironment("MINIO_ROOT_USER", AccessKey)
                 .WithEnvironment("MINIO_ROOT_PASSWORD", SecretKey)
                 .WithCommand("server", "/data")
@@ -45,7 +47,12 @@ public sealed class StorageFixture : IAsyncLifetime
         .WithHttpClient().WithAspNetCoreApplication<Program>()
         .StartAsync(TestContext.Current.CancellationToken);
 
-    public async ValueTask DisposeAsync() { GC.SuppressFinalize(this); await Stove.DisposeAsync(); }
+    public async ValueTask DisposeAsync()
+    {
+        GC.SuppressFinalize(this);
+        if (Stove is not null)
+            await Stove.DisposeAsync();
+    }
 }
 
 public sealed class StorageTests(StorageFixture fixture)
