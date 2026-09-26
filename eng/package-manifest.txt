@@ -1,0 +1,18 @@
+# Every package expected in a release. Keep this list sorted and update it when packages are added or removed.
+StoveDotnet
+StoveDotnet.AspNetCore
+StoveDotnet.Azure.ServiceBus
+StoveDotnet.Containers
+StoveDotnet.Hosting
+StoveDotnet.Http
+StoveDotnet.Kafka
+StoveDotnet.MongoDb
+StoveDotnet.MySql
+StoveDotnet.Oidc
+StoveDotnet.Postgres
+StoveDotnet.RabbitMq
+StoveDotnet.Redis
+StoveDotnet.SqlServer
+StoveDotnet.Telemetry
+StoveDotnet.Time
+StoveDotnet.WireMock

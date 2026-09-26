@@ -1,0 +1,9 @@
+# Changes to the release chain should always request review from the repository owner.
+* @cokceken
+
+/.github/ @cokceken
+/Directory.Build.props @cokceken
+/Directory.Packages.props @cokceken
+/NuGet.Config @cokceken
+/eng/package-manifest.txt @cokceken
+/scripts/verify-package-manifest.ps1 @cokceken
