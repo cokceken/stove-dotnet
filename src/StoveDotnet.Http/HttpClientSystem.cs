@@ -192,7 +192,7 @@ public sealed class StoveHttpResponse<T>(StoveHttpResponse response, JsonSeriali
     public new StoveHttpResponse<T> Expect(HttpStatusCode expected) { base.Expect(expected); return this; }
     private readonly Lazy<T> _body = new(() => Deserialize(response, jsonSerializerOptions));
 
-    /// <summary>The JSON body deserialized on first access; failures include bounded, redacted response diagnostics.</summary>
+    /// <summary>The JSON body deserialized on first access; failures preserve the original exception and include bounded, redacted response diagnostics.</summary>
     public T Body => _body.Value;
 
     private static T Deserialize(StoveHttpResponse response, JsonSerializerOptions options)
@@ -205,7 +205,8 @@ public sealed class StoveHttpResponse<T>(StoveHttpResponse response, JsonSeriali
         catch (JsonException ex)
         {
             throw new InvalidOperationException(
-                $"Could not deserialize the response body to {typeof(T).Name}: invalid JSON or incompatible body at line {ex.LineNumber}, byte {ex.BytePositionInLine}. Response: {response}");
+                $"Could not deserialize the response body to {typeof(T).FullName}: {ex.Message}\n"
+                + $"JSON path: {ex.Path ?? "(unknown)"}; line: {ex.LineNumber}; byte: {ex.BytePositionInLine}.\nResponse: {response}", ex);
         }
     }
 }
