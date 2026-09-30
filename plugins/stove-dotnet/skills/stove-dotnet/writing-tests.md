@@ -41,6 +41,18 @@ excerpt, not native startup errors or application/client logs. See repository `d
 
 ### HTTP (`t.Http(name?)`)
 
+Prefer generic HTTP methods with the API's response DTO when expecting a successful JSON response with a known
+contract. Reuse the project's contract types, or define a concrete test DTO if they are unavailable. Assert the status
+with `Expect` before reading the typed `Body`; do not default to `dynamic`, `JsonElement`, or manual `RawBody` parsing.
+Untyped methods are appropriate for status-only checks, empty/non-JSON responses, or deliberately unknown contracts.
+Error responses can also be typed when their contract is known.
+
+```csharp
+var response = (await t.Http().Post<OrderDto>("/orders", new CreateOrderRequest("chair")))
+    .Expect(HttpStatusCode.Created);
+Assert.Equal(OrderStatus.Created, response.Body.Status);
+```
+
 ```csharp
 StoveHttpResponse<T> r = await t.Http().Get<T>("/orders/1", headers: null);
 StoveHttpResponse    r = await t.Http().Post("/orders", body);          // also Put, Patch, Delete; generic <T> variants
@@ -51,7 +63,20 @@ StoveHttpResponse<T> custom = await t.Http().Send<T>(request, t.CancellationToke
 HttpResponseMessage raw = await t.Http().SendRaw(new HttpRequestMessage(...));
 ```
 
-- Bodies are serialized with System.Text.Json web defaults (camelCase).
+- Request serialization and typed response deserialization use `HttpClientOptions.JsonSerializerOptions`, defaulting
+  to System.Text.Json web settings (camelCase). Stove does not inherit the application's JSON configuration.
+  Match the API's converters and naming policies in the fixture; do not bypass a mismatch by switching to untyped JSON.
+  For an API using string enums:
+
+  ```csharp
+  .WithHttpClient(o => o.JsonSerializerOptions.Converters.Add(
+      new System.Text.Json.Serialization.JsonStringEnumConverter()))
+  ```
+
+  Match any custom enum naming policy or converter from the application as well.
+- Typed `Body` is lazy. Deserialization failures include the serializer's message, JSON path and location, and preserve
+  the original `JsonException` as `InnerException` alongside response diagnostics. Custom converter exceptions that
+  are not `JsonException` propagate unchanged. Diagnostic redaction applies to response previews, not native exception messages.
 - Redirects are not followed.
 - For auth, add headers per call or use `HttpClientOptions.DefaultHeaders`.
 - `Expect(status)` returns the same typed/untyped wrapper without deserializing. Custom `Send` preserves correlation;

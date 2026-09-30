@@ -48,6 +48,7 @@ spans received).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| Typed HTTP `Body` fails to deserialize, especially at an enum property | Stove's HTTP serializer options differ from the API's, or the response violates the DTO contract | Read the serializer message, JSON path and inner `JsonException`; configure `HttpClientOptions.JsonSerializerOptions` with the API's converters (e.g. `JsonStringEnumConverter`). Keep the typed assertion rather than bypassing it with dynamic JSON |
 | `(no spans received)` in every test | App has no OpenTelemetry OTLP exporter, `WithTelemetry()` missing, or the app hard-codes an exporter endpoint | Add `AddOtlpExporter()` without an explicit endpoint; register `WithTelemetry()` (see `setup.md`) |
 | Spans exist but not under the test | App code starts work outside the request (fire-and-forget without `Activity` flow), or a Kafka consumer does not restore `traceparent` | Flow `Activity.Current`; start consumer activities from the message's `traceparent` |
 | WireMock `UNMATCHED` request | Stub path, method or body differs from what the app sent, or the stub was registered in another test | Compare the logged URL and body with the stub. `requestBody:` is a JSON equality match, so drop it or stub via `Stub(...)` with partial matchers |
