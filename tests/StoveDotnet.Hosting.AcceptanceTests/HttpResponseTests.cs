@@ -1,6 +1,8 @@
 using System.Net;
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using StoveDotnet.Http;
 using StoveDotnet.WireMock;
 using Xunit;
@@ -9,6 +11,54 @@ namespace StoveDotnet.Hosting.AcceptanceTests;
 
 public sealed class HttpResponseTests
 {
+    [Fact]
+    public async Task String_enum_failure_preserves_serializer_details_through_stove_and_matching_options_succeed()
+    {
+        await using var stove = await StoveBuilder.Create().WithWireMock().WithHttpClient(o =>
+            o.BaseAddress = new Uri("http://localhost")).StartAsync(TestContext.Current.CancellationToken);
+
+        var failure = await Assert.ThrowsAsync<StoveTestFailedException>(() => stove.Test(async t =>
+        {
+            t.WireMock().MockRaw("GET", "/enum", 200, "{\"status\":\"Created\"}", "application/json");
+            var response = (await t.Http().Get<EnumPayload>(new Uri(t.WireMock().ExposedConfiguration.BaseUrl, "/enum").ToString()))
+                .Expect(HttpStatusCode.OK);
+            _ = response.Body;
+        }, TestContext.Current.CancellationToken));
+
+        var error = Assert.IsType<InvalidOperationException>(failure.InnerException);
+        var original = Assert.IsType<JsonException>(error.InnerException);
+        Assert.Equal("$.status", original.Path);
+        Assert.Contains(original.Message, error.Message, StringComparison.Ordinal);
+        Assert.Contains("$.status", error.Message, StringComparison.Ordinal);
+        Assert.Contains("GET", error.Message, StringComparison.Ordinal);
+        Assert.Contains("/enum", error.Message, StringComparison.Ordinal);
+        Assert.Contains("200 OK", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(JsonSerializer), original.StackTrace!, StringComparison.Ordinal);
+
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter());
+        var typed = new StoveHttpResponse<EnumPayload>(
+            new StoveHttpResponse(HttpStatusCode.OK, new Dictionary<string, IReadOnlyList<string>>(), "{\"status\":\"Created\"}"), options);
+        Assert.Equal(OrderStatus.Created, typed.Expect(HttpStatusCode.OK).Body.Status);
+    }
+
+    [Fact]
+    public void Custom_converter_json_exception_is_preserved_without_losing_its_cause()
+    {
+        var cause = new InvalidOperationException("Converter configuration is missing.");
+        var original = new JsonException("Custom converter failed.", cause);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new FailingPayloadConverter(original));
+        var response = new StoveHttpResponse<Payload>(
+            new StoveHttpResponse(HttpStatusCode.OK, new Dictionary<string, IReadOnlyList<string>>(), "{}"), options);
+
+        var error = Assert.Throws<InvalidOperationException>(() => response.Body);
+        Assert.Same(original, error.InnerException);
+        Assert.Same(cause, original.InnerException);
+        Assert.Contains(original.Message, error.Message, StringComparison.Ordinal);
+        Assert.Same(error, Assert.Throws<InvalidOperationException>(() => response.Body));
+    }
+
     [Fact]
     public async Task Status_assertions_are_fluent_and_malformed_json_is_lazy_and_redacted()
     {
@@ -117,4 +167,11 @@ public sealed class HttpResponseTests
     }
 
     private sealed record Payload(string Value);
+    private enum OrderStatus { Created }
+    private sealed record EnumPayload(OrderStatus Status);
+    private sealed class FailingPayloadConverter(JsonException exception) : JsonConverter<Payload>
+    {
+        public override Payload? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw exception;
+        public override void Write(Utf8JsonWriter writer, Payload value, JsonSerializerOptions options) => throw new NotSupportedException();
+    }
 }
