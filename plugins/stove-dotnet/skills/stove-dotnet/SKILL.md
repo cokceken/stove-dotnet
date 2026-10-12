@@ -95,6 +95,9 @@ Namespaces:
 - Kafka publishes default to System.Text.Json web settings (camelCase). Messages that fail to deserialize to `T` never
   match.
 - General assertions use the project's existing assertion library. HTTP responses also offer fluent `Expect(status)`.
+- For successful HTTP JSON responses with a known contract, prefer `Get<T>`, `Post<T>` and other typed methods,
+  then `Expect(status).Body`. Match `HttpClientOptions.JsonSerializerOptions` to the application's converters
+  (including string enums); Stove does not inherit them. See `writing-tests.md`.
 - Keep setups minimal: register only the systems the app under test actually uses.
 
 - Kafka and RabbitMQ observation is strict by default: propagate matching test id or valid `traceparent`; both must

@@ -1,5 +1,11 @@
 # StoveDotnet
 
+## TL;DR
+> StoveDotnet removes the infrastructure-orchestration boilerplate from realistic .NET end-to-end tests.
+
+It starts containerized databases, brokers, caches, and other dependencies; injects their connection details into your real ASP.NET Core or worker applications; waits for the system to become ready; and owns cleanup.
+Tests use a focused DSL to call applications, prepare state, publish or observe messages, query databases, and inspect telemetry. Correlation, bounded waits, validation helpers, and failure evidence make tests easier to write and diagnose. Without locking you into a test framework or assertion library.
+
 [![CI](https://github.com/cokceken/stove-dotnet/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/cokceken/stove-dotnet/actions/workflows/ci.yml?query=branch%3Amain)
 [![Documentation](https://github.com/cokceken/stove-dotnet/actions/workflows/pages.yml/badge.svg?branch=main&event=push)](https://github.com/cokceken/stove-dotnet/actions/workflows/pages.yml?query=branch%3Amain)
 [![NuGet](https://img.shields.io/nuget/v/StoveDotnet.svg)](https://www.nuget.org/packages/StoveDotnet)
