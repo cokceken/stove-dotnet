@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Typed Avro publishing and observation for StoveDotnet Kafka using Confluent Schema Registry.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
+    <ProjectReference Include="../StoveDotnet.SchemaRegistry/StoveDotnet.SchemaRegistry.csproj" />
+  </ItemGroup>
+</Project>

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Networks;
 using Testcontainers.Kafka;
 
 namespace StoveDotnet.Kafka;
@@ -16,6 +18,12 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     private readonly CancellationTokenSource _stopping = new();
     private readonly string _observerGroupId = $"stove-observer-{Guid.NewGuid():N}";
     private KafkaContainer? _container;
+    private INetwork? _network;
+    /// <summary>Enables a private container network for dependent systems. Set before startup.</summary>
+    public bool NeedsRegistryNetwork { get; set; }
+    public bool IsManaged => Options.ExistingBootstrapServers is null;
+    public INetwork RegistryNetwork => _network ?? throw new InvalidOperationException("Kafka registry network is not running.");
+    public string RegistryBootstrapServers => Options.ExistingBootstrapServers ?? "stove-kafka:9093";
     private IProducer<byte[]?, byte[]?>? _producer;
     private IAdminClient? _admin;
     private Task? _observer;
@@ -32,6 +40,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        Options.Security.Validate(Options.ExistingBootstrapServers is null);
         string bootstrapServers;
         var runMigrations = true;
         if (Options.ExistingBootstrapServers is { } existing)
@@ -41,17 +50,26 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
         }
         else
         {
-            var builder = new KafkaBuilder(Options.Image);
+            var builder = Options.Security.ConfigureBroker(new KafkaBuilder(Options.Image));
+            if (NeedsRegistryNetwork)
+            {
+                _network = new NetworkBuilder().Build();
+                await _network.CreateAsync(cancellationToken).ConfigureAwait(false);
+                builder = builder.WithNetwork(_network).WithNetworkAliases("stove-kafka");
+            }
             _container = (Options.ConfigureContainer?.Invoke(builder) ?? builder).Build();
             await _container.StartAsync(cancellationToken).ConfigureAwait(false);
-            bootstrapServers = _container.GetBootstrapAddress();
+            bootstrapServers = new UriBuilder("tcp", _container.Hostname, _container.GetMappedPublicPort(KafkaBuilder.KafkaPort)).Uri.Authority;
         }
 
-        var exposed = new KafkaExposedConfiguration(bootstrapServers);
+        var exposed = new KafkaExposedConfiguration(bootstrapServers) { Security = Options.Security };
         Expose(exposed);
 
         _admin = new AdminClientBuilder(ClientConfig(new AdminClientConfig())).Build();
         _producer = new ProducerBuilder<byte[]?, byte[]?>(ClientConfig(new ProducerConfig { Acks = Acks.All, LingerMs = 0 })).Build();
+
+        // Building a native client does not connect. Verify TLS/authentication before migrations or the application.
+        await Task.Run(() => Admin.GetMetadata(Options.StartupTimeout), cancellationToken).ConfigureAwait(false);
 
         if (runMigrations)
         {
@@ -62,10 +80,14 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     }
 
     /// <summary>Publishes <paramref name="message"/> as the running test, serialized with the configured serde.</summary>
-    public Task<TopicPartitionOffset> Publish<T>(string topic, T message, string? key = null, IDictionary<string, string>? headers = null)
+    public async Task<TopicPartitionOffset> Publish<T>(string topic, T message, string? key = null, IDictionary<string, string>? headers = null)
     {
         ArgumentNullException.ThrowIfNull(message);
-        return PublishRaw(topic, Options.Serde.Serialize(message, typeof(T)), key is null ? null : Encoding.UTF8.GetBytes(key), headers);
+        var test = StoveTestContext.Require();
+        var data = Options.AsyncSerde is { } serde
+            ? await serde.SerializeAsync(message, new SerializationContext(MessageComponentType.Value, topic), test.CancellationToken).ConfigureAwait(false)
+            : Options.Serde.Serialize(message, typeof(T));
+        return await PublishRaw(topic, data, key is null ? null : Encoding.UTF8.GetBytes(key), headers).ConfigureAwait(false);
     }
 
     /// <summary>Publishes raw bytes as the running test.</summary>
@@ -109,7 +131,8 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
         {
             test.CancellationToken.ThrowIfCancellationRequested();
             var changed = _store.Changed.NextChange();
-            if (Matching(test, record => topic is null || record.Topic == topic, condition).FirstOrDefault() is { } message)
+            var matches = await MatchingAsync(test, record => topic is null || record.Topic == topic, condition, firstOnly: true).ConfigureAwait(false);
+            if (matches.Count > 0 && matches[0] is { } message)
             {
                 throw new StoveAssertionException($"Unexpected {typeof(T).Name} observed at {message.Topic}[{message.Record.Partition}]@{message.Record.Offset}.");
             }
@@ -175,8 +198,12 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     public IReadOnlyList<ObservedMessage<T>> Peek<T>(string? topic = null)
     {
         var test = StoveTestContext.Require();
-        return Matching<T>(test, record => topic is null || record.Topic == topic, _ => true).ToList();
+        return MatchingAsync<T>(test, record => topic is null || record.Topic == topic, _ => true).GetAwaiter().GetResult();
     }
+
+    /// <summary>Asynchronously reads observed messages, including registry-backed values.</summary>
+    public Task<IReadOnlyList<ObservedMessage<T>>> PeekAsync<T>(string? topic = null) =>
+        MatchingAsync<T>(StoveTestContext.Require(), record => topic is null || record.Topic == topic, _ => true);
 
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
@@ -204,7 +231,12 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
         var test = StoveTestContext.Require();
         ObservedMessage<T>? match = null;
         await Eventually.UntilAsync(
-            _ => ValueTask.FromResult((match = Matching(test, recordFilter, condition).FirstOrDefault()) is not null),
+            async _ =>
+            {
+                var matches = await MatchingAsync(test, recordFilter, condition, firstOnly: true).ConfigureAwait(false);
+                match = matches.Count > 0 ? matches[0] : null;
+                return match is not null;
+            },
             timeout ?? Options.DefaultTimeout,
             () => $"no {typeof(T).Name} matching the condition was {expectation}. {DescribeObserved(test)}",
             _store.Changed,
@@ -212,47 +244,41 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
         return match!;
     }
 
-    private IEnumerable<ObservedMessage<T>> Matching<T>(StoveTestContext test, Func<ObservedRecord, bool> recordFilter, Func<ObservedMessage<T>, bool> condition)
+    private async Task<IReadOnlyList<ObservedMessage<T>>> MatchingAsync<T>(StoveTestContext test, Func<ObservedRecord, bool> recordFilter, Func<ObservedMessage<T>, bool> condition, bool firstOnly = false)
     {
         test.CancellationToken.ThrowIfCancellationRequested();
+        var matches = new List<ObservedMessage<T>>();
         foreach (var record in Owned(test).Where(recordFilter))
         {
-            if (record.Value is null || !TryDeserialize<T>(record.Value, out var value))
+            if (record.Value is null) continue;
+            T value;
+            try
             {
+                var decoded = Options.AsyncSerde is { } serde
+                    ? await serde.DeserializeAsync<T>(record.Value, new SerializationContext(MessageComponentType.Value, record.Topic), test.CancellationToken).ConfigureAwait(false)
+                    : Options.Serde.Deserialize(record.Value, typeof(T));
+                if (decoded is not T typed) continue;
+                value = typed;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+            {
+                // A record in a different format or schema is not a match for T.
                 continue;
             }
-
             var message = new ObservedMessage<T>(value, record);
             if (condition(message))
             {
-                yield return message;
+                matches.Add(message);
+                if (firstOnly) break;
             }
         }
+        return matches;
     }
 
     public Task OnTestStartedAsync(StoveTestContext test) { _store.Start(test); return Task.CompletedTask; }
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure) { _store.End(test, failure); return Task.CompletedTask; }
 
     private IEnumerable<ObservedRecord> Owned(StoveTestContext test) => _store.Snapshot(test);
-
-    private bool TryDeserialize<T>(byte[] data, out T value)
-    {
-        try
-        {
-            if (Options.Serde.Deserialize(data, typeof(T)) is T typed)
-            {
-                value = typed;
-                return true;
-            }
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // Not a T; the record simply does not match.
-        }
-
-        value = default!;
-        return false;
-    }
 
     private string DescribeObserved(StoveTestContext test)
     {
@@ -352,6 +378,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     {
         config.BootstrapServers = ExposedConfiguration.BootstrapServers;
         Options.ConfigureClient?.Invoke(config);
+        Options.Security.ApplyTo(config);
         return config;
     }
 
@@ -372,7 +399,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
                 ? new ValueTask(Options.Cleanup(_admin, CancellationToken.None)) : ValueTask.CompletedTask,
             async () =>
             {
-                if (_admin is not null && _container is null)
+                if (_admin is not null && _container is null && _observer is not null)
                 {
                     try
                     {
@@ -387,7 +414,8 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
             () => { _producer?.Dispose(); return ValueTask.CompletedTask; },
             () => { _admin?.Dispose(); return ValueTask.CompletedTask; },
             () => { _stopping.Dispose(); return ValueTask.CompletedTask; },
-            () => _container?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
+            () => _container?.DisposeAsync() ?? ValueTask.CompletedTask,
+            () => _network?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
     }
 }
 

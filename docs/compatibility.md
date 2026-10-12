@@ -25,10 +25,10 @@ Each framework consumer is built and run in full, filtered, intentionally failin
 
 | Framework | Version | Verification | Evidence |
 |---|---:|---:|---|
-| xUnit v3 | `4.0.1` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/Xunit) |
+| xUnit v3 | `4.0.2` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/Xunit) |
 | NUnit | `5.0.0` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/NUnit) |
-| MSTest | `4.4.1` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/MSTest) |
-| TUnit | `1.70.1` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/TUnit) |
+| MSTest | `4.5.1` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/MSTest) |
+| TUnit | `1.74.0` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/TUnit) |
 
 ## Release package surface
 
@@ -43,12 +43,14 @@ Every listed package must appear in the release manifest, produce both package a
 | [`StoveDotnet.Hosting`](https://www.nuget.org/packages/StoveDotnet.Hosting) | Applications | [Named Generic Host workers](multiple-applications.md) | ✅ [API and worker composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/MultiApplication/Tests) |
 | [`StoveDotnet.Http`](https://www.nuget.org/packages/StoveDotnet.Http) | Applications | [Typed HTTP calls and assertions](practical-testing.md) | ✅ [Hosting](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
 | [`StoveDotnet.Kafka`](https://www.nuget.org/packages/StoveDotnet.Kafka) | Messaging | [Kafka publishing and observation](messaging.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
+| [`StoveDotnet.Kafka.Avro`](https://www.nuget.org/packages/StoveDotnet.Kafka.Avro) | Messaging | [Generated Avro publishing and observation](kafka.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
 | [`StoveDotnet.MongoDb`](https://www.nuget.org/packages/StoveDotnet.MongoDb) | Databases | [MongoDB replica set and native client](database-modules.md) | ✅ [MongoDB](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.MongoDb.AcceptanceTests) |
 | [`StoveDotnet.MySql`](https://www.nuget.org/packages/StoveDotnet.MySql) | Databases | [MySQL and native client](database-modules.md) | ✅ [MySQL](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.MySql.AcceptanceTests) |
 | [`StoveDotnet.Oidc`](https://www.nuget.org/packages/StoveDotnet.Oidc) | Infrastructure | [OIDC discovery, keys and signed tokens](practical-testing.md) | ✅ [OIDC](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Oidc.AcceptanceTests) |
 | [`StoveDotnet.Postgres`](https://www.nuget.org/packages/StoveDotnet.Postgres) | Databases | [PostgreSQL and native client](getting-started.md) | ✅ [PostgreSQL](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Postgres.AcceptanceTests) |
 | [`StoveDotnet.RabbitMq`](https://www.nuget.org/packages/StoveDotnet.RabbitMq) | Messaging | [RabbitMQ publishing and observation](messaging.md) | ✅ [RabbitMQ](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.RabbitMq.AcceptanceTests) |
 | [`StoveDotnet.Redis`](https://www.nuget.org/packages/StoveDotnet.Redis) | Infrastructure | [Redis and native client](getting-started.md) | ✅ [Redis](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Redis.AcceptanceTests) |
+| [`StoveDotnet.SchemaRegistry`](https://www.nuget.org/packages/StoveDotnet.SchemaRegistry) | Messaging | [Schema Registry containers and ordered schema migrations](kafka.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
 | [`StoveDotnet.SqlServer`](https://www.nuget.org/packages/StoveDotnet.SqlServer) | Databases | [SQL Server and native client](getting-started.md) | ✅ [SQL Server](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.SqlServer.AcceptanceTests) |
 | [`StoveDotnet.Telemetry`](https://www.nuget.org/packages/StoveDotnet.Telemetry) | Diagnostics | [OTLP trace and log collection](practical-testing.md) | ✅ [OrderService composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService.E2ETests.XunitV3) |
 | [`StoveDotnet.Time`](https://www.nuget.org/packages/StoveDotnet.Time) | Infrastructure | [Controllable application time](practical-testing.md) | ✅ [Test time](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Time.AcceptanceTests) |
@@ -72,6 +74,7 @@ Every listed package must appear in the release manifest, produce both package a
 | RabbitMQ | Publishing, routing and correlated observation | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.RabbitMq.AcceptanceTests) |
 | Azure Service Bus | Queues, topics, scheduling and settlement | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests) |
 | Kafka | Publishing, consuming and correlated observation | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
+| Kafka serialization and configuration | Confluent Avro wire format, registry setup and transport configuration | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.UnitTests) |
 | OrderService composition | API, brokers, database, telemetry and fakes | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService.E2ETests.XunitV3) |
 | API and worker composition | Named API and Generic Host worker | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/examples/MultiApplication/Tests) |
 

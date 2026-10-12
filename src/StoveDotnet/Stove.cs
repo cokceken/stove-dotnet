@@ -12,6 +12,7 @@ public sealed class Stove : IAsyncDisposable
     private readonly Dictionary<string, IApplicationContext> _contexts = new(StringComparer.Ordinal);
     private readonly StoveOptions _options;
     private int _disposed;
+    private IReadOnlyList<IPluggedSystem>? _startupOrder;
 
     internal Stove(SystemRegistry registry, IReadOnlyList<ApplicationRegistration> applications, StoveOptions options)
     {
@@ -38,9 +39,15 @@ public sealed class Stove : IAsyncDisposable
     internal async Task StartAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // Capture synchronous throws too, so all in-flight starts finish before rollback disposes their resources.
-        await Task.WhenAll(_registry.OfType<IRunAware>().Select(async s =>
-            await s.RunAsync(cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
+        _startupOrder = SystemStartup.Order(_registry.All);
+        var starts = new Dictionary<IPluggedSystem, Task>();
+        foreach (var system in _startupOrder)
+        {
+            var dependencies = system is ISystemDependencies dependent
+                ? dependent.Dependencies.Select(d => starts[d]).ToArray() : [];
+            starts.Add(system, StartSystem(system, dependencies, cancellationToken));
+        }
+        await Task.WhenAll(starts.Values).ConfigureAwait(false);
 
         var configuration = CollectConfiguration();
 
@@ -65,6 +72,13 @@ public sealed class Stove : IAsyncDisposable
         if (_contexts.Count > 0)
             await Task.WhenAll(_registry.OfType<IAfterApplicationStarted>().Where(s => s is not IAfterApplicationsStarted)
                 .Select(async s => await s.OnApplicationStartedAsync(GetApplication(), cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
+    }
+
+    private static async Task StartSystem(IPluggedSystem system, Task[] dependencies, CancellationToken cancellationToken)
+    {
+        await Task.WhenAll(dependencies).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (system is IRunAware runnable) await runnable.RunAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private Dictionary<string, string?> CollectConfiguration()
@@ -255,7 +269,7 @@ public sealed class Stove : IAsyncDisposable
             });
         }
 
-        foreach (var system in _registry.All.Reverse())
+        foreach (var system in (_startupOrder ?? _registry.All).Reverse())
         {
             actions.Add(system.DisposeAsync);
         }

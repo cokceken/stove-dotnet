@@ -6,12 +6,14 @@ StoveDotnet.Containers
 StoveDotnet.Hosting
 StoveDotnet.Http
 StoveDotnet.Kafka
+StoveDotnet.Kafka.Avro
 StoveDotnet.MongoDb
 StoveDotnet.MySql
 StoveDotnet.Oidc
 StoveDotnet.Postgres
 StoveDotnet.RabbitMq
 StoveDotnet.Redis
+StoveDotnet.SchemaRegistry
 StoveDotnet.SqlServer
 StoveDotnet.Telemetry
 StoveDotnet.Time

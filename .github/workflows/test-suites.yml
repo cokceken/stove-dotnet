@@ -43,6 +43,8 @@ jobs:
             project: tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests
           - suite: Kafka
             project: tests/StoveDotnet.Kafka.AcceptanceTests
+          - suite: Kafka serialization and configuration
+            project: tests/StoveDotnet.Kafka.UnitTests
           - suite: OrderService composition
             project: examples/Frameworks/OrderService.E2ETests.XunitV3
           - suite: API and worker composition

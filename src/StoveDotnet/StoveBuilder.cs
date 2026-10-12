@@ -14,6 +14,9 @@ public sealed class StoveBuilder
 
     public StoveOptions Options { get; } = new();
 
+    /// <summary>Resolves a registered system for configuring dependent systems before startup.</summary>
+    public T GetSystem<T>(string? name = null) where T : class, IPluggedSystem => _registry.Resolve<T>(name);
+
     /// <summary>Registers a system. Module packages expose friendlier <c>WithXxx</c> extension methods on top of this.</summary>
     public StoveBuilder WithSystem(IPluggedSystem system)
     {

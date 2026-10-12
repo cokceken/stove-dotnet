@@ -5,5 +5,7 @@
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../src/StoveDotnet.Kafka/StoveDotnet.Kafka.csproj" />
+    <ProjectReference Include="../../src/StoveDotnet.Kafka.Avro/StoveDotnet.Kafka.Avro.csproj" />
+    <Compile Include="../StoveDotnet.Kafka.UnitTests/GeneratedEvent.cs" Link="GeneratedEvent.cs" />
   </ItemGroup>
 </Project>
