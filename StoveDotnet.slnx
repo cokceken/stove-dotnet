@@ -29,6 +29,8 @@
     <Project Path="src/StoveDotnet.AspNetCore/StoveDotnet.AspNetCore.csproj" />
     <Project Path="src/StoveDotnet.Http/StoveDotnet.Http.csproj" />
     <Project Path="src/StoveDotnet.Kafka/StoveDotnet.Kafka.csproj" />
+    <Project Path="src/StoveDotnet.Kafka.Avro/StoveDotnet.Kafka.Avro.csproj" />
+    <Project Path="src/StoveDotnet.SchemaRegistry/StoveDotnet.SchemaRegistry.csproj" />
     <Project Path="src/StoveDotnet.MongoDb/StoveDotnet.MongoDb.csproj" />
     <Project Path="src/StoveDotnet.MySql/StoveDotnet.MySql.csproj" />
     <Project Path="src/StoveDotnet.Oidc/StoveDotnet.Oidc.csproj" />
@@ -46,6 +48,7 @@
     <Project Path="tests/StoveDotnet.Containers.AcceptanceTests/StoveDotnet.Containers.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Hosting.AcceptanceTests/StoveDotnet.Hosting.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Kafka.AcceptanceTests/StoveDotnet.Kafka.AcceptanceTests.csproj" />
+    <Project Path="tests/StoveDotnet.Kafka.UnitTests/StoveDotnet.Kafka.UnitTests.csproj" />
     <Project Path="tests/StoveDotnet.MongoDb.AcceptanceTests/StoveDotnet.MongoDb.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.MySql.AcceptanceTests/StoveDotnet.MySql.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Oidc.AcceptanceTests/StoveDotnet.Oidc.AcceptanceTests.csproj" />

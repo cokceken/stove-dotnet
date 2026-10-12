@@ -42,6 +42,8 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet.Oidc" Version="$version" />
     <PackageReference Include="StoveDotnet.Http" Version="$version" />
     <PackageReference Include="StoveDotnet.Kafka" Version="$version" />
+    <PackageReference Include="StoveDotnet.Kafka.Avro" Version="$version" />
+    <PackageReference Include="StoveDotnet.SchemaRegistry" Version="$version" />
     <PackageReference Include="StoveDotnet.Postgres" Version="$version" />
     <PackageReference Include="StoveDotnet.SqlServer" Version="$version" />
     <PackageReference Include="StoveDotnet.MongoDb" Version="$version" />
@@ -67,6 +69,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StoveDotnet.Http;
 using StoveDotnet.Kafka;
+using StoveDotnet.Kafka.Avro;
+using StoveDotnet.SchemaRegistry;
 using StoveDotnet.Postgres;
 using StoveDotnet.SqlServer;
 using StoveDotnet.MongoDb;
@@ -93,6 +97,8 @@ var builder = StoveBuilder.Create()
     .WithMongoDb("documents", o => o.ConfigureExposedConfiguration = c => [new("Mongo:ConnectionString", c.ConnectionString), new("Mongo:Database", c.Database)])
     .WithMySql(o => o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:MySql", c.ConnectionString)])
     .WithKafka(o => o.Observation.MaxMessagesPerTest = 1000)
+    .WithSchemaRegistry(o => o.ConfigureExposedConfiguration = c => [new("Registry:Url", c.Url)])
+    .WithKafkaAvro()
     .WithRabbitMq(o => { o.Bindings.Add(new("events", "#")); o.Observation.UncorrelatedMessages = UncorrelatedMessagePolicy.Exclude; })
     .WithAzureServiceBus(o =>
     {

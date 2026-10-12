@@ -27,6 +27,7 @@ nav:
   - Dependencies:
       - Databases: database-modules.md
       - Kafka and RabbitMQ: messaging.md
+      - Kafka security and Avro: kafka.md
       - Azure Service Bus: azure-service-bus.md
       - Custom containers: custom-containers.md
   - Project:

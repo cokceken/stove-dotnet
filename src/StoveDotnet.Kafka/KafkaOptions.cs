@@ -4,7 +4,10 @@ using Testcontainers.Kafka;
 
 namespace StoveDotnet.Kafka;
 
-public sealed record KafkaExposedConfiguration(string BootstrapServers) : IExposedConfiguration;
+public sealed record KafkaExposedConfiguration(string BootstrapServers) : IExposedConfiguration
+{
+    public KafkaSecurityOptions Security { get; init; } = new();
+}
 
 public sealed record KafkaMigrationContext(IAdminClient Admin, KafkaExposedConfiguration Configuration);
 
@@ -15,6 +18,13 @@ public interface IStoveKafkaSerde
 
     /// <summary>Returns the deserialized value; throwing means the record cannot be the requested type.</summary>
     object? Deserialize(byte[] data, Type type);
+}
+
+/// <summary>Topic-aware asynchronous serialization, for formats backed by a schema registry.</summary>
+public interface IStoveKafkaAsyncSerde
+{
+    Task<byte[]> SerializeAsync<T>(T value, SerializationContext context, CancellationToken cancellationToken);
+    Task<T> DeserializeAsync<T>(byte[] data, SerializationContext context, CancellationToken cancellationToken);
 }
 
 public sealed class SystemTextJsonKafkaSerde(JsonSerializerOptions options) : IStoveKafkaSerde
@@ -31,6 +41,10 @@ public sealed class SystemTextJsonKafkaSerde(JsonSerializerOptions options) : IS
 
 public sealed class KafkaOptions : SystemOptions<KafkaExposedConfiguration>
 {
+    public KafkaSecurityOptions Security { get; } = new();
+
+    /// <summary>When set, takes precedence over the synchronous Serde.</summary>
+    public IStoveKafkaAsyncSerde? AsyncSerde { get; set; }
     public MessageObservationOptions Observation { get; } = new();
 
     public string Image { get; set; } = "apache/kafka:4.1.0";
@@ -42,6 +56,9 @@ public sealed class KafkaOptions : SystemOptions<KafkaExposedConfiguration>
 
     /// <summary>Default wait for <c>ShouldBe*</c> assertions.</summary>
     public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>Maximum wait for authenticated broker metadata during startup.</summary>
+    public TimeSpan StartupTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>Topics with these suffixes hold failed messages (<see cref="KafkaSystem.ShouldBeFailed{T}"/>).</summary>
     public IList<string> ErrorTopicSuffixes { get; } = [".error", ".DLT"];
