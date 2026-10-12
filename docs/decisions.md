@@ -68,7 +68,9 @@ Generic dependency containers are supported through the optional `StoveDotnet.Co
 fresh Testcontainers factory with native readiness and optional initialization; Stove owns startup, configuration mapping,
 failure evidence and disposal. Native builder options are reused rather than mirrored into a second Docker API.
 Dedicated modules remain useful for provider clients and testing semantics. Existing-container adoption, resource reuse,
-dependency graphs and Compose orchestration are outside this increment. A real MinIO/API example validates the boundary.
+Compose orchestration is outside this increment. A real MinIO/API example validates the boundary. Systems can now declare
+startup prerequisites through `ISystemDependencies`, used by Schema Registry to wait for Kafka; independent systems
+still start in parallel, and shutdown reverses the dependency order.
 
 The database-first direction and the architecture/testing rules above are accepted. MongoDB's API/topology/transaction
 scope and MySQL's driver/version policy are implemented (D13/D14). Broker retention/correlation and RabbitMQ observation

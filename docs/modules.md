@@ -14,7 +14,8 @@ lifecycle/configuration conventions. It deliberately has no vendor clients or au
 
 - Offer `WithXxx(configure)` and `WithXxx(name, configure)` plus `t.Xxx(name)`.
 - Implement only the lifecycle capabilities needed by the module. `IRunAware` runs before the application, in parallel
-  with other systems. It must finish readiness checks and migrations before returning.
+  with independent systems. Declare prerequisites through `ISystemDependencies`; they must finish before this system
+  starts. It must finish readiness checks and migrations before returning. Disposal follows reverse dependency order.
 - Expose typed connection details and let the application choose its configuration keys. Two modules cannot own the
   same key. Native-client customization affects Stove's client, not the application's client.
 - Distinguish managed infrastructure from an existing endpoint. Dispose clients owned by Stove in both modes, and

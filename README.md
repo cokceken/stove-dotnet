@@ -73,6 +73,8 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.MongoDb` | `WithMongoDb()`: MongoDB replica set, native filters, collections and ordered setup |
 | `StoveDotnet.MySql` | `WithMySql()`: MySQL, native MySqlConnector DSL |
 | `StoveDotnet.Kafka` | `WithKafka()`: Testcontainers Kafka, black-box publish/consume/fail assertions |
+| `StoveDotnet.SchemaRegistry` | `WithSchemaRegistry()`: Confluent registry with ordered schema setup migrations |
+| `StoveDotnet.Kafka.Avro` | `WithKafkaAvro()`: generated Avro event publishing and observation using registry schema IDs |
 | `StoveDotnet.RabbitMq` | `WithRabbitMq()`: confirmed publishing, dedicated observation queues, native RabbitMQ.Client |
 | `StoveDotnet.Azure.ServiceBus` | `WithAzureServiceBus()`: official emulator or Azure namespace, typed topology, scheduling and explicit settlement |
 | `StoveDotnet.Redis` | `WithRedis()`: Testcontainers Redis, StackExchange.Redis client |
@@ -300,7 +302,9 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
   - `ShouldBeFailed<T>` waits until a matching message appears on an error topic (`.error` or `.DLT` by default).
   - `Peek<T>` returns retained messages of the current test observed so far.
   - `Observation` bounds evidence per test and excludes uncorrelated records by default. See [messaging guarantees](docs/messaging.md).
-  - Serialization uses System.Text.Json by default. Plug in your own with `IStoveKafkaSerde`.
+  - Serialization uses System.Text.Json by default. Plug in your own with `IStoveKafkaSerde`, or use `WithKafkaAvro()`
+    for generated Avro events. [Kafka security, Schema Registry and Avro](docs/kafka.md) covers certificate configuration,
+    schema migrations and subject naming.
 - **RabbitMQ:** `Publish` / `PublishRaw` await broker confirms; `ShouldBePublished`, `ShouldNotBePublished` and `Peek`
   inspect copies on Stove's exclusive queue. Configure `Bindings` and ordered `Setup`; native `Connection` is available.
   Observation does not prove application processing. See [setup and guarantees](docs/messaging.md).

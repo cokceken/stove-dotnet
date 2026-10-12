@@ -1,5 +1,7 @@
 # Messaging observation and RabbitMQ
 
+For Kafka certificate security, Schema Registry setup migrations and generated Avro events, see [Kafka security and Avro](kafka.md).
+
 Kafka and RabbitMQ share the same bounded, per-test observation policy. Broker observation, routing, acknowledgements
 and business processing are different facts. Neither module infers successful business processing from a publish.
 

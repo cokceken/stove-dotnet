@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Confluent Schema Registry system for StoveDotnet, with setup migrations and existing-registry support.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Confluent.SchemaRegistry" />
+    <ProjectReference Include="../StoveDotnet.Kafka/StoveDotnet.Kafka.csproj" />
+  </ItemGroup>
+</Project>

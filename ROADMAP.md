@@ -211,7 +211,7 @@ by this roadmap.
 
 ## Deferred until a concrete need emerges
 
-Container reuse and migration persistence, pause/resume or network chaos APIs, dependency-ordered startup, dashboards,
+Container reuse and migration persistence, pause/resume or network chaos APIs, dashboards,
 automatic database resets, ORM-specific integrations, and parity with every original Stove module are not prerequisites
 for the next database modules. Revisit them with a concrete scenario and a focused design.
 

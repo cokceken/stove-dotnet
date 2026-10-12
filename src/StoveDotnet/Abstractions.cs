@@ -7,10 +7,16 @@ public interface IPluggedSystem : IAsyncDisposable
     string? Name { get; }
 }
 
-/// <summary>Systems that need to start before the application, e.g. containers. Run in parallel.</summary>
+/// <summary>Systems that start before the application. Independent systems run in parallel; declared dependencies start first.</summary>
 public interface IRunAware
 {
     Task RunAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>Systems that must finish starting before this system starts.</summary>
+public interface ISystemDependencies
+{
+    IReadOnlyCollection<IPluggedSystem> Dependencies { get; }
 }
 
 /// <summary>Systems that contribute configuration to the application under test.</summary>
