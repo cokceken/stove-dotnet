@@ -4,6 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <!-- Override SqlClient's vulnerable transitive dependency. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="Testcontainers.MsSql" />
     <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
   </ItemGroup>
