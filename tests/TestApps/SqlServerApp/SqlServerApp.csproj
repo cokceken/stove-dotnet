@@ -1,3 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-  <ItemGroup><PackageReference Include="Microsoft.Data.SqlClient" /></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
 </Project>
