@@ -13,5 +13,6 @@
     <PackageReference Include="StoveDotnet.Http" VersionOverride="$(StovePackageVersion)" />
     <PackageReference Include="StoveDotnet.Postgres" VersionOverride="$(StovePackageVersion)" />
     <PackageReference Include="StoveDotnet.WireMock" VersionOverride="$(StovePackageVersion)" />
+    <PackageReference Include="WireMock.Net.Minimal" />
   </ItemGroup>
 </Project>
