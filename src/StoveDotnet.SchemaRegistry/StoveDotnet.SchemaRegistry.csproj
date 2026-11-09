@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Confluent.SchemaRegistry" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <ProjectReference Include="../StoveDotnet.Kafka/StoveDotnet.Kafka.csproj" />
   </ItemGroup>
 </Project>
