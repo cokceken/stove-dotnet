@@ -10,6 +10,9 @@ Actual:   PaymentRequired
 Stove test: OrderTests.Failure_output_demo                                                      <- file.method
 Trace id:   b23be8492d7e283bae0f7b389e58a5fc
 
+--- Stove: application:(default) / application logs ---                                         <- in-process app logs
+09:42:49.016 [Warning] OrderService.OrderWorkflow: Payment declined for order 6de5... of customer customer-4
+
 --- Stove: telemetry ---
 [x] POST http://127.0.0.1:58643/orders (order-service, Client, 356.8ms)                        <- the test's own call
 `-- [ok] POST /orders (order-service, Server, 347.8ms)                                         <- the app handling it
@@ -18,26 +21,33 @@ Trace id:   b23be8492d7e283bae0f7b389e58a5fc
     `-- [x] POST http://localhost:58631/charges (order-service, Client, 29.2ms)
         `-- [x] POST (order-service, Server, 25.8ms)
 
-Logs (1):
-  09:42:49.016 [Warning] OrderService.OrderWorkflow: Payment declined for order 6de5... of customer customer-4
-
 --- Stove: kafka ---
 Messages observed (0):
 
 --- Stove: wiremock 'payments' ---
 Requests received (1):
   POST http://localhost:58631/charges -> 503 (matched) {"orderId":"6de5...","customerId":"customer-4","amount":10}
+
+--- Stove: http ---                                                                             <- what the test sent
+Requests sent (1):
+  POST http://127.0.0.1:58643/orders → 402 PaymentRequired (356.8ms)
+    Response body: (empty)
 ```
 
 Read it top-down:
 
 1. **The original exception** (first line, and `InnerException`) says what was expected.
-2. **The trace tree** shows what the app actually did for this test's trace:
+2. **Application logs** are the app's logs within the test's trace, with exception stack traces. An unhandled
+   exception behind a 500 is here. They need no OpenTelemetry setup. A second block, marked "not test-correlated",
+   lists warnings and errors written outside any trace while the test ran (startup, background services); with
+   parallel tests these may belong to another test.
+3. **The trace tree** shows what the app actually did for this test's trace:
    - `[x]` marks error spans; client spans show the called URL;
    - nesting shows causality;
    - server spans nested under third-party calls come from the in-process WireMock servers.
-3. **Logs** are the app's logs within the trace. Look for warnings and errors near the failing step.
 4. **Module sections** list what each system saw for this test:
+   - HTTP requests the test sent, with status and a bounded, redacted response body (the body of a 4xx is usually
+     the explanation). Present whichever assertion library failed; the latest 20 exchanges are kept;
    - WireMock requests with status, `matched`/`UNMATCHED` and bodies;
    - Kafka messages with topic, offset, key and value.
 
@@ -90,8 +100,9 @@ time, so it cannot safely distinguish delayed previous work. RabbitMQ assertions
 named exchanges. A cancelled/lost observer fails assertions; restart the environment to restore complete observation.
 RabbitMQ failure details show routes, sizes and message ids without including payload bodies.
 
-Named hosts attach correlated Information-or-higher application logs under `application:<name>` in failure output.
-These retain the latest 1,000 correlated entries per host and are filtered to the failing trace, not a complete log archive.
+Hosts attach application logs under `application:<name>` in failure output: the application's own categories from
+Information, `Microsoft.*`/`System.*` categories from Warning. Each host retains its latest 2,000 entries, filtered to
+the failing trace, not a complete log archive. Untraced entries are kept only from Warning.
 Workers must propagate traceparent and start a consumer Activity to correlate logs. Application naming does not isolate
 process-wide OpenTelemetry instrumentation; multiple providers can observe the same spans. Verify worker business results
 with bounded polling, not publication alone. Background host liveness monitoring is not provided in this increment.

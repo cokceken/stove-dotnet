@@ -21,7 +21,13 @@ public sealed class TelemetryOptions : SystemOptions<TelemetryExposedConfigurati
     /// <summary>No new data for this long means the application has finished exporting.</summary>
     public TimeSpan QuietPeriod { get; set; } = TimeSpan.FromMilliseconds(300);
 
-    /// <summary>Maximum number of log lines attached to a failed test.</summary>
+    /// <summary>
+    /// Also list OTLP logs under the trace tree of a failed test. Off by default: in-process applications already
+    /// attach their logs, with exception details, as <c>application logs</c>, so this would print them twice.
+    /// </summary>
+    public bool IncludeLogsInFailureDetails { get; set; }
+
+    /// <summary>Maximum number of log lines attached to a failed test when <see cref="IncludeLogsInFailureDetails"/> is set.</summary>
     public int MaxLogsInFailureDetails { get; set; } = 200;
 
     /// <summary>
@@ -131,20 +137,20 @@ public sealed class TelemetrySystem
         var logs = _store.Logs(test.TraceId);
         _store.Evict(test.TraceId);
 
-        var content = new StringBuilder()
-            .AppendLine(TraceTreeRenderer.Render(spans))
-            .AppendLine()
-            .AppendLine(CultureInfo.InvariantCulture, $"Logs ({logs.Count}):");
-
-        foreach (var log in logs.TakeLast(Options.MaxLogsInFailureDetails))
+        var content = new StringBuilder().AppendLine(TraceTreeRenderer.Render(spans));
+        if (Options.IncludeLogsInFailureDetails)
         {
-            content.AppendLine(CultureInfo.InvariantCulture,
-                $"  {log.Timestamp:HH:mm:ss.fff} [{log.Severity}] {log.Category}: {log.Body}");
-        }
+            content.AppendLine().AppendLine(CultureInfo.InvariantCulture, $"Logs ({logs.Count}):");
+            foreach (var log in logs.TakeLast(Options.MaxLogsInFailureDetails))
+            {
+                content.AppendLine(CultureInfo.InvariantCulture,
+                    $"  {log.Timestamp:HH:mm:ss.fff} [{log.Severity}] {log.Category}: {log.Body}");
+            }
 
-        if (logs.Count == 0)
-        {
-            content.AppendLine("  (no logs received)");
+            if (logs.Count == 0)
+            {
+                content.AppendLine("  (no logs received)");
+            }
         }
 
         return new FailureDetails(Name is null ? "telemetry" : $"telemetry '{Name}'", content.ToString().TrimEnd());

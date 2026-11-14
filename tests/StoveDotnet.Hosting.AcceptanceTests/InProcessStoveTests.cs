@@ -124,4 +124,48 @@ public sealed class InProcessStoveTests(InProcessStoveFixture fixture)
         Assert.Contains("[x] GET /boom", error.Message, StringComparison.Ordinal);
         Assert.Contains("About to fail", error.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Failed_test_reports_its_http_exchanges_even_with_a_foreign_assertion()
+    {
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => _stove.Test(async t =>
+        {
+            t.WireMock("downstream").MockGet("/items/7", statusCode: 409, responseBody: new { reason = "out of stock" });
+            (await t.Http().Get("/greeting")).Expect(HttpStatusCode.OK);
+            var response = await t.Http().Get("/downstream/7");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }));
+
+        Assert.Contains("--- Stove: http ---", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Requests sent (2):", error.Message, StringComparison.Ordinal);
+        Assert.Contains("/greeting → 200 OK", error.Message, StringComparison.Ordinal);
+        Assert.Contains("/downstream/7 → 409 Conflict", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Response body: {\"reason\":\"out of stock\"}", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failed_test_prints_application_logs_once_with_the_exception_and_without_request_narration()
+    {
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => _stove.Test(async t =>
+        {
+            var response = await t.Http().Get("/boom");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }));
+
+        Assert.Equal(2, error.Message.Split("About to fail").Length);
+        Assert.Contains("System.InvalidOperationException: boom", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Program.cs:line", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Request starting", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Logs (", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Passing_test_leaves_no_http_evidence_for_a_later_failure()
+    {
+        await _stove.Test(async t => (await t.Http().Get("/greeting")).Expect(HttpStatusCode.OK));
+
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => _stove.Test(_ => throw new InvalidOperationException("no calls made")));
+
+        Assert.DoesNotContain("--- Stove: http ---", error.Message, StringComparison.Ordinal);
+    }
 }

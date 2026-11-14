@@ -369,6 +369,9 @@ Actual:   PaymentRequired
 Stove test: OrderTests.Failure_output_demo
 Trace id:   b23be8492d7e283bae0f7b389e58a5fc
 
+--- Stove: application:(default) / application logs ---
+09:42:49.016 [Warning] OrderService.OrderWorkflow: Payment declined for order 6de533c8-... of customer customer-4
+
 --- Stove: telemetry ---
 [x] POST http://127.0.0.1:58643/orders (order-service, Client, 356.8ms)
 `-- [ok] POST /orders (order-service, Server, 347.8ms)
@@ -377,13 +380,23 @@ Trace id:   b23be8492d7e283bae0f7b389e58a5fc
     `-- [x] POST http://localhost:58631/charges (order-service, Client, 29.2ms)
         `-- [x] POST (order-service, Server, 25.8ms)
 
-Logs (1):
-  09:42:49.016 [Warning] OrderService.OrderWorkflow: Payment declined for order 6de533c8-... of customer customer-4
-
 --- Stove: wiremock 'payments' ---
 Requests received (1):
   POST http://localhost:58631/charges -> 500 (matched) {"orderId":"6de533c8-...","customerId":"customer-4","amount":10}
+
+--- Stove: http ---
+Requests sent (1):
+  POST http://127.0.0.1:58643/orders → 402 PaymentRequired (356.8ms)
+    Response body: (empty)
 ```
+
+The report does not depend on how the test asserted. `http` lists the requests the test sent with their status and a
+bounded, redacted response body, so a plain `Assert.Equal(HttpStatusCode.Created, response.StatusCode)` still shows
+what the application answered. `application logs` come from the in-process host and need no OpenTelemetry setup:
+the application's own categories from Information, framework categories from Warning, with exception stack traces.
+Warnings and errors written outside any trace while the test ran (startup, background services) are listed separately
+and marked as not test-correlated. The telemetry section shows the trace tree; set
+`TelemetryOptions.IncludeLogsInFailureDetails` to also list OTLP logs there.
 
 The application runs in the test process, so instrumentation sees everything in that process. The server spans under
 the WireMock calls above come from the in-process WireMock servers.
