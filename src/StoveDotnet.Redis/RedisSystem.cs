@@ -3,12 +3,22 @@ using Testcontainers.Redis;
 
 namespace StoveDotnet.Redis;
 
+/// <summary>Connection details of the running Redis.</summary>
+/// <param name="ConnectionString">Connection string of the running server, ready to map into application
+/// configuration.</param>
+/// <param name="Host">Host name of the server.</param>
+/// <param name="Port">Port of the server.</param>
 public sealed record RedisExposedConfiguration(string ConnectionString, string Host, int Port) : IExposedConfiguration;
 
+/// <summary>What a Redis migration receives.</summary>
+/// <param name="Multiplexer">Stove's connection.</param>
+/// <param name="Configuration">Connection details of the running server.</param>
 public sealed record RedisMigrationContext(IConnectionMultiplexer Multiplexer, RedisExposedConfiguration Configuration);
 
+/// <summary>Options of the Redis module.</summary>
 public sealed class RedisOptions : SystemOptions<RedisExposedConfiguration>
 {
+    /// <summary>Container image. Defaults to <c>redis:7-alpine</c>.</summary>
     public string Image { get; set; } = "redis:7-alpine";
 
     /// <summary>Further container customization.</summary>
@@ -47,15 +57,22 @@ public sealed class RedisSystem : ExposingSystem<RedisOptions, RedisExposedConfi
     private ConnectionMultiplexer? _multiplexer;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public RedisSystem(string? name, RedisOptions options)
         : base(name, options)
     {
     }
 
+    /// <summary>Stove's StackExchange.Redis connection, for anything the DSL does not cover.</summary>
     public IConnectionMultiplexer Multiplexer => _multiplexer ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <summary>A database of the running Redis; <c>-1</c> selects the connection's default database.</summary>
     public IDatabase Database(int db = -1) => Multiplexer.GetDatabase(db);
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         string connectionString;
@@ -94,6 +111,7 @@ public sealed class RedisSystem : ExposingSystem<RedisOptions, RedisExposedConfi
         }
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -109,11 +127,17 @@ public sealed class RedisSystem : ExposingSystem<RedisOptions, RedisExposedConfi
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class RedisStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithRedis(this StoveBuilder builder, Action<RedisOptions>? configure = null) =>
         builder.WithRedis(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithRedis(this StoveBuilder builder, string? name, Action<RedisOptions>? configure = null)
     {
         var options = new RedisOptions();
@@ -121,5 +145,9 @@ public static class RedisStoveExtensions
         return builder.WithSystem(new RedisSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static RedisSystem Redis(this StoveTestContext test, string? name = null) => test.GetSystem<RedisSystem>(name);
 }

@@ -31,6 +31,7 @@ public sealed class StoveTestContext
         internal set => CurrentTest.Value = value;
     }
 
+    /// <summary>The environment this test runs in.</summary>
     public Stove Stove { get; }
 
     /// <summary>Derived from the test file and method, e.g. <c>OrderTests.Creates_order</c>.</summary>
@@ -42,6 +43,9 @@ public sealed class StoveTestContext
     /// <summary>W3C trace id (32 lowercase hex chars) that every Stove-originated call of this test continues.</summary>
     public string TraceId { get; }
 
+    /// <summary>
+    /// Span id (16 lowercase hex chars) of the test's root span; the parent of Stove-originated calls.
+    /// </summary>
     public string RootSpanId { get; }
 
     /// <summary>When the test scope was created; lets modules relate uncorrelated evidence to the test's time window.</summary>
@@ -50,12 +54,20 @@ public sealed class StoveTestContext
     /// <summary>W3C <c>traceparent</c> header value for this test.</summary>
     public string Traceparent => TraceContext.FormatTraceparent(TraceId, RootSpanId);
 
+    /// <summary>
+    /// Cancels the test's waits and I/O. It is the token passed to <see cref="Stove.Test"/>; forward it to your own
+    /// I/O.
+    /// </summary>
     public CancellationToken CancellationToken { get; }
 
     /// <summary>The running application, if Stove started one.</summary>
     public IApplicationContext Application =>
         Stove.Application ?? throw new InvalidOperationException("Stove was started without an application under test.");
 
+    /// <summary>
+    /// A running application: the one with the given name; without a name, the unnamed application or the only one
+    /// registered.
+    /// </summary>
     public IApplicationContext GetApplication(string? name = null) => Stove.GetApplication(name);
 
     /// <summary>Resolves a registered system. See <c>StoveBuilder</c> for name resolution rules.</summary>
@@ -104,12 +116,19 @@ public sealed class StoveTestContext
         Current ?? throw new InvalidOperationException("This Stove operation must be called inside stove.Test(async t => ...).");
 }
 
+/// <summary>Header names Stove uses to tie requests and messages to a test.</summary>
 public static class StoveHeaders
 {
+    /// <summary>The W3C trace context header.</summary>
     public const string Traceparent = "traceparent";
+    /// <summary>
+    /// Header carrying <see cref="StoveTestContext.TestId"/>. Forward it across brokers when trace context is not
+    /// propagated.
+    /// </summary>
     public const string TestId = "X-Stove-Test-Id";
 }
 
+/// <summary>W3C baggage keys Stove sets on the activities it starts.</summary>
 public static class StoveBaggage
 {
     /// <summary>W3C baggage key carrying the test id through applications that propagate baggage.</summary>

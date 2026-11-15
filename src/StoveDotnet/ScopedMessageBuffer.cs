@@ -3,8 +3,12 @@ using System.Runtime.CompilerServices;
 
 namespace StoveDotnet;
 
+/// <summary>
+/// What a broker observer does with a message that carries neither the test id nor a trace context.
+/// </summary>
 public enum UncorrelatedMessagePolicy
 {
+    /// <summary>Ignore the message. The default: it cannot be attributed to a test.</summary>
     Exclude,
     /// <summary>Attribute headerless records received while exactly one test is active to that test. Observer time is not publication time.</summary>
     SingleActiveTest,
@@ -13,9 +17,17 @@ public enum UncorrelatedMessagePolicy
 /// <summary>Bounds retained message evidence per active test. Limits are captured when the system is constructed.</summary>
 public sealed class MessageObservationOptions
 {
+    /// <summary>
+    /// Maximum number of messages retained per test. Exceeding it fails the test's broker assertions instead of
+    /// silently dropping evidence.
+    /// </summary>
     public int MaxMessagesPerTest { get; set; } = 10_000;
     /// <summary>Maximum retained payload/header bytes per test, excluding object overhead.</summary>
     public long MaxBytesPerTest { get; set; } = 16 * 1024 * 1024;
+    /// <summary>
+    /// How messages without correlation headers are treated. Defaults to <see
+    /// cref="UncorrelatedMessagePolicy.Exclude"/>.
+    /// </summary>
     public UncorrelatedMessagePolicy UncorrelatedMessages { get; set; } = UncorrelatedMessagePolicy.Exclude;
 }
 

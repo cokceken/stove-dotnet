@@ -6,22 +6,40 @@ using Testcontainers.RabbitMq;
 
 namespace StoveDotnet.RabbitMq;
 
+/// <summary>Connection details of the running RabbitMQ.</summary>
+/// <param name="ConnectionString">AMQP URI, ready to map into application configuration.</param>
 public sealed record RabbitMqExposedConfiguration(string ConnectionString) : IExposedConfiguration;
+/// <summary>What a RabbitMQ migration or cleanup callback receives.</summary>
+/// <param name="Connection">Stove's connection.</param>
+/// <param name="Channel">A channel for this callback; disposed when it returns.</param>
+/// <param name="Configuration">Connection details of the running broker.</param>
 public sealed record RabbitMqMigrationContext(IConnection Connection, IChannel Channel, RabbitMqExposedConfiguration Configuration);
 /// <summary>A binding from a predeclared exchange to Stove's exclusive observation queue.</summary>
 public sealed record RabbitMqBinding(string Exchange, string RoutingKey = "#");
 
+/// <summary>Options of the RabbitMQ module.</summary>
 public sealed class RabbitMqOptions : SystemOptions<RabbitMqExposedConfiguration>
 {
+    /// <summary>Container image. Defaults to <c>rabbitmq:4.1-alpine</c>.</summary>
     public string Image { get; set; } = "rabbitmq:4.1-alpine";
+    /// <summary>User created in the container. Defaults to <c>stove</c>.</summary>
     public string Username { get; set; } = "stove";
+    /// <summary>Password of the container user. Defaults to <c>stove</c>.</summary>
     public string Password { get; set; } = "stove";
+    /// <summary>Further container customization.</summary>
     public Func<RabbitMqBuilder, RabbitMqBuilder>? ConfigureContainer { get; set; }
     /// <summary>Configures Stove's connection factory. Automatic recovery is disabled: observation gaps fail assertions.</summary>
     public Action<ConnectionFactory>? ConfigureClient { get; set; }
+    /// <summary>Serializer options for message bodies. Defaults to web defaults.</summary>
     public JsonSerializerOptions JsonSerializerOptions { get; set; } = new(JsonSerializerDefaults.Web);
+    /// <summary>Default wait of the <c>Should*</c> methods. Defaults to 10 seconds.</summary>
     public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(10);
+    /// <summary>Bounds the messages retained per test and decides how uncorrelated messages are treated.</summary>
     public MessageObservationOptions Observation { get; } = new();
+    /// <summary>
+    /// Exchanges (and routing keys) whose messages are copied to Stove's observation queue. Only bound routes can
+    /// be asserted on.
+    /// </summary>
     public IList<RabbitMqBinding> Bindings { get; } = [];
     /// <summary>Ordered exchange/queue/binding setup. The callback channel is disposed after setup.</summary>
     public MigrationCollection<RabbitMqMigrationContext> Migrations { get; } = new();
@@ -30,6 +48,7 @@ public sealed class RabbitMqOptions : SystemOptions<RabbitMqExposedConfiguration
     internal string? ExistingConnectionString { get; private set; }
     internal bool RunMigrationsOnExisting { get; private set; } = true;
 
+    /// <summary>Uses an already running RabbitMQ instead of starting a container.</summary>
     public RabbitMqOptions UseExisting(string connectionString, bool runMigrations = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -41,8 +60,15 @@ public sealed class RabbitMqOptions : SystemOptions<RabbitMqExposedConfiguration
 
 /// <summary>A copied delivery from Stove's queue, not evidence of application processing.</summary>
 public sealed record RabbitMqRecord(string Exchange, string RoutingKey, byte[] Body, IReadOnlyDictionary<string, string> Headers, string? MessageId, DateTimeOffset ObservedAt);
+/// <summary>An observed message with its body deserialized.</summary>
+/// <param name="Value">The deserialized JSON body.</param>
+/// <param name="Record">The raw record: exchange, routing key, headers and body.</param>
 public sealed record RabbitMqMessage<T>(T Value, RabbitMqRecord Record);
 
+/// <summary>
+/// A real RabbitMQ broker for the application under test. Stove observes copies of messages on its own exclusive
+/// queue, so application queues are never consumed from.
+/// </summary>
 public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExposedConfiguration>, IRunAware, ITestScopeAware, IFailureDetailsProvider
 {
     private readonly ScopedMessageBuffer<RabbitMqRecord> _store;
@@ -53,11 +79,17 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
     private IChannel? _observer;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public RabbitMqSystem(string? name, RabbitMqOptions options) : base(name, options) => _store = new(options.Observation);
     /// <summary>Owned by Stove. Native callers create/dispose their own channels and serialize concurrent channel use.</summary>
     public IConnection Connection => _connection ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
+    /// <summary>Name of Stove's exclusive observation queue, once the system is running.</summary>
     public string? ObservationQueue { get; private set; }
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         foreach (var binding in Options.Bindings) ArgumentException.ThrowIfNullOrWhiteSpace(binding.Exchange);
@@ -112,6 +144,10 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
     public Task Publish<T>(string exchange, string routingKey, T message, IDictionary<string, string>? headers = null, bool mandatory = true) =>
         PublishRaw(exchange, routingKey, JsonSerializer.SerializeToUtf8Bytes(message, Options.JsonSerializerOptions), headers, mandatory, "application/json");
 
+    /// <summary>
+    /// Publishes raw bytes as the running test, awaiting the broker's confirm. With <paramref name="mandatory"/>,
+    /// an unroutable message fails the call.
+    /// </summary>
     public async Task PublishRaw(string exchange, string routingKey, ReadOnlyMemory<byte> body, IDictionary<string, string>? headers = null, bool mandatory = true, string contentType = "application/octet-stream")
     {
         var test = StoveTestContext.Require();
@@ -143,6 +179,10 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
         return match!;
     }
 
+    /// <summary>
+    /// Observes for the whole of <paramref name="within"/> and fails if a matching message arrives. A bounded
+    /// observation, not proof that none arrives later.
+    /// </summary>
     public async Task ShouldNotBePublished<T>(Func<RabbitMqMessage<T>, bool> condition, TimeSpan within, string? exchange = null, string? routingKey = null)
     {
         ArgumentNullException.ThrowIfNull(condition);
@@ -175,8 +215,11 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
         }
     }
 
+    /// <inheritdoc />
     public Task OnTestStartedAsync(StoveTestContext test) { _store.Start(test); return Task.CompletedTask; }
+    /// <inheritdoc />
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure) { _store.End(test, failure); return Task.CompletedTask; }
+    /// <inheritdoc />
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         var snapshot = _store.Inspect(test);
@@ -193,6 +236,7 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
         await Options.Cleanup(new(_connection, channel, ExposedConfiguration), CancellationToken.None).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
@@ -205,14 +249,24 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class RabbitMqStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithRabbitMq(this StoveBuilder builder, Action<RabbitMqOptions>? configure = null) => builder.WithRabbitMq(null, configure);
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithRabbitMq(this StoveBuilder builder, string? name, Action<RabbitMqOptions>? configure = null)
     {
         var options = new RabbitMqOptions();
         configure?.Invoke(options);
         return builder.WithSystem(new RabbitMqSystem(name, options));
     }
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static RabbitMqSystem RabbitMq(this StoveTestContext test, string? name = null) => test.GetSystem<RabbitMqSystem>(name);
 }

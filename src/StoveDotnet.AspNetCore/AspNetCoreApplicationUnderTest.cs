@@ -8,6 +8,10 @@ using StoveDotnet.Hosting;
 
 namespace StoveDotnet.AspNetCore;
 
+/// <summary>
+/// Options of an ASP.NET Core application under test, including per-application configuration and readiness from
+/// <see cref="ApplicationOptions"/>.
+/// </summary>
 public sealed class AspNetCoreApplicationOptions : ApplicationOptions
 {
     /// <summary>Kestrel port; 0 picks a free port.</summary>
@@ -30,11 +34,13 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
     private readonly AspNetCoreApplicationOptions _options;
     private StoveWebApplicationFactory? _factory;
 
+    /// <summary>Creates the adapter. Tests normally use <c>WithAspNetCoreApplication</c>.</summary>
     public AspNetCoreApplicationUnderTest(AspNetCoreApplicationOptions options)
     {
         _options = options;
     }
 
+    /// <inheritdoc />
     public async Task<IApplicationContext> StartAsync(IReadOnlyDictionary<string, string?> configuration, CancellationToken cancellationToken)
     {
         _factory = new StoveWebApplicationFactory(configuration, _options, _logs);
@@ -61,6 +67,7 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
         return new AspNetCoreApplicationContext(_factory.Services, new Uri(address.Replace("[::]", "localhost", StringComparison.Ordinal)));
     }
 
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         if (_factory is not null)
@@ -69,6 +76,7 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
         }
     }
 
+    /// <inheritdoc />
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken) => _logs.DescribeAsync(test, cancellationToken);
 
     private sealed class StoveWebApplicationFactory(
@@ -96,6 +104,7 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
     private sealed record AspNetCoreApplicationContext(IServiceProvider Services, Uri BaseAddress) : IApplicationContext;
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class AspNetCoreStoveBuilderExtensions
 {
     /// <summary>Runs <typeparamref name="TEntryPoint"/>'s application (usually <c>Program</c>) on a real Kestrel port.</summary>
@@ -104,6 +113,10 @@ public static class AspNetCoreStoveBuilderExtensions
         Action<AspNetCoreApplicationOptions>? configure = null) where TEntryPoint : class
         => builder.WithAspNetCoreApplication<TEntryPoint>(null, configure);
 
+    /// <summary>
+    /// Runs <typeparamref name="TEntryPoint"/>'s application on a real Kestrel port under a name, so several
+    /// applications can run side by side.
+    /// </summary>
     public static StoveBuilder WithAspNetCoreApplication<TEntryPoint>(
         this StoveBuilder builder, string? name,
         Action<AspNetCoreApplicationOptions>? configure = null) where TEntryPoint : class

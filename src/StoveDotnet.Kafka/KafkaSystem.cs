@@ -31,6 +31,10 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     private Task? _observer;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public KafkaSystem(string? name, KafkaOptions options)
         : base(name, options)
     {
@@ -40,6 +44,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     /// <summary>Admin client for anything the DSL does not cover (topics, groups, configs).</summary>
     public IAdminClient Admin => _admin ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         Options.Security.Validate(Options.ExistingBootstrapServers is null);
@@ -204,6 +209,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     public Task<IReadOnlyList<ObservedMessage<T>>> Peek<T>(string? topic = null) =>
         MatchingAsync<T>(StoveTestContext.Require(), record => topic is null || record.Topic == topic, _ => true);
 
+    /// <inheritdoc />
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -274,7 +280,9 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
         return matches;
     }
 
+    /// <inheritdoc />
     public Task OnTestStartedAsync(StoveTestContext test) { _store.Start(test); return Task.CompletedTask; }
+    /// <inheritdoc />
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure) { _store.End(test, failure); return Task.CompletedTask; }
 
     private IEnumerable<ObservedRecord> Owned(StoveTestContext test) => _store.Snapshot(test);
@@ -384,6 +392,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     private static string Truncate(string? value) =>
         value is null ? "(null)" : value.Length <= 200 ? value : string.Concat(value.AsSpan(0, 200), "...");
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -418,11 +427,17 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class KafkaStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithKafka(this StoveBuilder builder, Action<KafkaOptions>? configure = null) =>
         builder.WithKafka(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithKafka(this StoveBuilder builder, string? name, Action<KafkaOptions>? configure = null)
     {
         var options = new KafkaOptions();
@@ -430,5 +445,9 @@ public static class KafkaStoveExtensions
         return builder.WithSystem(new KafkaSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static KafkaSystem Kafka(this StoveTestContext test, string? name = null) => test.GetSystem<KafkaSystem>(name);
 }

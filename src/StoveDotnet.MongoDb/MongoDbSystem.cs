@@ -4,22 +4,38 @@ using Testcontainers.MongoDb;
 
 namespace StoveDotnet.MongoDb;
 
+/// <summary>Connection details of the running MongoDB.</summary>
+/// <param name="ConnectionString">Connection string of the running server, ready to map into application
+/// configuration.</param>
+/// <param name="Database">The database Stove uses and migrations run against.</param>
 public sealed record MongoDbExposedConfiguration(string ConnectionString, string Database) : IExposedConfiguration;
 
+/// <summary>What a MongoDB migration or cleanup callback receives.</summary>
+/// <param name="Client">Stove's client.</param>
+/// <param name="Database">The configured database.</param>
+/// <param name="Configuration">Connection details of the running server.</param>
 public sealed record MongoDbMigrationContext(IMongoClient Client, IMongoDatabase Database, MongoDbExposedConfiguration Configuration);
 
+/// <summary>Options of the MongoDB module.</summary>
 public sealed class MongoDbOptions : SystemOptions<MongoDbExposedConfiguration>
 {
+    /// <summary>Container image. Defaults to <c>mongo:8.0</c>.</summary>
     public string Image { get; set; } = "mongo:8.0";
+    /// <summary>Database name. Defaults to <c>stove</c>; MongoDB creates it on first write.</summary>
     public string Database { get; set; } = "stove";
 
     /// <summary>Single-node replica set by default. Set null for standalone mode (no transactions).</summary>
     public string? ReplicaSet { get; set; } = "stove-rs";
+    /// <summary>Further container customization.</summary>
     public Func<MongoDbBuilder, MongoDbBuilder>? ConfigureContainer { get; set; }
+    /// <summary>
+    /// Customizes Stove's own client before it connects. It does not configure the application's client.
+    /// </summary>
     public Action<MongoClientSettings>? ConfigureClient { get; set; }
 
     /// <summary>Ordered collection/index/seed setup before application startup; reruns on each environment start.</summary>
     public MigrationCollection<MongoDbMigrationContext> Migrations { get; } = new();
+    /// <summary>Runs when Stove stops, before the container is removed; also against an existing server.</summary>
     public Func<MongoDbMigrationContext, CancellationToken, Task>? Cleanup { get; set; }
     internal string? ExistingConnectionString { get; private set; }
     internal bool RunMigrationsOnExisting { get; private set; } = true;
@@ -45,10 +61,14 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
     private MongoDbMigrationContext? _context;
     private int _disposed;
 
+    /// <summary>Stove's native client, for anything the DSL does not cover.</summary>
     public IMongoClient Client => _client ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
+    /// <summary>The configured database.</summary>
     public IMongoDatabase Database => _context?.Database ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
+    /// <summary>A typed collection of the configured database.</summary>
     public IMongoCollection<T> Collection<T>(string name, MongoCollectionSettings? settings = null) => Database.GetCollection<T>(name, settings);
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(Options.Database);
@@ -73,6 +93,7 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
             await Options.Migrations.RunAsync(_context, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Inserts one document as the running test.</summary>
     public async Task Insert<T>(string collection, T document)
     {
         var test = StoveTestContext.Require();
@@ -89,6 +110,7 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
         return await Collection<T>(collection).Find(filter).ToListAsync(test.CancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
@@ -100,10 +122,16 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class MongoDbStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithMongoDb(this StoveBuilder builder, Action<MongoDbOptions>? configure = null) => builder.WithMongoDb(null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithMongoDb(this StoveBuilder builder, string? name, Action<MongoDbOptions>? configure = null)
     {
         var options = new MongoDbOptions();
@@ -111,5 +139,9 @@ public static class MongoDbStoveExtensions
         return builder.WithSystem(new MongoDbSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static MongoDbSystem MongoDb(this StoveTestContext test, string? name = null) => test.GetSystem<MongoDbSystem>(name);
 }

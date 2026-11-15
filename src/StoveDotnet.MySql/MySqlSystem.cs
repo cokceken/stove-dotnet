@@ -3,6 +3,14 @@ using Testcontainers.MySql;
 
 namespace StoveDotnet.MySql;
 
+/// <summary>Connection details of the running MySQL.</summary>
+/// <param name="ConnectionString">Connection string of the running server, ready to map into application
+/// configuration.</param>
+/// <param name="Host">Host name of the server.</param>
+/// <param name="Port">Port of the server.</param>
+/// <param name="Database">Database name.</param>
+/// <param name="Username">User name.</param>
+/// <param name="Password">Password.</param>
 public sealed record MySqlExposedConfiguration(
     string ConnectionString,
     string Host,
@@ -11,16 +19,24 @@ public sealed record MySqlExposedConfiguration(
     string Username,
     string Password) : IExposedConfiguration;
 
+/// <summary>What a MySQL migration receives.</summary>
+/// <param name="DataSource">Stove's data source; open connections from it.</param>
+/// <param name="Configuration">Connection details of the running server.</param>
 public sealed record MySqlMigrationContext(MySqlDataSource DataSource, MySqlExposedConfiguration Configuration);
 
+/// <summary>Options of the MySQL module.</summary>
 public sealed class MySqlOptions : SystemOptions<MySqlExposedConfiguration>
 {
+    /// <summary>Container image. Defaults to <c>mysql:8.4</c>.</summary>
     public string Image { get; set; } = "mysql:8.4";
 
+    /// <summary>Database created in the container. Defaults to <c>stove</c>.</summary>
     public string Database { get; set; } = "stove";
 
+    /// <summary>User created in the container. Defaults to <c>stove</c>.</summary>
     public string Username { get; set; } = "stove";
 
+    /// <summary>Password of the container user. Defaults to <c>stove</c>.</summary>
     public string Password { get; set; } = "stove";
 
     /// <summary>Further container customization, e.g. <c>b => b.WithCommand("--max-connections=200")</c>.</summary>
@@ -56,6 +72,10 @@ public sealed class MySqlSystem : ExposingSystem<MySqlOptions, MySqlExposedConfi
     private MySqlDataSource? _dataSource;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public MySqlSystem(string? name, MySqlOptions options)
         : base(name, options)
     {
@@ -64,6 +84,7 @@ public sealed class MySqlSystem : ExposingSystem<MySqlOptions, MySqlExposedConfi
     /// <summary>Raw MySqlConnector access for anything the DSL does not cover.</summary>
     public MySqlDataSource DataSource => _dataSource ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         string connectionString;
@@ -139,6 +160,7 @@ public sealed class MySqlSystem : ExposingSystem<MySqlOptions, MySqlExposedConfi
         return command;
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -154,11 +176,17 @@ public sealed class MySqlSystem : ExposingSystem<MySqlOptions, MySqlExposedConfi
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class MySqlStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithMySql(this StoveBuilder builder, Action<MySqlOptions>? configure = null) =>
         builder.WithMySql(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithMySql(this StoveBuilder builder, string? name, Action<MySqlOptions>? configure = null)
     {
         var options = new MySqlOptions();
@@ -166,5 +194,9 @@ public static class MySqlStoveExtensions
         return builder.WithSystem(new MySqlSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static MySqlSystem MySql(this StoveTestContext test, string? name = null) => test.GetSystem<MySqlSystem>(name);
 }

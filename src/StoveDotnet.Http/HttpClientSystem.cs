@@ -7,16 +7,23 @@ using System.Text.Json;
 
 namespace StoveDotnet.Http;
 
+/// <summary>Options of the HTTP client Stove uses to call an application under test.</summary>
 public sealed class HttpClientOptions
 {
+    /// <summary>What failure output and assertion messages may show of requests and responses.</summary>
     public HttpDiagnosticsOptions Diagnostics { get; } = new();
     /// <summary>Name of the application to bind to. Null resolves the default or only application.</summary>
     public string? ApplicationName { get; set; }
     /// <summary>Base address for relative URIs. Defaults to the application under test's Kestrel address.</summary>
     public Uri? BaseAddress { get; set; }
 
+    /// <summary>
+    /// Serializer options for request bodies and typed response bodies. Defaults to web defaults; match the
+    /// application's converters (for example string enums).
+    /// </summary>
     public JsonSerializerOptions JsonSerializerOptions { get; set; } = new(JsonSerializerDefaults.Web);
 
+    /// <summary>Timeout of a single request. Defaults to 30 seconds.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>Headers sent with every request of this client, e.g. an Authorization header.</summary>
@@ -35,14 +42,20 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
     private readonly HttpClientOptions _options;
     private HttpClient? _client;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public HttpClientSystem(string? name, HttpClientOptions options)
     {
         Name = name;
         _options = options;
     }
 
+    /// <inheritdoc />
     public string? Name { get; }
 
+    /// <inheritdoc />
     public Task OnApplicationsStartedAsync(Stove stove, CancellationToken cancellationToken)
     {
         if (_options.BaseAddress is not null) return Task.CompletedTask;
@@ -51,42 +64,81 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Sends a GET and returns the buffered response; <see cref="StoveHttpResponse{T}.Body"/> deserializes the JSON
+    /// body on first access.
+    /// </summary>
     public Task<StoveHttpResponse<T>> Get<T>(string uri, IDictionary<string, string>? headers = null) =>
         Send<T>(HttpMethod.Get, uri, body: null, headers);
 
+    /// <summary>Sends a GET and returns the buffered response.</summary>
     public Task<StoveHttpResponse> Get(string uri, IDictionary<string, string>? headers = null) =>
         Send(HttpMethod.Get, uri, body: null, headers);
 
+    /// <summary>
+    /// Sends a POST with <paramref name="body"/> as JSON (or as is, when it is an <see cref="HttpContent"/>) and
+    /// returns the buffered, typed response.
+    /// </summary>
     public Task<StoveHttpResponse<T>> Post<T>(string uri, object? body = null, IDictionary<string, string>? headers = null) =>
         Send<T>(HttpMethod.Post, uri, body, headers);
 
+    /// <summary>
+    /// Sends a POST with <paramref name="body"/> as JSON (or as is, when it is an <see cref="HttpContent"/>) and
+    /// returns the buffered response.
+    /// </summary>
     public Task<StoveHttpResponse> Post(string uri, object? body = null, IDictionary<string, string>? headers = null) =>
         Send(HttpMethod.Post, uri, body, headers);
 
+    /// <summary>
+    /// Sends a PUT with <paramref name="body"/> as JSON (or as is, when it is an <see cref="HttpContent"/>) and
+    /// returns the buffered, typed response.
+    /// </summary>
     public Task<StoveHttpResponse<T>> Put<T>(string uri, object? body = null, IDictionary<string, string>? headers = null) =>
         Send<T>(HttpMethod.Put, uri, body, headers);
 
+    /// <summary>
+    /// Sends a PUT with <paramref name="body"/> as JSON (or as is, when it is an <see cref="HttpContent"/>) and
+    /// returns the buffered response.
+    /// </summary>
     public Task<StoveHttpResponse> Put(string uri, object? body = null, IDictionary<string, string>? headers = null) =>
         Send(HttpMethod.Put, uri, body, headers);
 
+    /// <summary>
+    /// Sends a PATCH with <paramref name="body"/> as JSON (or as is, when it is an <see cref="HttpContent"/>) and
+    /// returns the buffered, typed response.
+    /// </summary>
     public Task<StoveHttpResponse<T>> Patch<T>(string uri, object? body = null, IDictionary<string, string>? headers = null) =>
         Send<T>(HttpMethod.Patch, uri, body, headers);
 
+    /// <summary>
+    /// Sends a PATCH with <paramref name="body"/> as JSON (or as is, when it is an <see cref="HttpContent"/>) and
+    /// returns the buffered response.
+    /// </summary>
     public Task<StoveHttpResponse> Patch(string uri, object? body = null, IDictionary<string, string>? headers = null) =>
         Send(HttpMethod.Patch, uri, body, headers);
 
+    /// <summary>Sends a DELETE and returns the buffered, typed response.</summary>
     public Task<StoveHttpResponse<T>> Delete<T>(string uri, IDictionary<string, string>? headers = null) =>
         Send<T>(HttpMethod.Delete, uri, body: null, headers);
 
+    /// <summary>Sends a DELETE and returns the buffered response.</summary>
     public Task<StoveHttpResponse> Delete(string uri, IDictionary<string, string>? headers = null) =>
         Send(HttpMethod.Delete, uri, body: null, headers);
 
+    /// <summary>
+    /// Sends a request with any method and returns the buffered, typed response. Per-request <paramref
+    /// name="headers"/> override the client's default headers.
+    /// </summary>
     public async Task<StoveHttpResponse<T>> Send<T>(HttpMethod method, string uri, object? body = null, IDictionary<string, string>? headers = null)
     {
         var response = await Send(method, uri, body, headers).ConfigureAwait(false);
         return new StoveHttpResponse<T>(response, _options.JsonSerializerOptions);
     }
 
+    /// <summary>
+    /// Sends a request with any method and returns the buffered response. Per-request <paramref name="headers"/>
+    /// override the client's default headers.
+    /// </summary>
     public async Task<StoveHttpResponse> Send(HttpMethod method, string uri, object? body = null, IDictionary<string, string>? headers = null)
     {
         using var request = new HttpRequestMessage(method, uri);
@@ -129,6 +181,10 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
         return new StoveHttpResponse(response.StatusCode, responseHeaders, rawBody, diagnostic);
     }
 
+    /// <summary>
+    /// Sends caller-owned content with correlation and returns a buffered, typed response. The caller owns the
+    /// request.
+    /// </summary>
     public async Task<StoveHttpResponse<T>> Send<T>(HttpRequestMessage request, CancellationToken cancellationToken = default) =>
         new(await Send(request, cancellationToken).ConfigureAwait(false), _options.JsonSerializerOptions);
 
@@ -194,8 +250,10 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
         while (exchanges.Count > MaxExchangesPerTest) exchanges.TryDequeue(out _);
     }
 
+    /// <inheritdoc />
     public Task OnTestStartedAsync(StoveTestContext test) => Task.CompletedTask;
 
+    /// <inheritdoc />
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -204,6 +262,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -221,6 +280,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
         Timeout = _options.Timeout,
     };
 
+    /// <inheritdoc />
     public ValueTask DisposeAsync()
     {
         _client?.Dispose();
@@ -228,6 +288,13 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
     }
 }
 
+/// <summary>
+/// A buffered HTTP response. Reading it never fails; assert on <see cref="StatusCode"/> yourself or call <see
+/// cref="Expect"/>.
+/// </summary>
+/// <param name="statusCode">The response status.</param>
+/// <param name="headers">Response and content headers, case-insensitive by name.</param>
+/// <param name="rawBody">The body as text.</param>
 public class StoveHttpResponse(HttpStatusCode statusCode, IReadOnlyDictionary<string, IReadOnlyList<string>> headers, string rawBody)
 {
     private readonly string _diagnostic = $"{(int)statusCode} {statusCode}: {new HttpDiagnosticsOptions().Body(rawBody)}";
@@ -235,28 +302,47 @@ public class StoveHttpResponse(HttpStatusCode statusCode, IReadOnlyDictionary<st
     internal StoveHttpResponse(HttpStatusCode statusCode, IReadOnlyDictionary<string, IReadOnlyList<string>> headers, string rawBody, string diagnostic)
         : this(statusCode, headers, rawBody) => _diagnostic = diagnostic;
 
+    /// <summary>Copies a response, keeping its diagnostic text.</summary>
     protected StoveHttpResponse(StoveHttpResponse response) : this(response.StatusCode, response.Headers, response.RawBody, response._diagnostic) { }
 
+    /// <summary>
+    /// Fails with a <see cref="StoveAssertionException"/> showing the request and the response when the status
+    /// differs; otherwise returns this response for chaining.
+    /// </summary>
     public StoveHttpResponse Expect(HttpStatusCode expected)
     {
         if (StatusCode != expected)
             throw new StoveAssertionException($"Expected HTTP {(int)expected} {expected}, actual {(int)StatusCode} {StatusCode}.\n{this}");
         return this;
     }
+    /// <summary>The response status.</summary>
     public HttpStatusCode StatusCode { get; } = statusCode;
 
+    /// <summary>Response and content headers, case-insensitive by name.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Headers { get; } = headers;
 
+    /// <summary>The body as text, exactly as received.</summary>
     public string RawBody { get; } = rawBody;
 
+    /// <summary>Whether the status is in the 200 to 299 range.</summary>
     public bool IsSuccessStatusCode => (int)StatusCode is >= 200 and < 300;
 
+    /// <summary>The request line, headers and bounded, redacted bodies, as used in assertion messages.</summary>
     public override string ToString() => _diagnostic;
 }
 
+/// <summary>
+/// A buffered HTTP response whose JSON body deserializes to <typeparamref name="T"/> on first access.
+/// </summary>
+/// <param name="response">The buffered response.</param>
+/// <param name="jsonSerializerOptions">Serializer options used for <see cref="Body"/>.</param>
 public sealed class StoveHttpResponse<T>(StoveHttpResponse response, JsonSerializerOptions jsonSerializerOptions)
     : StoveHttpResponse(response)
 {
+    /// <summary>
+    /// Fails with a <see cref="StoveAssertionException"/> showing the request and the response when the status
+    /// differs; otherwise returns this response for chaining.
+    /// </summary>
     public new StoveHttpResponse<T> Expect(HttpStatusCode expected) { base.Expect(expected); return this; }
     private readonly Lazy<T> _body = new(() => Deserialize(response, jsonSerializerOptions));
 
@@ -279,11 +365,17 @@ public sealed class StoveHttpResponse<T>(StoveHttpResponse response, JsonSeriali
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class HttpStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithHttpClient(this StoveBuilder builder, Action<HttpClientOptions>? configure = null) =>
         builder.WithHttpClient(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithHttpClient(this StoveBuilder builder, string? name, Action<HttpClientOptions>? configure = null)
     {
         var options = new HttpClientOptions();
@@ -291,5 +383,9 @@ public static class HttpStoveExtensions
         return builder.WithSystem(new HttpClientSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static HttpClientSystem Http(this StoveTestContext test, string? name = null) => test.GetSystem<HttpClientSystem>(name);
 }

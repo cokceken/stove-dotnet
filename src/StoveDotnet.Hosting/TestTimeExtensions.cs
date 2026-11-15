@@ -19,6 +19,10 @@ public static class TestTimeExtensions
         return services;
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static FakeTimeProvider Clock(this StoveTestContext test, string? application = null) =>
         test.GetApplication(application).Services.GetRequiredService<FakeTimeProvider>();
 }

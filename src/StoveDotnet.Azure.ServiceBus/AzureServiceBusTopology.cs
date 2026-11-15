@@ -8,6 +8,7 @@ public sealed class AzureServiceBusTopology
     internal IList<AzureServiceBusQueueDefinition> Queues { get; } = [];
     internal IList<AzureServiceBusTopicDefinition> Topics { get; } = [];
 
+    /// <summary>Declares a queue.</summary>
     public AzureServiceBusTopology Queue(string name, Action<CreateQueueOptions>? configure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -17,6 +18,7 @@ public sealed class AzureServiceBusTopology
         return this;
     }
 
+    /// <summary>Declares a topic and, through <paramref name="subscriptions"/>, its subscriptions.</summary>
     public AzureServiceBusTopology Topic(
         string name,
         Action<CreateTopicOptions>? configure = null,
@@ -32,6 +34,7 @@ public sealed class AzureServiceBusTopology
     }
 }
 
+/// <summary>Declares the subscriptions of one topic.</summary>
 public sealed class AzureServiceBusTopicTopology
 {
     private readonly string _topic;
@@ -39,6 +42,7 @@ public sealed class AzureServiceBusTopicTopology
 
     internal AzureServiceBusTopicTopology(string topic) => _topic = topic;
 
+    /// <summary>Declares a subscription and, through <paramref name="rules"/>, its filter rules.</summary>
     public AzureServiceBusTopicTopology Subscription(
         string name,
         Action<CreateSubscriptionOptions>? configure = null,
@@ -54,10 +58,14 @@ public sealed class AzureServiceBusTopicTopology
     }
 }
 
+/// <summary>
+/// Declares the filter rules of one subscription. Adding a rule replaces the default match-all rule.
+/// </summary>
 public sealed class AzureServiceBusSubscriptionRules
 {
     internal IList<CreateRuleOptions> Items { get; } = [];
 
+    /// <summary>Adds a SQL filter rule.</summary>
     public AzureServiceBusSubscriptionRules Sql(string name, string expression)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -66,6 +74,7 @@ public sealed class AzureServiceBusSubscriptionRules
         return this;
     }
 
+    /// <summary>Adds a correlation filter rule.</summary>
     public AzureServiceBusSubscriptionRules Correlation(string name, Action<CorrelationRuleFilter> configure)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -76,6 +85,7 @@ public sealed class AzureServiceBusSubscriptionRules
         return this;
     }
 
+    /// <summary>Adds a rule built with the SDK's own options.</summary>
     public AzureServiceBusSubscriptionRules Add(CreateRuleOptions rule)
     {
         ArgumentNullException.ThrowIfNull(rule);

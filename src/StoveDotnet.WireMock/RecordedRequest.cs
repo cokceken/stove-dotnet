@@ -21,26 +21,34 @@ public sealed class RecordedRequest
         BodyBytes = message.BodyAsBytes;
     }
 
+    /// <summary>HTTP method.</summary>
     public string Method { get; }
 
+    /// <summary>Request path without the query string.</summary>
     public string Path { get; }
 
+    /// <summary>Full request URL.</summary>
     public string Url { get; }
 
     /// <summary>Values of the path template placeholders, e.g. <c>productId</c> for <c>/stock/{productId}</c>.</summary>
     public IReadOnlyDictionary<string, string> PathParameters { get; }
 
+    /// <summary>Query parameters, case-insensitive by name.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Query { get; }
 
+    /// <summary>Request headers, case-insensitive by name.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Headers { get; }
 
     /// <summary>The body as text, when WireMock could read it as text.</summary>
     public string? Body { get; }
 
+    /// <summary>The raw body, when the request had one.</summary>
     public byte[]? BodyBytes { get; }
 
+    /// <summary>The first value of a header, or <c>null</c>.</summary>
     public string? Header(string name) => Headers.TryGetValue(name, out var values) && values.Count > 0 ? values[0] : null;
 
+    /// <summary>The first value of a query parameter, or <c>null</c>.</summary>
     public string? QueryValue(string name) => Query.TryGetValue(name, out var values) && values.Count > 0 ? values[0] : null;
 
     /// <summary>Deserializes the JSON body with the WireMock system's serializer options.</summary>
@@ -63,6 +71,7 @@ public sealed class RecordedRequest
         }
     }
 
+    /// <summary>Method and URL.</summary>
     public override string ToString() => $"{Method} {Url}";
 
     private static Dictionary<string, IReadOnlyList<string>> ToReadOnly(IEnumerable<KeyValuePair<string, IEnumerable<string>>>? values)

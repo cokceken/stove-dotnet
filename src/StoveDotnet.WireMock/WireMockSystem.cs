@@ -11,8 +11,13 @@ using WireMock.Settings;
 
 namespace StoveDotnet.WireMock;
 
+/// <summary>Address of the running WireMock server.</summary>
+/// <param name="BaseUrl">Base address to configure as the third-party API's URL.</param>
+/// <param name="Host">Host name of the server.</param>
+/// <param name="Port">Port of the server.</param>
 public sealed record WireMockExposedConfiguration(Uri BaseUrl, string Host, int Port) : IExposedConfiguration;
 
+/// <summary>Options of an in-process WireMock.Net server.</summary>
 public sealed class WireMockOptions : SystemOptions<WireMockExposedConfiguration>
 {
     /// <summary>Port to listen on; 0 picks a free port.</summary>
@@ -48,6 +53,10 @@ public sealed class WireMockSystem
     private readonly ConcurrentDictionary<string, ConcurrentBag<Guid>> _stubsByTest = new(StringComparer.Ordinal);
     private WireMockServer? _server;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public WireMockSystem(string? name, WireMockOptions options)
         : base(name, options)
     {
@@ -56,6 +65,7 @@ public sealed class WireMockSystem
     /// <summary>The underlying WireMock.Net server for anything the Stove DSL does not cover.</summary>
     public WireMockServer Server => _server ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <inheritdoc />
     public Task RunAsync(CancellationToken cancellationToken)
     {
         var settings = new WireMockServerSettings { Port = Options.Port, StartAdminInterface = false };
@@ -67,22 +77,40 @@ public sealed class WireMockSystem
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Stubs a GET. <paramref name="path"/> is an exact path or a template such as <c>/stock/{productId}</c>; a
+    /// non-string <paramref name="responseBody"/> is sent as JSON. Returns the stub id. The stub is removed when
+    /// the test ends.
+    /// </summary>
     public Guid MockGet(string path, int statusCode = 200, object? responseBody = null,
         IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
         Mock("GET", path, statusCode, requestBody: null, responseBody, responseHeaders, delay);
 
+    /// <summary>
+    /// Stubs a POST. When <paramref name="requestBody"/> is given, the stub only matches requests whose JSON body
+    /// equals it. Returns the stub id. The stub is removed when the test ends.
+    /// </summary>
     public Guid MockPost(string path, int statusCode = 200, object? responseBody = null, object? requestBody = null,
         IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
         Mock("POST", path, statusCode, requestBody, responseBody, responseHeaders, delay);
 
+    /// <summary>
+    /// Stubs a PUT. When <paramref name="requestBody"/> is given, the stub only matches requests whose JSON body
+    /// equals it. Returns the stub id. The stub is removed when the test ends.
+    /// </summary>
     public Guid MockPut(string path, int statusCode = 200, object? responseBody = null, object? requestBody = null,
         IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
         Mock("PUT", path, statusCode, requestBody, responseBody, responseHeaders, delay);
 
+    /// <summary>
+    /// Stubs a PATCH. When <paramref name="requestBody"/> is given, the stub only matches requests whose JSON body
+    /// equals it. Returns the stub id. The stub is removed when the test ends.
+    /// </summary>
     public Guid MockPatch(string path, int statusCode = 200, object? responseBody = null, object? requestBody = null,
         IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
         Mock("PATCH", path, statusCode, requestBody, responseBody, responseHeaders, delay);
 
+    /// <summary>Stubs a DELETE. Returns the stub id. The stub is removed when the test ends.</summary>
     public Guid MockDelete(string path, int statusCode = 200, object? responseBody = null,
         IDictionary<string, string>? responseHeaders = null, TimeSpan? delay = null) =>
         Mock("DELETE", path, statusCode, requestBody: null, responseBody, responseHeaders, delay);
@@ -153,8 +181,9 @@ public sealed class WireMockSystem
 
     /// <summary>
     /// Asserts the current test sent exactly <paramref name="times"/> requests matching <paramref name="method"/> and
-    /// <paramref name="path"/> (a path or template) and returns them, e.g. to assert on their bodies. For calls made
-    /// asynchronously by the application, pass <paramref name="within"/> to wait for them.
+    /// <paramref name="path"/> (a path or template) and returns them, e.g. to assert on their bodies. Waits up to
+    /// <paramref name="within"/> (default <see cref="WireMockOptions.DefaultTimeout"/>) for them to arrive and returns
+    /// as soon as they have, so calls the application makes asynchronously need no extra handling.
     /// </summary>
     public async Task<IReadOnlyList<RecordedRequest>> ShouldHaveBeenCalled(string method, string path, int times = 1, TimeSpan? within = null)
     {
@@ -185,11 +214,17 @@ public sealed class WireMockSystem
         return requests;
     }
 
+    /// <summary>
+    /// Asserts the current test sent no request matching <paramref name="method"/> and <paramref name="path"/>.
+    /// Checks once, without waiting.
+    /// </summary>
     public async Task ShouldNotHaveBeenCalled(string method, string path) =>
         await ShouldHaveBeenCalled(method, path, times: 0).ConfigureAwait(false);
 
+    /// <inheritdoc />
     public Task OnTestStartedAsync(StoveTestContext test) => Task.CompletedTask;
 
+    /// <inheritdoc />
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -207,6 +242,7 @@ public sealed class WireMockSystem
     // The server's request log is never trimmed while it runs. WireMock.Net picks the insert position of a new entry
     // before taking its lock and ignores a failed insert, so removing entries while requests arrive makes it drop
     // requests from the log without a trace.
+    /// <inheritdoc />
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken) =>
         Task.FromResult<FailureDetails?>(new FailureDetails(
             Name is null ? "wiremock" : $"wiremock '{Name}'",
@@ -289,6 +325,7 @@ public sealed class WireMockSystem
     private static string Truncate(string? body) =>
         string.IsNullOrEmpty(body) ? string.Empty : body.Length <= 300 ? body : string.Concat(body.AsSpan(0, 300), "...");
 
+    /// <inheritdoc />
     public override ValueTask DisposeAsync()
     {
         _server?.Stop();
@@ -297,11 +334,17 @@ public sealed class WireMockSystem
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class WireMockStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithWireMock(this StoveBuilder builder, Action<WireMockOptions>? configure = null) =>
         builder.WithWireMock(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithWireMock(this StoveBuilder builder, string? name, Action<WireMockOptions>? configure = null)
     {
         var options = new WireMockOptions();
@@ -309,5 +352,9 @@ public static class WireMockStoveExtensions
         return builder.WithSystem(new WireMockSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static WireMockSystem WireMock(this StoveTestContext test, string? name = null) => test.GetSystem<WireMockSystem>(name);
 }
