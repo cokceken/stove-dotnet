@@ -59,7 +59,9 @@ application's own SQL client.
 ## Redis
 
 Reference `StoveDotnet.Redis`. Tests use StackExchange.Redis directly through `Multiplexer` and `Database(db)`.
-Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer` and `UseExisting`.
+Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`, `ConfigureClient` (customizes the
+`ConfigurationOptions` of Stove's own client) and `UseExisting`. Stove connects before the application starts, so an
+unreachable server fails startup; cleanup callbacks also run against an existing server, which Stove never stops.
 
 ## Test isolation
 

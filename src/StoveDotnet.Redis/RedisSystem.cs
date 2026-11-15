@@ -14,6 +14,12 @@ public sealed class RedisOptions : SystemOptions<RedisExposedConfiguration>
     /// <summary>Further container customization.</summary>
     public Func<RedisBuilder, RedisBuilder>? ConfigureContainer { get; set; }
 
+    /// <summary>
+    /// Customizes Stove's own client (timeouts, client name, credentials) before it connects. It does not configure
+    /// the application's client.
+    /// </summary>
+    public Action<ConfigurationOptions>? ConfigureClient { get; set; }
+
     /// <summary>Run before the application starts, in ascending order.</summary>
     public MigrationCollection<RedisMigrationContext> Migrations { get; } = new();
 
@@ -67,7 +73,10 @@ public sealed class RedisSystem : ExposingSystem<RedisOptions, RedisExposedConfi
             connectionString = _container.GetConnectionString();
         }
 
-        _multiplexer = await ConnectionMultiplexer.ConnectAsync(connectionString).ConfigureAwait(false);
+        var clientOptions = ConfigurationOptions.Parse(connectionString);
+        Options.ConfigureClient?.Invoke(clientOptions);
+        // Connecting also proves the server is reachable before migrations or the application start.
+        _multiplexer = await ConnectionMultiplexer.ConnectAsync(clientOptions).WaitAsync(cancellationToken).ConfigureAwait(false);
         var endpoint = ConfigurationOptions.Parse(connectionString).EndPoints.FirstOrDefault();
         var (host, port) = endpoint switch
         {
