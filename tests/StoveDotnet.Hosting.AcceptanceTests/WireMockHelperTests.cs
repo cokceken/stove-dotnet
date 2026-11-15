@@ -52,17 +52,19 @@ public sealed class WireMockHelperTests(InProcessStoveFixture fixture)
     public Task Raw_responses_serve_xml_and_binary_bodies() => _stove.Test(async t =>
     {
         var wireMock = t.WireMock("downstream");
-        wireMock.MockRaw("PUT", "/{bucket}/{key+}", 200, "<PutObjectResult/>", "application/xml", new Dictionary<string, string> { ["ETag"] = "\"abc\"" });
-        wireMock.MockRaw("GET", "/{bucket}/{key+}", 200, [1, 2, 3], "application/pdf");
+        // The fixture's WireMock is shared with tests running in parallel: a catch-all template such as
+        // /{bucket}/{key+} would also answer their requests, so the stubs stay under their own prefix.
+        wireMock.MockRaw("PUT", "/storage/{bucket}/{key+}", 200, "<PutObjectResult/>", "application/xml", new Dictionary<string, string> { ["ETag"] = "\"abc\"" });
+        wireMock.MockRaw("GET", "/storage/{bucket}/{key+}", 200, [1, 2, 3], "application/pdf");
         using var client = new HttpClient { BaseAddress = wireMock.ExposedConfiguration.BaseUrl };
 
-        using var put = await client.PutAsync("/invoices/2026/inv-1.pdf", new ByteArrayContent(Encoding.UTF8.GetBytes("pdf")), t.CancellationToken);
-        var download = await client.GetByteArrayAsync("/invoices/2026/inv-1.pdf", t.CancellationToken);
+        using var put = await client.PutAsync("/storage/invoices/2026/inv-1.pdf", new ByteArrayContent(Encoding.UTF8.GetBytes("pdf")), t.CancellationToken);
+        var download = await client.GetByteArrayAsync("/storage/invoices/2026/inv-1.pdf", t.CancellationToken);
 
         Assert.Equal("<PutObjectResult/>", await put.Content.ReadAsStringAsync(t.CancellationToken));
         Assert.Equal("\"abc\"", put.Headers.ETag?.Tag);
         Assert.Equal([1, 2, 3], download);
-        var upload = Assert.Single(await wireMock.ShouldHaveBeenCalled("PUT", "/{bucket}/{key+}"));
+        var upload = Assert.Single(await wireMock.ShouldHaveBeenCalled("PUT", "/storage/{bucket}/{key+}"));
         Assert.Equal("2026/inv-1.pdf", upload.PathParameters["key"]);
     });
 
