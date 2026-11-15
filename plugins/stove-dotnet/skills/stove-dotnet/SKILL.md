@@ -61,10 +61,9 @@ Namespaces:
 | Namespace | Provides |
 |---|---|
 | `StoveDotnet` | `StoveBuilder`, `Stove`, `StoveTestContext`, `Eventually`, exceptions |
-| `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication` (brings `StoveDotnet.Hosting` and its `t.Using<T>()`) |
+| `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication` (brings `StoveDotnet.Hosting`: `t.Using<T>()`, opt-in `UseStoveTime(clock)` and `t.Clock(application?)`) |
 | `StoveDotnet.Http` | `WithHttpClient`, `t.Http()` |
 | `StoveDotnet.Containers` | `WithContainer`, `t.Container(name?).Container` for user-supplied Testcontainers dependencies |
-| `StoveDotnet.Time` | Opt-in `UseStoveTime(clock)`, `t.Clock(application?)` |
 | `StoveDotnet.Oidc` | `WithOidc`, `t.Oidc(name?).IssueToken()` |
 | `StoveDotnet.Postgres` | `WithPostgres`, `t.Postgres()` |
 | `StoveDotnet.MongoDb` | `WithMongoDb`, `t.MongoDb()` |

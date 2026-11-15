@@ -12,12 +12,14 @@ builder.Services.AddSingleton(new GreetingService(greeting));
 builder.Services.AddHttpClient("downstream", client =>
     client.BaseAddress = new Uri(builder.Configuration["Downstream:BaseUrl"] ?? "http://localhost:1"));
 
+// A production-style setup: instrumentation always, an exporter only where a collector is configured. Stove reads
+// the activities in-process, so the tests need neither the exporter nor a collector.
+var telemetry = builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("test-app"))
+    .WithTracing(t => t.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation());
 if (builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
 {
-    builder.Services.AddOpenTelemetry()
-        .ConfigureResource(r => r.AddService("test-app"))
-        .WithTracing(t => t.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddOtlpExporter())
-        .WithLogging(l => l.AddOtlpExporter());
+    telemetry.WithTracing(t => t.AddOtlpExporter()).WithLogging(l => l.AddOtlpExporter());
 }
 
 var app = builder.Build();

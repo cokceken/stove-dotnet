@@ -182,8 +182,8 @@ reqs[0].BodyAs<T>(); reqs[0].PathParameters["id"]; reqs[0].QueryValue("page"); r
 
 ```csharp
 SpanRecord span = await t.Telemetry().ShouldContainSpan(s => s.Kind == "Server" && s.Attribute("http.route") as string == "/orders");
-IReadOnlyList<SpanRecord> spans = await t.Telemetry().Spans();      // waits for export to go quiet
-IReadOnlyList<LogRecord> logs = await t.Telemetry().Logs();
+IReadOnlyList<SpanRecord> spans = await t.Telemetry().Spans();      // finished spans; waits only for spans still in flight
+span.Name; span.Kind; span.Source; span.IsError; span.Attribute("http.response.status_code");
 await t.Telemetry().ShouldNotHaveFailedSpans();
 string tree = t.Telemetry().RenderTree();
 ```
@@ -226,7 +226,7 @@ Caller cancellation is distinct from timeout. See repository `docs/practical-tes
 
 ### Application time and identity
 
-`StoveDotnet.Time` provides `services.UseStoveTime(clock)` for a fixture-owned Microsoft `FakeTimeProvider` and
+`StoveDotnet.Hosting` provides `services.UseStoveTime(clock)` for a fixture-owned Microsoft `FakeTimeProvider` and
 `t.Clock("api")` for lookup. Advance only after the application has armed its provider-aware timers. Shared clocks
 require serialized mutation; independent clocks/hosts can run in parallel. This does not change PostgreSQL, external
 systems or JWT validation time. Never assume advancing time drains all asynchronous work.

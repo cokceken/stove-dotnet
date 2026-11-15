@@ -1,20 +1,91 @@
+extern alias ClockApp;
+using System.Diagnostics;
+using System.Net;
+using StoveDotnet.AspNetCore;
+using StoveDotnet.Http;
 using StoveDotnet.Telemetry;
 using Xunit;
+using ClockAppMarker = ClockApp::ClockAppMarker;
 
 namespace StoveDotnet.Hosting.AcceptanceTests;
 
 public sealed class TelemetryTests
 {
-    [Theory]
-    [InlineData("Order {OrderId} created", "Order 42 created")]
-    [InlineData("Took {Elapsed:0.00}ms for {@Order}", "Took 1.5ms for o-1")]
-    [InlineData("Unknown {Missing} stays", "Unknown {Missing} stays")]
-    [InlineData("No placeholders", "No placeholders")]
-    public void Formats_log_message_templates(string template, string expected)
+    [Fact]
+    public async Task Application_without_any_telemetry_setup_still_yields_the_trace_of_the_test()
     {
-        var attributes = new Dictionary<string, object?> { ["OrderId"] = 42L, ["Elapsed"] = 1.5, ["Order"] = "o-1" };
+        // The clock app registers no OpenTelemetry SDK, instrumentation or exporter.
+        await using var stove = await StoveBuilder.Create()
+            .WithTelemetry()
+            .WithHttpClient()
+            .WithAspNetCoreApplication<ClockAppMarker>()
+            .StartAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(expected, OtlpConverter.FormatTemplate(template, attributes));
+        await stove.Test(async t =>
+        {
+            (await t.Http().Get("/clock")).Expect(HttpStatusCode.OK);
+
+            // No polling: the handler's span is still finishing when the response arrives, and Spans waits for it.
+            var spans = await t.Telemetry().Spans();
+
+            var call = Assert.Single(spans, s => s.Kind == "Client");
+            Assert.EndsWith("/clock", Assert.IsType<string>(call.Attribute("url.full")), StringComparison.Ordinal);
+            Assert.Equal(200, call.Attribute("http.response.status_code"));
+            // The handler nests under the call that caused it, so the tree reads top-down without any setup.
+            var handler = Assert.Single(spans, s => s.Kind == "Server" && s.Source == "Microsoft.AspNetCore");
+            Assert.Equal(call.SpanId, handler.ParentSpanId);
+            Assert.All(spans, s => Assert.Equal(t.TraceId, s.TraceId));
+        }, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Only_activities_inside_a_test_trace_are_sampled_and_captured()
+    {
+        using var source = new ActivitySource("StoveDotnet.Tests.Sampling");
+        await using var stove = await StoveBuilder.Create().WithTelemetry().StartAsync(TestContext.Current.CancellationToken);
+
+        // Outside a test nothing asks for this source, so the application would not pay for the activity either.
+        Assert.Null(source.StartActivity("outside any test"));
+
+        await stove.Test(async t =>
+        {
+            using (var activity = source.StartActivity("inside the test"))
+            {
+                Assert.NotNull(activity);
+                activity.SetTag("order.id", 42);
+                activity.SetStatus(ActivityStatusCode.Error, "declined");
+            }
+
+            var span = Assert.Single(await t.Telemetry().Spans());
+            Assert.Equal("inside the test", span.Name);
+            Assert.Equal("StoveDotnet.Tests.Sampling", span.Source);
+            Assert.Equal(42, span.Attribute("order.id"));
+            Assert.True(span.IsError);
+            Assert.Equal("declined", span.StatusMessage);
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Null(source.StartActivity("after the test"));
+    }
+
+    [Fact]
+    public async Task Failure_report_notes_spans_that_never_finished()
+    {
+        using var source = new ActivitySource("StoveDotnet.Tests.InFlight");
+        await using var stove = await StoveBuilder.Create()
+            .WithTelemetry(o => o.SettleTimeout = TimeSpan.FromMilliseconds(100))
+            .StartAsync(TestContext.Current.CancellationToken);
+        Activity? stuck = null;
+
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => stove.Test(_ =>
+        {
+            using (source.StartActivity("finished")) { }
+            stuck = source.StartActivity("stuck");
+            throw new InvalidOperationException("gave up waiting");
+        }, TestContext.Current.CancellationToken));
+        stuck?.Dispose();
+
+        Assert.Contains("[ok] finished", error.Message, StringComparison.Ordinal);
+        Assert.Contains("1 span(s) had started but not finished", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

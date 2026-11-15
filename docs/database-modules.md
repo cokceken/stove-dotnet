@@ -1,7 +1,75 @@
-# MongoDB and MySQL
+# Databases
 
-These modules are implemented in this repository. Publication and remote CI status are separate from local verification.
-The application uses its normal database driver and reads configuration; it does not reference Stove.
+PostgreSQL, SQL Server, MongoDB, MySQL and Redis each have their own package. The application uses its normal driver
+and reads configuration; it does not reference Stove. Every module can start a container or connect to an existing
+server (see [existing instances](setup.md#existing-instances)), runs ordered migrations or setup before the application
+starts, and exposes its native client.
+
+`Query` reads once and returns the rows for your assertion library. Wrap the query and its assertion in
+`Eventually.AssertAsync` when the application writes asynchronously.
+
+## PostgreSQL
+
+Reference `StoveDotnet.Postgres`. `Execute(sql, params)` and `Query<T>(sql, map, params)` take `NpgsqlParameter`s and
+an `NpgsqlDataReader` mapper; `DataSource` gives raw Npgsql access. Options: `Migrations`, `Cleanup`, `Image`,
+`ConfigureContainer`, `ConfigureDataSource` (customizes the `NpgsqlDataSourceBuilder` used by Stove) and `UseExisting`.
+
+## SQL Server
+
+Reference `StoveDotnet.SqlServer` and use `StoveDotnet.SqlServer` and `Microsoft.Data.SqlClient` namespaces:
+
+```csharp
+var stove = await StoveBuilder.Create()
+    .WithSqlServer("orders", o =>
+    {
+        o.Database = "orders";
+        o.ConfigureExposedConfiguration = c => [new("ConnectionStrings:Orders", c.ConnectionString)];
+        o.Migrations.Add(async (ctx, ct) =>
+        {
+            await using var connection = await ctx.OpenConnectionAsync(ct);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "create table orders (id int primary key, status nvarchar(50))";
+            await command.ExecuteNonQueryAsync(ct);
+        });
+    })
+    .WithAspNetCoreApplication<Program>()
+    .StartAsync();
+
+await stove.Test(async t =>
+{
+    await t.SqlServer("orders").Execute("insert into orders values (@id, @status)",
+        new SqlParameter("id", 1), new SqlParameter("status", "Created"));
+    Assert.Equal(["Created"], await t.SqlServer("orders").Query("select status from orders where id = @id",
+        r => r.GetString(0), new SqlParameter("id", 1)));
+});
+await stove.DisposeAsync();
+```
+
+Managed instances create the requested database before migrations. `UseExisting(connectionString, runMigrations: true)`
+uses the database in that connection string and does not create it. `Image`, `Password` and `ConfigureContainer` apply
+to managed instances. The default image follows the SQL Server 2022 tag; set `Image` to a fixed tag or digest for a
+reproducible environment. Running the SQL Server Testcontainers image accepts its EULA; use an existing instance when
+your environment cannot run that image.
+
+`OpenConnectionAsync(ct)` returns a native `SqlConnection` for transactions, bulk copy and other provider operations.
+The caller disposes it. `ConfigureConnection` customizes each client connection before opening (for example, an
+access-token callback); migrations and cleanup receive the same connection factory. It does not configure the
+application's own SQL client.
+
+## Redis
+
+Reference `StoveDotnet.Redis`. Tests use StackExchange.Redis directly through `Multiplexer` and `Database(db)`.
+Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer` and `UseExisting`.
+
+## Test isolation
+
+A database belongs to a running Stove environment, not an individual `stove.Test`. Migrations run at environment startup
+and cleanup at shutdown. Named managed instances have separate containers; two named existing connections may still
+point at the same database. Correlation does not isolate rows or roll back application writes.
+
+Use unique identifiers per test for parallel tests. For tests that require an empty database, use a dedicated environment
+or explicitly reset data between sequential tests. A transaction opened by the test does not include writes made by the
+application through its own connections.
 
 ## MongoDB
 
@@ -86,7 +154,7 @@ The initial supported/tested combination is MySqlConnector 2.6.2 with MySQL 8.4.
 including supplementary characters with the default image. MariaDB and other MySQL versions require their own
 compatibility evidence; an image override alone does not establish compatibility.
 
-## Ownership, isolation and verification
+## MongoDB and MySQL: ownership and verification
 
 Both modules dispose owned clients even if cleanup fails, then attempt owned-container removal. Cleanup failures and
 startup/rollback failures are retained. External servers are never stopped, but an explicitly configured cleanup
@@ -101,5 +169,5 @@ contract with its own driver/app and adds Unicode and cancellation-within-scope 
 OrderService or the other provider suites.
 
 Both defaults were exercised locally on Windows x64 with Podman and .NET 10. The image tags select version lines and
-are not immutable image digests. This is not a full architecture/runtime matrix. See [roadmap verification](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md)
-for the recorded results and the shared CI workflow for remote checks.
+are not immutable image digests. This is not a full architecture/runtime matrix. See
+[compatibility](compatibility.md) for the tested versions and the shared CI workflow for remote checks.

@@ -2,57 +2,42 @@ using System.Collections.Concurrent;
 
 namespace StoveDotnet.Telemetry;
 
+/// <summary>Spans of the traces that belong to running or failed tests. Nothing else is retained.</summary>
 internal sealed class TelemetryStore
 {
-    private readonly ConcurrentDictionary<string, ConcurrentQueue<SpanRecord>> _spans = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, ConcurrentQueue<LogRecord>> _logs = new(StringComparer.Ordinal);
+    private sealed class Trace
+    {
+        public ConcurrentQueue<SpanRecord> Spans { get; } = new();
+        public int InFlight;
+    }
 
-    private readonly ConcurrentDictionary<string, byte> _tracked = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Trace> _traces = new(StringComparer.Ordinal);
 
     public AsyncChangeSignal Changed { get; } = new();
 
-    /// <summary>
-    /// Starts retaining data for a test's trace. Everything is read by trace id, so data of any other trace (late
-    /// exports of finished tests, startup, background work) could never be returned and is not stored.
-    /// </summary>
-    public void Track(string traceId) => _tracked[traceId] = 0;
+    public void Track(string traceId) => _traces[traceId] = new Trace();
 
-    public void Add(IEnumerable<SpanRecord> spans)
+    public bool IsTracked(string traceId) => _traces.ContainsKey(traceId);
+
+    public void Started(string traceId)
     {
-        foreach (var span in spans)
-        {
-            if (!_tracked.ContainsKey(span.TraceId)) continue;
-            _spans.GetOrAdd(span.TraceId, _ => new ConcurrentQueue<SpanRecord>()).Enqueue(span);
-            // The test may have ended between the check and the enqueue.
-            if (!_tracked.ContainsKey(span.TraceId)) _spans.TryRemove(span.TraceId, out _);
-        }
-
-        Changed.Notify();
+        if (_traces.TryGetValue(traceId, out var trace)) Interlocked.Increment(ref trace.InFlight);
     }
 
-    public void Add(IEnumerable<LogRecord> logs)
+    public void Stopped(SpanRecord span)
     {
-        // Logs outside of a trace cannot be attributed to a test.
-        foreach (var log in logs.Where(l => l.TraceId is not null))
-        {
-            if (!_tracked.ContainsKey(log.TraceId!)) continue;
-            _logs.GetOrAdd(log.TraceId!, _ => new ConcurrentQueue<LogRecord>()).Enqueue(log);
-            if (!_tracked.ContainsKey(log.TraceId!)) _logs.TryRemove(log.TraceId!, out _);
-        }
-
+        if (!_traces.TryGetValue(span.TraceId, out var trace)) return;
+        trace.Spans.Enqueue(span);
+        Interlocked.Decrement(ref trace.InFlight);
         Changed.Notify();
     }
 
     public IReadOnlyList<SpanRecord> Spans(string traceId) =>
-        _spans.TryGetValue(traceId, out var spans) ? spans.OrderBy(s => s.StartTime).ToList() : [];
+        _traces.TryGetValue(traceId, out var trace) ? trace.Spans.OrderBy(s => s.StartTime).ToList() : [];
 
-    public IReadOnlyList<LogRecord> Logs(string traceId) =>
-        _logs.TryGetValue(traceId, out var logs) ? logs.OrderBy(l => l.Timestamp).ToList() : [];
+    /// <summary>Spans of the trace that started and have not finished yet.</summary>
+    public int InFlight(string traceId) =>
+        _traces.TryGetValue(traceId, out var trace) ? Math.Max(0, Volatile.Read(ref trace.InFlight)) : 0;
 
-    public void Evict(string traceId)
-    {
-        _tracked.TryRemove(traceId, out _);
-        _spans.TryRemove(traceId, out _);
-        _logs.TryRemove(traceId, out _);
-    }
+    public void Evict(string traceId) => _traces.TryRemove(traceId, out _);
 }

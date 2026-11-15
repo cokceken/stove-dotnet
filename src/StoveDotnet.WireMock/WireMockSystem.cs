@@ -40,7 +40,6 @@ public sealed class WireMockSystem
     : ExposingSystem<WireMockOptions, WireMockExposedConfiguration>, IRunAware, ITestScopeAware, IFailureDetailsProvider
 {
     private readonly ConcurrentDictionary<string, ConcurrentBag<Guid>> _stubsByTest = new(StringComparer.Ordinal);
-    private readonly Lock _requestLogGate = new();
     private WireMockServer? _server;
 
     public WireMockSystem(string? name, WireMockOptions options)
@@ -196,39 +195,16 @@ public sealed class WireMockSystem
             }
         }
 
-        // A failed test's requests are still needed for its failure details.
-        if (failure is null) ForgetRequests(test);
         return Task.CompletedTask;
     }
 
-    public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
-    {
-        var details = new FailureDetails(Name is null ? "wiremock" : $"wiremock '{Name}'", DescribeRequests(test));
-        ForgetRequests(test);
-        return Task.FromResult<FailureDetails?>(details);
-    }
-
-    /// <summary>
-    /// Drops the finished test's requests from the server log so it does not grow for the whole run. Requests without
-    /// correlation headers stay: they cannot be attributed and other tests may still be reading them.
-    /// </summary>
-    private void ForgetRequests(StoveTestContext test)
-    {
-        if (_server is null) return;
-        // WireMock.Net removes a log entry by looking up its index and then removing at that index. Scopes that end
-        // together would race on stale indexes and fail or remove each other's entries, so removals take turns.
-        lock (_requestLogGate)
-        {
-            foreach (var entry in _server.LogEntries)
-            {
-                if (entry.RequestMessage is not { } request) continue;
-                var ownedById = string.Equals(Header(request, StoveHeaders.TestId), test.TestId, StringComparison.Ordinal);
-                var ownedByTrace = TraceContext.TryParseTraceId(Header(request, StoveHeaders.Traceparent), out var traceId)
-                    && string.Equals(traceId, test.TraceId, StringComparison.Ordinal);
-                if (ownedById || ownedByTrace) _server.DeleteLogEntry(entry.Guid);
-            }
-        }
-    }
+    // The server's request log is never trimmed while it runs. WireMock.Net picks the insert position of a new entry
+    // before taking its lock and ignores a failed insert, so removing entries while requests arrive makes it drop
+    // requests from the log without a trace.
+    public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken) =>
+        Task.FromResult<FailureDetails?>(new FailureDetails(
+            Name is null ? "wiremock" : $"wiremock '{Name}'",
+            DescribeRequests(test)));
 
     private Guid Mock(string method, string path, int statusCode, object? requestBody, object? responseBody,
         IDictionary<string, string>? responseHeaders, TimeSpan? delay) =>

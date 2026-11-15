@@ -1,11 +1,12 @@
+extern alias ClockApp;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Time.Testing;
 using StoveDotnet.AspNetCore;
 using StoveDotnet.Http;
-using StoveDotnet.Time;
 using Xunit;
+using ClockAppMarker = ClockApp::ClockAppMarker;
 
-namespace StoveDotnet.Time.AcceptanceTests;
+namespace StoveDotnet.Hosting.AcceptanceTests;
 
 // All tests that advance this fixture's clock belong to this collection. Other fixtures own different clocks.
 [CollectionDefinition("shared application clock", DisableParallelization = true)]

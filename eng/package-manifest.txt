@@ -16,5 +16,4 @@ StoveDotnet.Redis
 StoveDotnet.SchemaRegistry
 StoveDotnet.SqlServer
 StoveDotnet.Telemetry
-StoveDotnet.Time
 StoveDotnet.WireMock

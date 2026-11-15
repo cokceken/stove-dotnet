@@ -11,5 +11,7 @@
     <ProjectReference Include="../../src/StoveDotnet.WireMock/StoveDotnet.WireMock.csproj" />
     <ProjectReference Include="../../src/StoveDotnet.Telemetry/StoveDotnet.Telemetry.csproj" />
     <ProjectReference Include="../TestApps/HostingApp/HostingApp.csproj" />
+    <!-- Both test apps expose a public Program; the clock app is reached through an alias. -->
+    <ProjectReference Include="../TestApps/ClockApp/ClockApp.csproj" Aliases="ClockApp" />
   </ItemGroup>
 </Project>
