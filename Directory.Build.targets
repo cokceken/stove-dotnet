@@ -1,0 +1,14 @@
+<Project>
+
+  <!--
+    StoveDotnet packages are released together from one tag and are only tested together. A package reference to
+    another StoveDotnet package is therefore pinned to exactly the version it was built with ([x]) instead of the
+    default minimum (>= x), so NuGet reports a mixed set of versions at restore time instead of failing at run time.
+  -->
+  <Target Name="StoveDotnetPinProjectReferenceVersions" AfterTargets="_GetProjectReferenceVersions" Condition="'$(IsPackable)' == 'true'">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Update="@(_ProjectReferencesWithVersions)" ProjectVersion="[%(ProjectVersion)]" />
+    </ItemGroup>
+  </Target>
+
+</Project>
