@@ -29,9 +29,6 @@ jobs:
         shell: pwsh
         run: ./scripts/generate-compatibility.ps1 -Check
 
-      - name: Check plugin skill copy is in sync
-        run: diff -r .agents/skills/stove-dotnet plugins/stove-dotnet/skills/stove-dotnet
-
       - name: Build
         run: dotnet build -c Release
 

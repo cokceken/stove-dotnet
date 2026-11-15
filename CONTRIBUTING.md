@@ -29,15 +29,9 @@ run that matrix before packaging.
 
 ## Agent skill
 
-- **Canonical copy:** `.agents/skills/stove-dotnet/`. Edit it there.
-- **Plugin copy:** the Claude Code plugin in `plugins/stove-dotnet/` carries its own copy, because the plugin installer
-  only copies the plugin folder. After editing the skill, sync it:
-
-  ```shell
-  rm -rf plugins/stove-dotnet/skills/stove-dotnet && cp -r .agents/skills/stove-dotnet plugins/stove-dotnet/skills/
-  ```
-
-  CI fails when the two copies differ.
+- **One copy:** `plugins/stove-dotnet/skills/stove-dotnet/`. It lives inside the Claude Code plugin because the plugin
+  installer only copies the plugin folder; other agents copy the same folder. The skill is for projects that use
+  StoveDotnet, so this repository does not load it for its own development.
 - **Keep the skill honest:**
   - API signatures in the guides must match `src/`.
   - The fake template in `openapi-fakes.md` mirrors `examples/Frameworks/OrderService.E2ETests.XunitV3/Fakes/`, which runs in CI.

@@ -454,8 +454,8 @@ The skill uses the open `SKILL.md` format.
   /plugin install stove-dotnet@stove-dotnet
   ```
 - **Other agents** (Codex, GitHub Copilot, Cursor and others that read `.agents/skills`): copy
-  [`.agents/skills/stove-dotnet`](https://github.com/cokceken/stove-dotnet/tree/main/.agents/skills/stove-dotnet) into
-  your repository's `.agents/skills/` (or `.claude/skills/`).
+  [`plugins/stove-dotnet/skills/stove-dotnet`](https://github.com/cokceken/stove-dotnet/tree/main/plugins/stove-dotnet/skills/stove-dotnet)
+  into your repository's `.agents/skills/` (or `.claude/skills/`).
 
 Then ask, for example: *"Add Stove e2e tests for the order endpoint"* or *"Create a WireMock fake for the payments API
 from specs/payments.yaml"*.
@@ -472,8 +472,7 @@ tests/*.AcceptanceTests      separate Hosting, database, Redis, Kafka, RabbitMq 
 tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
 tests/TestApps/               small real applications using native clients, with no Stove references
 examples/Frameworks/         Framework examples, shared SampleApi, and OrderService composition tests with typed fakes
-.agents/skills/stove-dotnet  agent skill (canonical copy)
-plugins/stove-dotnet         Claude Code plugin (copy of the skill; CI checks they match)
+plugins/stove-dotnet         Claude Code plugin; its skills/stove-dotnet folder is the agent skill
 ```
 
 ```shell
