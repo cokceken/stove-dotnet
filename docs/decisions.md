@@ -33,6 +33,7 @@ requirements live in [module conventions](modules.md).
 | D26 | Systems declare startup prerequisites through `ISystemDependencies` | Independent systems still start in parallel; shutdown reverses the dependency order |
 | D27 | Borrow capabilities from the original Stove, not its shape | Useful references are structured operation reporting, container/provided runtime modes, migrations and separate gRPC client/mock modules. JVM-specific abstractions and feature parity are not goals |
 | D28 | Failure evidence needs no application cooperation | A failed test reports the requests it sent and the application's in-process logs whichever assertion library failed; telemetry adds the trace tree |
+| D30 | Traces are captured in-process with an `ActivityListener` | Applications only run in-process (D23), so a listener sees every activity without an exporter, collector or export delay, and works for applications with no OpenTelemetry setup. Replaces the earlier OTLP/HTTP receiver. Given up: verifying what the application would export, a service name per span, and a path for out-of-process participants; reintroduce an OTLP source behind the same API if separate-process hosting is ever added |
 | D29 | Startup failures name what failed | `StoveStartupException` names the system or application, repeats the cause and lists every system that failed in a parallel start |
 
 ## Open questions

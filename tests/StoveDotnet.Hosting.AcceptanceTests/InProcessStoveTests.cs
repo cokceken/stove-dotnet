@@ -107,7 +107,7 @@ public sealed class InProcessStoveTests(InProcessStoveFixture fixture)
         var span = await t.Telemetry().ShouldContainSpan(s => s.Kind == "Server" && s.Attribute("url.path") as string == "/greeting");
 
         Assert.Equal(t.TraceId, span.TraceId);
-        Assert.Equal("test-app", span.ServiceName);
+        Assert.Equal("Microsoft.AspNetCore", span.Source);
     });
 
     [Fact]

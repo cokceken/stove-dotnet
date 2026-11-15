@@ -21,8 +21,8 @@ Opinionated end-to-end testing for .NET, inspired by [Trendyol Stove](https://gi
 
 StoveDotnet starts your **real** dependencies in containers, injects their connection details into your **real**
 application, runs the application in-process on a real Kestrel port, and gives every test one fluent DSL to arrange and
-assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Azure Service Bus, Redis and third-party HTTP APIs. An OTLP receiver collects the application's
-traces and logs so a failing test explains itself.
+assert across HTTP, PostgreSQL, SQL Server, MongoDB, MySQL, Kafka, RabbitMQ, Azure Service Bus, Redis and third-party HTTP APIs. Stove captures the application's
+logs and traces in-process so a failing test explains itself.
 
 ```csharp
 [Fact]
@@ -54,7 +54,7 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 - **No test framework lock-in.** Stove ships no xUnit, NUnit, TUnit or MSTest extensions. You start Stove once per test
   run from your framework's hook (see [Test frameworks](#test-frameworks)).
 - **Use your assertion library.** DSL methods return values or take callbacks; HTTP also offers fluent status checks.
-- **Lightweight.** No dashboard and no agents. One OTLP/HTTP endpoint.
+- **Lightweight.** No dashboard, no agents and no collector. Traces and logs are captured in the test process.
 
 ## Packages
 
@@ -66,7 +66,7 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | `StoveDotnet.Containers` | `WithContainer("storage", configure)`: bring your own Testcontainers image, readiness, initialization and application configuration |
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
 | `StoveDotnet.Oidc` | `WithOidc()` / `t.Oidc()`: local discovery, JWKS and signed test tokens for real bearer validation |
-| `StoveDotnet.Telemetry` | `WithTelemetry()`: OTLP/HTTP receiver for traces and logs, `t.Telemetry()` |
+| `StoveDotnet.Telemetry` | `WithTelemetry()`: in-process trace capture per test, `t.Telemetry()` |
 | `StoveDotnet.Postgres` | `WithPostgres()`: Testcontainers PostgreSQL, raw Npgsql DSL |
 | `StoveDotnet.SqlServer` | `WithSqlServer()`: Testcontainers SQL Server, native Microsoft.Data.SqlClient DSL |
 | `StoveDotnet.MongoDb` | `WithMongoDb()`: MongoDB replica set, native filters, collections and ordered setup |
@@ -140,12 +140,12 @@ Trace id:   b23be8492d7e283bae0f7b389e58a5fc
 09:42:49.016 [Warning] OrderService.OrderWorkflow: Payment declined for order 6de533c8-... of customer customer-4
 
 --- Stove: telemetry ---
-[x] POST http://127.0.0.1:58643/orders (order-service, Client, 356.8ms)
-`-- [ok] POST /orders (order-service, Server, 347.8ms)
-    |-- [ok] GET http://localhost:58630/stock/sofa (order-service, Client, 260.8ms)
-    |   `-- [ok] GET (order-service, Server, 246.7ms)
-    `-- [x] POST http://localhost:58631/charges (order-service, Client, 29.2ms)
-        `-- [x] POST (order-service, Server, 25.8ms)
+[x] POST http://127.0.0.1:58643/orders (System.Net.Http, Client, 356.8ms)
+`-- [ok] POST /orders (Microsoft.AspNetCore, Server, 347.8ms)
+    |-- [ok] GET http://localhost:58630/stock/sofa (System.Net.Http, Client, 260.8ms)
+    |   `-- [ok] GET (Microsoft.AspNetCore, Server, 246.7ms)
+    `-- [x] POST http://localhost:58631/charges (System.Net.Http, Client, 29.2ms)
+        `-- [x] POST (Microsoft.AspNetCore, Server, 25.8ms)
 
 --- Stove: wiremock 'payments' ---
 Requests received (1):

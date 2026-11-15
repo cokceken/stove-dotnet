@@ -24,8 +24,8 @@ builder.Services.AddHostedService<PaymentCompletedConsumer>();
 builder.Services.AddHttpClient<InventoryClient>(c => c.BaseAddress = new Uri(configuration["Inventory:BaseUrl"]!));
 builder.Services.AddHttpClient<PaymentsClient>(c => c.BaseAddress = new Uri(configuration["Payments:BaseUrl"]!));
 
-// Standard OpenTelemetry setup. The OTLP exporter reads OTEL_EXPORTER_OTLP_* from configuration, which is how Stove
-// points it at its receiver; in production these come from the environment.
+// Standard OpenTelemetry setup, as the service would run in production: the OTLP exporter reads OTEL_EXPORTER_OTLP_*
+// from the environment. Stove reads the activities in-process and needs neither the exporter nor a collector.
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("order-service"))
     .WithTracing(t => t

@@ -112,26 +112,25 @@ xUnit v3 projects on the .NET 10 SDK must opt into Microsoft.Testing.Platform in
 | `ScopeStubsToTest`, `KeepStubsAfterTest`, `JsonSerializerOptions`, `Port` | `WireMockOptions` | Parallel-safe stubs, stub lifetime, JSON |
 | `BaseAddress`, `DefaultHeaders`, `JsonSerializerOptions`, `Timeout` | `HttpClientOptions` | Test HTTP client |
 | `Environment`, `ConfigureWebHost`, `Port` | `AspNetCoreApplicationOptions` | Hosting environment, test-only host customization |
-| `FailureFlushWait`, `QuietPeriod`, `ConfigureExposedConfiguration` | `TelemetryOptions` | Telemetry waits; defaults map `OTEL_*` keys |
+| `SettleTimeout`, `ListenTo` | `TelemetryOptions` | Wait for in-flight spans; which activity sources to capture |
 
 **Named instances.** Every `WithXxx` has an overload that takes a name first: `.WithRedis("cache", o => ...)`. Use one
 WireMock per third-party API.
 
-## 5. Application OpenTelemetry, needed for trace and log attachment
+## 5. Traces, optional detail from the application's instrumentation
 
-`WithTelemetry()` exposes `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and short batch
-delays as configuration. The app needs a standard OTLP exporter setup; nothing Stove-specific:
+`WithTelemetry()` captures the application's activities in the test process. It needs no exporter, collector or
+Stove-specific code, and it works even when the app has no OpenTelemetry at all: HttpClient spans carry method, URL
+and status on their own. ASP.NET Core request spans are bare without instrumentation, so for route names, status and
+exception types register the usual instrumentation (an exporter is not needed for Stove):
 
 ```csharp
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService("order-service"))
-    .WithTracing(t => t.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddOtlpExporter())
-    .WithLogging(l => l.AddOtlpExporter());
+    .WithTracing(t => t.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation());
 ```
 
-- If the app has no OpenTelemetry, suggest adding it, since it is production-useful anyway. Otherwise leave out
-  `WithTelemetry()`.
-- Do not hard-code an exporter endpoint in the app; that overrides Stove's configuration.
+- Application logs in failure output never depend on this; they come from the in-process host.
+- Leave any production exporter setup in the app as it is. Do not add one for Stove.
 - Apps using Confluent.Kafka must copy `traceparent` into produced message headers (`Activity.Current?.Id`) and start a
   consumer activity from it. Confluent.Kafka has no instrumentation.
 

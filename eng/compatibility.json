@@ -61,7 +61,7 @@
     { "id": "StoveDotnet.Redis", "area": "Infrastructure", "purpose": "Redis and native client", "evidence": "Redis", "guide": "getting-started.md" },
     { "id": "StoveDotnet.SchemaRegistry", "area": "Messaging", "purpose": "Schema Registry containers and ordered schema migrations", "evidence": "Kafka", "guide": "kafka.md" },
     { "id": "StoveDotnet.SqlServer", "area": "Databases", "purpose": "SQL Server and native client", "evidence": "SQL Server", "guide": "getting-started.md" },
-    { "id": "StoveDotnet.Telemetry", "area": "Diagnostics", "purpose": "OTLP trace and log collection", "evidence": "OrderService composition", "guide": "practical-testing.md" },
+    { "id": "StoveDotnet.Telemetry", "area": "Diagnostics", "purpose": "In-process trace capture", "evidence": "OrderService composition", "guide": "practical-testing.md" },
     { "id": "StoveDotnet.WireMock", "area": "Third-party APIs", "purpose": "In-process HTTP fakes", "evidence": "Hosting", "guide": "practical-testing.md" }
   ]
 }

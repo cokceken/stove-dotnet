@@ -9,13 +9,14 @@ public enum SpanStatus
 
 public sealed record SpanEventRecord(string Name, DateTimeOffset Timestamp, IReadOnlyDictionary<string, object?> Attributes);
 
+/// <summary>A finished activity of the application, captured in-process.</summary>
 public sealed record SpanRecord(
     string TraceId,
     string SpanId,
     string? ParentSpanId,
     string Name,
     string Kind,
-    string ServiceName,
+    string Source,
     DateTimeOffset StartTime,
     DateTimeOffset EndTime,
     SpanStatus Status,
@@ -29,13 +30,3 @@ public sealed record SpanRecord(
 
     public object? Attribute(string key) => Attributes.GetValueOrDefault(key);
 }
-
-public sealed record LogRecord(
-    DateTimeOffset Timestamp,
-    string Severity,
-    string Body,
-    string? TraceId,
-    string? SpanId,
-    string ServiceName,
-    string? Category,
-    IReadOnlyDictionary<string, object?> Attributes);

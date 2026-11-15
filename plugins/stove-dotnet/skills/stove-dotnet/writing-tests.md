@@ -182,8 +182,8 @@ reqs[0].BodyAs<T>(); reqs[0].PathParameters["id"]; reqs[0].QueryValue("page"); r
 
 ```csharp
 SpanRecord span = await t.Telemetry().ShouldContainSpan(s => s.Kind == "Server" && s.Attribute("http.route") as string == "/orders");
-IReadOnlyList<SpanRecord> spans = await t.Telemetry().Spans();      // waits for export to go quiet
-IReadOnlyList<LogRecord> logs = await t.Telemetry().Logs();
+IReadOnlyList<SpanRecord> spans = await t.Telemetry().Spans();      // finished spans; waits only for spans still in flight
+span.Name; span.Kind; span.Source; span.IsError; span.Attribute("http.response.status_code");
 await t.Telemetry().ShouldNotHaveFailedSpans();
 string tree = t.Telemetry().RenderTree();
 ```

@@ -52,7 +52,7 @@ Every listed package must appear in the release manifest, produce both package a
 | [`StoveDotnet.Redis`](https://www.nuget.org/packages/StoveDotnet.Redis) | Infrastructure | [Redis and native client](getting-started.md) | ✅ [Redis](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Redis.AcceptanceTests) |
 | [`StoveDotnet.SchemaRegistry`](https://www.nuget.org/packages/StoveDotnet.SchemaRegistry) | Messaging | [Schema Registry containers and ordered schema migrations](kafka.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
 | [`StoveDotnet.SqlServer`](https://www.nuget.org/packages/StoveDotnet.SqlServer) | Databases | [SQL Server and native client](getting-started.md) | ✅ [SQL Server](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.SqlServer.AcceptanceTests) |
-| [`StoveDotnet.Telemetry`](https://www.nuget.org/packages/StoveDotnet.Telemetry) | Diagnostics | [OTLP trace and log collection](practical-testing.md) | ✅ [OrderService composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService.E2ETests.XunitV3) |
+| [`StoveDotnet.Telemetry`](https://www.nuget.org/packages/StoveDotnet.Telemetry) | Diagnostics | [In-process trace capture](practical-testing.md) | ✅ [OrderService composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService.E2ETests.XunitV3) |
 | [`StoveDotnet.WireMock`](https://www.nuget.org/packages/StoveDotnet.WireMock) | Third-party APIs | [In-process HTTP fakes](practical-testing.md) | ✅ [Hosting](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
 
 ## Executable scenarios

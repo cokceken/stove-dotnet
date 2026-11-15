@@ -14,12 +14,12 @@ Trace id:   b23be8492d7e283bae0f7b389e58a5fc
 09:42:49.016 [Warning] OrderService.OrderWorkflow: Payment declined for order 6de5... of customer customer-4
 
 --- Stove: telemetry ---
-[x] POST http://127.0.0.1:58643/orders (order-service, Client, 356.8ms)                        <- the test's own call
-`-- [ok] POST /orders (order-service, Server, 347.8ms)                                         <- the app handling it
-    |-- [ok] GET http://localhost:58630/stock/sofa (order-service, Client, 260.8ms)            <- app -> third party
-    |   `-- [ok] GET (order-service, Server, 246.7ms)                                          <- in-process WireMock
-    `-- [x] POST http://localhost:58631/charges (order-service, Client, 29.2ms)
-        `-- [x] POST (order-service, Server, 25.8ms)
+[x] POST http://127.0.0.1:58643/orders (System.Net.Http, Client, 356.8ms)                        <- the test's own call
+`-- [ok] POST /orders (Microsoft.AspNetCore, Server, 347.8ms)                                         <- the app handling it
+    |-- [ok] GET http://localhost:58630/stock/sofa (System.Net.Http, Client, 260.8ms)            <- app -> third party
+    |   `-- [ok] GET (Microsoft.AspNetCore, Server, 246.7ms)                                          <- in-process WireMock
+    `-- [x] POST http://localhost:58631/charges (System.Net.Http, Client, 29.2ms)
+        `-- [x] POST (Microsoft.AspNetCore, Server, 25.8ms)
 
 --- Stove: kafka ---
 Messages observed (0):
@@ -59,7 +59,8 @@ spans received).
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Typed HTTP `Body` fails to deserialize, especially at an enum property | Stove's HTTP serializer options differ from the API's, or the response violates the DTO contract | Read the serializer message, JSON path and inner `JsonException`; configure `HttpClientOptions.JsonSerializerOptions` with the API's converters (e.g. `JsonStringEnumConverter`). Keep the typed assertion rather than bypassing it with dynamic JSON |
-| `(no spans received)` in every test | App has no OpenTelemetry OTLP exporter, `WithTelemetry()` missing, or the app hard-codes an exporter endpoint | Add `AddOtlpExporter()` without an explicit endpoint; register `WithTelemetry()` (see `setup.md`) |
+| `(no spans received)` in every test | `WithTelemetry()` is not registered, or `TelemetryOptions.ListenTo` excludes the sources | Register `WithTelemetry()` (see `setup.md`) |
+| Server spans named `Microsoft.AspNetCore.Hosting.HttpRequestIn` with no route or error | The app registers no ASP.NET Core instrumentation | Add `AddAspNetCoreInstrumentation()` to the app's OpenTelemetry tracing setup; no exporter is needed |
 | Spans exist but not under the test | App code starts work outside the request (fire-and-forget without `Activity` flow), or a Kafka consumer does not restore `traceparent` | Flow `Activity.Current`; start consumer activities from the message's `traceparent` |
 | WireMock `UNMATCHED` request | Stub path, method or body differs from what the app sent, or the stub was registered in another test | Compare the logged URL and body with the stub. `requestBody:` is a JSON equality match, so drop it or stub via `Stub(...)` with partial matchers |
 | WireMock `Requests received: (none)` but the app called it | The app's base URL key is not mapped (the call went elsewhere), or the call is made asynchronously after the assertion | Check `ConfigureExposedConfiguration` uses the key the app reads; pass `within:` |
@@ -105,5 +106,5 @@ Hosts attach application logs under `application:<name>` in failure output: the 
 Information, `Microsoft.*`/`System.*` categories from Warning. Each host retains its latest 2,000 entries, filtered to
 the failing trace, not a complete log archive. Untraced entries are kept only from Warning.
 Workers must propagate traceparent and start a consumer Activity to correlate logs. Application naming does not isolate
-process-wide OpenTelemetry instrumentation; multiple providers can observe the same spans. Verify worker business results
+process-wide activities; a span is attributed by its place in the trace tree, not by application. Verify worker business results
 with bounded polling, not publication alone. Background host liveness monitoring is not provided in this increment.
