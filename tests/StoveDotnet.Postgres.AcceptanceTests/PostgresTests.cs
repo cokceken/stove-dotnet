@@ -31,10 +31,9 @@ public sealed class PostgresTests
                 var db = t.Postgres();
                 Assert.Equal(1, await db.Execute("insert into products values (@id, @name)", new("id", 1), new("name", "chair")));
 
-                await db.ShouldQuery(
+                Assert.Equal([(0, "seeded by migration"), (1, "chair")], await db.Query(
                     "select id, name from products order by id",
-                    r => (Id: r.GetInt32(0), Name: r.GetString(1)),
-                    rows => Assert.Equal([(0, "seeded by migration"), (1, "chair")], rows));
+                    r => (Id: r.GetInt32(0), Name: r.GetString(1))));
 
                 Assert.StartsWith("Host=", db.ExposedConfiguration.ConnectionString, StringComparison.Ordinal);
             });

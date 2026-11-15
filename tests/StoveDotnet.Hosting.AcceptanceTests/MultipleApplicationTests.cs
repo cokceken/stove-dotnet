@@ -35,9 +35,11 @@ public sealed class MultipleApplicationTests
         var worker = new ProbeWorker { FailStart = true };
         var builder = StoveBuilder.Create().WithHostApplication("worker",
             _ => Host.CreateDefaultBuilder().ConfigureServices(s => s.AddSingleton<IHostedService>(_ => worker)).Build());
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
-        Assert.Contains("worker", error.Message, StringComparison.Ordinal);
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("Application 'worker' failed to start or become ready", error.Message, StringComparison.Ordinal);
         Assert.Contains("start failed", error.InnerException!.Message, StringComparison.Ordinal);
+        // What the host logged before giving up travels with the startup error.
+        Assert.Contains("Application warnings and errors before the failure:", error.Message, StringComparison.Ordinal);
         Assert.True(worker.Disposed);
     }
 

@@ -8,7 +8,7 @@ project. Add only the packages you need:
 | Package | When |
 |---|---|
 | `StoveDotnet` | always |
-| `StoveDotnet.AspNetCore` | the app is ASP.NET Core; also provides `t.Using<T>()` |
+| `StoveDotnet.AspNetCore` | the app is ASP.NET Core; brings `StoveDotnet.Hosting`, whose namespace provides `t.Using<T>()` |
 | `StoveDotnet.Http` | tests call the app's HTTP API |
 | `StoveDotnet.Postgres` / `.SqlServer` / `.MongoDb` / `.MySql` / `.Kafka` / `.RabbitMq` / `.Azure.ServiceBus` / `.Redis` | the app uses them |
 | `StoveDotnet.WireMock` | the app calls third-party HTTP APIs (see `openapi-fakes.md`) |

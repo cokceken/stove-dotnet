@@ -145,16 +145,6 @@ public sealed class WireMockSystem
         return requests;
     }
 
-    /// <summary>Raw WireMock.Net request messages of the current test; prefer <see cref="Requests"/>.</summary>
-    public IReadOnlyList<IRequestMessage> CallsFor(string? method, string path)
-    {
-        var template = PathTemplate.Parse(path);
-        return RequestsOf(StoveTestContext.Require())
-            .Where(r => template.IsMatch(r.Path))
-            .Where(r => method is null || string.Equals(r.Method, method, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-    }
-
     /// <summary>
     /// Asserts the current test sent exactly <paramref name="times"/> requests matching <paramref name="method"/> and
     /// <paramref name="path"/> (a path or template) and returns them, e.g. to assert on their bodies. For calls made
@@ -163,17 +153,20 @@ public sealed class WireMockSystem
     public async Task<IReadOnlyList<RecordedRequest>> ShouldHaveBeenCalled(string method, string path, int times = 1, TimeSpan? within = null)
     {
         var test = StoveTestContext.Require();
-        try
+        if (within is { } wait)
         {
-            await Eventually.UntilAsync(
-                _ => ValueTask.FromResult(Requests(method, path).Count >= times),
-                within ?? TimeSpan.Zero,
-                () => string.Empty,
-                cancellationToken: test.CancellationToken).ConfigureAwait(false);
-        }
-        catch (StoveTimeoutException)
-        {
-            // Reported below with the actual count.
+            try
+            {
+                await Eventually.UntilAsync(
+                    _ => ValueTask.FromResult(Requests(method, path).Count >= times),
+                    wait,
+                    () => string.Empty,
+                    cancellationToken: test.CancellationToken).ConfigureAwait(false);
+            }
+            catch (StoveTimeoutException)
+            {
+                // Reported below with the actual count.
+            }
         }
 
         var requests = Requests(method, path);
@@ -202,13 +195,34 @@ public sealed class WireMockSystem
             }
         }
 
+        // A failed test's requests are still needed for its failure details.
+        if (failure is null) ForgetRequests(test);
         return Task.CompletedTask;
     }
 
-    public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken) =>
-        Task.FromResult<FailureDetails?>(new FailureDetails(
-            Name is null ? "wiremock" : $"wiremock '{Name}'",
-            DescribeRequests(test)));
+    public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
+    {
+        var details = new FailureDetails(Name is null ? "wiremock" : $"wiremock '{Name}'", DescribeRequests(test));
+        ForgetRequests(test);
+        return Task.FromResult<FailureDetails?>(details);
+    }
+
+    /// <summary>
+    /// Drops the finished test's requests from the server log so it does not grow for the whole run. Requests without
+    /// correlation headers stay: they cannot be attributed and other tests may still be reading them.
+    /// </summary>
+    private void ForgetRequests(StoveTestContext test)
+    {
+        if (_server is null) return;
+        foreach (var entry in _server.LogEntries)
+        {
+            if (entry.RequestMessage is not { } request) continue;
+            var ownedById = string.Equals(Header(request, StoveHeaders.TestId), test.TestId, StringComparison.Ordinal);
+            var ownedByTrace = TraceContext.TryParseTraceId(Header(request, StoveHeaders.Traceparent), out var traceId)
+                && string.Equals(traceId, test.TraceId, StringComparison.Ordinal);
+            if (ownedById || ownedByTrace) _server.DeleteLogEntry(entry.Guid);
+        }
+    }
 
     private Guid Mock(string method, string path, int statusCode, object? requestBody, object? responseBody,
         IDictionary<string, string>? responseHeaders, TimeSpan? delay) =>

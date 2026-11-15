@@ -92,7 +92,7 @@ public sealed class MySqlModule(string? name) : DatabaseModule
     public override IPluggedSystem Resolve(StoveTestContext t, bool unnamed = false) => t.MySql(unnamed ? null : name);
     public override Task<int> Insert(StoveTestContext t, string sql, string value) => t.MySql(name).Execute(sql, new MySqlParameter("id", 1), new MySqlParameter("value", value));
     public override Task<IReadOnlyList<string>> Query(StoveTestContext t, string sql) => t.MySql(name).Query(sql, r => r.GetString(0));
-    public override Task ShouldQuery(StoveTestContext t, string sql, Action<IReadOnlyList<string>> assert) => t.MySql(name).ShouldQuery(sql, r => r.GetString(0), assert, new MySqlParameter("id", 1));
+    public override Task<IReadOnlyList<string>> QueryById(StoveTestContext t, string sql) => t.MySql(name).Query(sql, r => r.GetString(0), new MySqlParameter("id", 1));
     public override async Task Seed(StoveTestContext t, string id, string value) => await t.MySql(name).Execute("insert into records values (@id, @value)", new MySqlParameter("id", id), new MySqlParameter("value", value));
     public override Task<IReadOnlyList<string>> Read(StoveTestContext t, string id) => t.MySql(name).Query("select value from records where id = @id", r => r.GetString(0), new MySqlParameter("id", id));
 }

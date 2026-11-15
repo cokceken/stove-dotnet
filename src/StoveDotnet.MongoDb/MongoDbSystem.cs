@@ -89,12 +89,6 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
         return await Collection<T>(collection).Find(filter).ToListAsync(test.CancellationToken).ConfigureAwait(false);
     }
 
-    public async Task ShouldQuery<T>(string collection, FilterDefinition<T> filter, Action<IReadOnlyList<T>> assert)
-    {
-        ArgumentNullException.ThrowIfNull(assert);
-        assert(await Query(collection, filter).ConfigureAwait(false));
-    }
-
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;

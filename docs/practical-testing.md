@@ -80,10 +80,15 @@ var order = await Eventually.UntilAsync<Order?>(
     cancellationToken: t.CancellationToken);
 ```
 
-The token-aware assertion and value-probe overloads receive the linked caller/deadline token. Forward it to actual
-I/O. Their default retry predicate accepts only `StoveAssertionException`, including HTTP `Expect` failures.
-Programming errors and cancellation propagate immediately. For framework assertions, explicitly select that
-framework's assertion exception; avoid retrying all exceptions unless that is what your scenario needs:
+The token-aware overloads receive the linked caller/deadline token. Forward it to actual I/O.
+
+| Method | What means "not yet" |
+| --- | --- |
+| `AssertAsync(assertion, timeout, ...)` | Any exception except cancellation, whichever assertion library threw it. Both overloads, with and without the token, behave the same. |
+| `UntilAsync(probe, timeout, ...)` and `UntilAsync<T>(probe, matches, timeout, ...)` | A `false` or nonmatching value. An exception from the probe is an error and propagates immediately. |
+
+`EventuallyOptions.RetryOn` overrides either default, for example to stop an assertion from retrying programming
+errors, or to let a probe retry a transient I/O failure:
 
 ```csharp
 var retry = new EventuallyOptions
@@ -94,17 +99,9 @@ var retry = new EventuallyOptions
 await Eventually.AssertAsync(ct => AssertBusinessState(ct), TimeSpan.FromSeconds(10), retry, t.CancellationToken);
 ```
 
-Compatibility rules:
-
-| Overload | Existing/default retry behavior |
-| --- | --- |
-| `AssertAsync(Func<Task>, timeout, ct)` | Retains retries of every non-cancellation exception, including nested timeouts; 50–500 ms backoff. It cannot pass a deadline token to its delegate. |
-| `UntilAsync(probe, timeout, description, signal?, ct)` | Retains retries of `false`, immediate exception propagation and optional change signals; 50–500 ms backoff. |
-| New token-aware assertion, configurable bool probe and value probe | Retry only selected exceptions; fixed `PollInterval` (50 ms default). A nonmatching result is retried. |
-
-Legacy zero-duration waits perform one immediate check (used by WireMock); legacy infinite waits still accept
-`Timeout.InfiniteTimeSpan`. New overloads require a positive finite timeout. Timeout failures report attempts, elapsed
-wall-clock time, the last observed value and/or last failure. The last retryable exception remains the inner exception.
+Polling uses a fixed `PollInterval` (50 ms by default). Every wait requires a positive finite timeout. Timeout
+failures report attempts, elapsed wall-clock time, the last observed value and/or last failure. The last retried
+exception remains the inner exception.
 Use `describeValue` to avoid printing sensitive objects. Caller cancellation propagates as cancellation, not a timeout.
 
 Cancellation is **cooperative**. A probe that ignores its token can delay completion beyond the deadline. Stove awaits

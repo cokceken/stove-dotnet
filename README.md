@@ -34,10 +34,10 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
     var response = (await t.Http().Post<Order>("/orders", new CreateOrderRequest("chair", 2, "customer-1")))
         .Expect(HttpStatusCode.Created);
 
-    await t.Postgres().ShouldQuery(
+    var statuses = await t.Postgres().Query(
         "select status from orders where id = @id", r => r.GetString(0),
-        rows => Assert.Equal(["Created"], rows),
         new NpgsqlParameter("id", response.Body.Id));
+    Assert.Equal(["Created"], statuses);
 
     await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == response.Body.Id);
     var charge = await payments.ShouldHaveCharged(c => c.OrderId == response.Body.Id);
@@ -61,8 +61,8 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 | Package | Provides |
 |---|---|
 | `StoveDotnet` | Builder, lifecycle, `stove.Test`, correlation, `Eventually`, migrations |
-| `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication<Program>()` (WebApplicationFactory + real Kestrel), DI bridge `t.Using<T>()` |
-| `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown |
+| `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication<Program>()` (WebApplicationFactory + real Kestrel) |
+| `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown; DI bridge `t.Using<T>()` for any application |
 | `StoveDotnet.Containers` | `WithContainer("storage", configure)`: bring your own Testcontainers image, readiness, initialization and application configuration |
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
 | `StoveDotnet.Time` | Explicit `UseStoveTime(clock)` injection and `t.Clock(application)` using Microsoft's FakeTimeProvider |
@@ -130,8 +130,13 @@ Stove = await StoveBuilder.Create()
 
 `DisposeAsync` stops the application, runs cleanup callbacks and removes containers.
 Every resource disposal is attempted even when a cleanup callback fails. Shutdown failures are collected in an
-`AggregateException`. Startup failures are rethrown unchanged when rollback succeeds; if rollback also fails, an
-`AggregateException` contains the startup failure first and the rollback failure second.
+`AggregateException`.
+
+A startup failure is thrown as a `StoveStartupException` whose message names the system or application that failed
+and repeats the cause, for example `PostgresSystem 'orders' failed to start: ...`; the original exception is its
+`InnerException`. Systems start in parallel, so when several fail, all of them are listed (`Failures`). An application
+that fails to start also reports the warnings and errors it logged before giving up. Cancellation is not wrapped. If
+rollback also fails, an `AggregateException` contains the startup failure first and the rollback failure second.
 
 ### Configuration injection
 
@@ -187,8 +192,8 @@ await stove.Test(async t =>
 {
     await t.SqlServer("orders").Execute("insert into orders values (@id, @status)",
         new SqlParameter("id", 1), new SqlParameter("status", "Created"));
-    await t.SqlServer("orders").ShouldQuery("select status from orders where id = @id",
-        r => r.GetString(0), rows => Assert.Equal(["Created"], rows), new SqlParameter("id", 1));
+    Assert.Equal(["Created"], await t.SqlServer("orders").Query("select status from orders where id = @id",
+        r => r.GetString(0), new SqlParameter("id", 1)));
 });
 await stove.DisposeAsync();
 ```
@@ -204,7 +209,8 @@ The caller disposes it. `ConfigureConnection` customizes each client connection 
 access-token callback); migrations and cleanup receive the same connection factory. It does not configure the
 application's own SQL client. For PostgreSQL, `ConfigureDataSource` customizes the `NpgsqlDataSourceBuilder` used by Stove.
 
-Both database DSLs query once. Use `Eventually.AssertAsync` for assertions against asynchronous application writes.
+`Query` reads once and returns the rows for your assertion library. Wrap the query and its assertion in
+`Eventually.AssertAsync` when the application writes asynchronously.
 
 ### MongoDB and MySQL
 
@@ -225,8 +231,7 @@ await stove.Test(async t =>
 {
     var id = ObjectId.GenerateNewId();
     await t.MongoDb("documents").Insert("records", new BsonDocument { ["_id"] = id, ["value"] = "ready" });
-    await t.MongoDb("documents").ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Eq("_id", id),
-        documents => Assert.Single(documents));
+    Assert.Single(await t.MongoDb("documents").Query("records", Builders<BsonDocument>.Filter.Eq("_id", id)));
 });
 ```
 
@@ -277,20 +282,21 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
 - `stove.Test(body, cancellationToken)` takes an optional token, for example xUnit's
   `TestContext.Current.CancellationToken`, so framework timeouts cancel Stove's waits.
 - Framework control-flow exceptions (skip, inconclusive, pass) and cancellation pass through unchanged.
-- `Eventually.AssertAsync(() => ..., timeout)` retries any assertion until it passes.
+- `Eventually.AssertAsync(() => ..., timeout)` retries any assertion, from any assertion library, until it passes.
+  `Eventually.UntilAsync` polls a value instead; an exception from its probe is an error and is not retried.
 
 ### Modules at a glance
 
 - **Http:** `Get/Post/Put/Patch/Delete<T>(uri, body?, headers?)` returns `StoveHttpResponse<T>` with `StatusCode`,
   `Headers`, `RawBody` and a lazily deserialized `Body`. `SendRaw(HttpRequestMessage)` sends a hand-built request.
-- **Postgres:** `Execute(sql, params)`, `Query<T>(sql, map, params)`, `ShouldQuery<T>(sql, map, assert, params)` and
+- **Postgres:** `Execute(sql, params)`, `Query<T>(sql, map, params)` and
   `DataSource` for raw Npgsql access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`, `ConfigureDataSource`.
-- **SQL Server:** `Execute(sql, params)`, `Query<T>(sql, map, params)`, `ShouldQuery<T>(sql, map, assert, params)` and
+- **SQL Server:** `Execute(sql, params)`, `Query<T>(sql, map, params)` and
   `OpenConnectionAsync(ct)` for native SqlClient access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`,
   `ConfigureConnection` and `UseExisting`.
-- **MongoDB:** `Insert(collection, document)`, `Query<T>(collection, filter)`, `ShouldQuery<T>(collection, filter, assert)`
+- **MongoDB:** `Insert(collection, document)`, `Query<T>(collection, filter)`
   and native `Client`, `Database`, `Collection<T>()`. Ordered `Setup` prepares collections, indexes and seed data.
-- **MySQL:** `Execute`, `Query<T>`, `ShouldQuery<T>` with `MySqlParameter` and native `DataSource` access.
+- **MySQL:** `Execute` and `Query<T>` with `MySqlParameter` and native `DataSource` access.
   Options include `Migrations`, `Cleanup`, `ConfigureDataSource`, `ConfigureContainer` and `UseExisting`.
 - **Kafka** (observes broker records and committed offsets; propagate correlation headers):
   - `Publish<T>` / `PublishRaw` send a message as the running test.
@@ -300,7 +306,7 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
     This means no matching message was observed during that window; it cannot rule out later delivery or observer lag.
   - `ShouldBeConsumed<T>` waits until a consumer group has committed past the matching message.
   - `ShouldBeFailed<T>` waits until a matching message appears on an error topic (`.error` or `.DLT` by default).
-  - `Peek<T>` returns retained messages of the current test observed so far.
+  - `PeekAsync<T>` returns retained messages of the current test observed so far.
   - `Observation` bounds evidence per test and excludes uncorrelated records by default. See [messaging guarantees](docs/messaging.md).
   - Serialization uses System.Text.Json by default. Plug in your own with `IStoveKafkaSerde`, or use `WithKafkaAvro()`
     for generated Avro events. [Kafka security, Schema Registry and Avro](docs/kafka.md) covers certificate configuration,

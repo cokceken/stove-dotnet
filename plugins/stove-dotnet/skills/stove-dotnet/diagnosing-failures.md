@@ -71,6 +71,7 @@ spans received).
 | `Multiple XSystem instances are registered and none is unnamed` | `t.WireMock()` without a name while several named instances exist | Pass the name or use the typed fake accessor |
 | `This Stove operation must be called inside stove.Test(...)` | DSL used in a constructor, fixture or after the test body returned (for example an un-awaited task) | Move the call into the body and await everything |
 | `Stove tests cannot be nested` | `stove.Test` called inside another `stove.Test` | One `stove.Test` per test method |
+| `StoveStartupException: XSystem 'name' failed to start: ...` | A dependency could not start or its migration failed; the message names it and repeats the cause, and lists every system when several failed | Read the cause after the colon and the `InnerException`; an application start failure also lists the warnings and errors the app logged |
 | Startup: the app throws about a missing configuration value | The app reads a key Stove does not provide | Map it through a system's `ConfigureExposedConfiguration`, or `ConfigureWebHost(b => b.UseSetting(...))` |
 | Build errors `CS0246`/`CS0436` in files under `ramltoopenapiconverter.sourceonly/.../contentFiles` | The project references `WireMock.Net` or `WireMock.Net.Minimal` 2.15 **directly**; an upstream dependency leaks C# sources into consumers | Remove the direct reference and use `StoveDotnet.WireMock`, which strips them (see its `buildTransitive/StoveDotnet.WireMock.targets`), or copy that target into the project |
 | Docker errors at startup (`Cannot connect`, pull failures) | Container runtime not running or unreachable | Start Docker or Podman. Podman: make sure the Docker-compatible API socket or pipe is enabled, and give Kafka at least 4 GB |
@@ -82,7 +83,7 @@ spans received).
 ```csharp
 Console.WriteLine(t.Telemetry().RenderTree());
 foreach (var r in t.WireMock("payments").Requests()) Console.WriteLine($"{r} {r.Body}");
-foreach (var m in t.Kafka().Peek<JsonElement>()) Console.WriteLine($"{m.Topic}@{m.Record.Offset} {m.Record.ValueAsString}");
+foreach (var m in await t.Kafka().PeekAsync<JsonElement>()) Console.WriteLine($"{m.Topic}@{m.Record.Offset} {m.Record.ValueAsString}");
 ```
 
 Remove the probes once the cause is found.

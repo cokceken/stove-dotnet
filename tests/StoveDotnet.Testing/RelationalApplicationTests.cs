@@ -93,9 +93,11 @@ public abstract class RelationalApplicationTests(RelationalFixture fixture)
         var archive = fixture.CreateModule("Archive");
         primary.UseExisting(primary.MissingDatabaseConnectionString(fixture.Module.ConnectionString), runMigrations: false);
         archive.UseExisting(fixture.Archive.ConnectionString, runMigrations: false);
-        await Assert.ThrowsAnyAsync<System.Data.Common.DbException>(() =>
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() =>
             fixture.WithApplication(archive.RegisterPublic(primary.RegisterPublic(StoveBuilder.Create())).WithHttpClient())
                 .StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsAssignableFrom<System.Data.Common.DbException>(error.InnerException);
+        Assert.Contains("'Primary' failed to start", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

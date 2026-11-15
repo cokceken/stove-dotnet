@@ -34,7 +34,9 @@ RailSense's response/upload helpers, waits, clock and fake OIDC server informed 
 
 - Extend HTTP wrappers with fluent status checks and configurable bounded/redacted diagnostics; retain raw access
   and lazy deserialization. Raw response data remains caller-controlled.
-- Preserve legacy retry behavior and add token-aware overloads with explicit retry selection. Await cooperative probes
+- One retry rule per method: `AssertAsync` retries every exception, `UntilAsync` polls a value and lets exceptions
+  propagate; `RetryOn` narrows or widens either. This replaces the earlier decision to keep a separate legacy retry
+  behavior, which made the same assertion behave differently depending on its overload. Await cooperative probes
   sequentially; never abandon timed-out work and start overlapping probes. Absence sampling has a bounded, documented scope.
 - Use Microsoft's `FakeTimeProvider` in an optional package. Fixtures explicitly own clocks and register them per app;
   avoid a second timer scheduler. External database and token-validation clocks remain independent.

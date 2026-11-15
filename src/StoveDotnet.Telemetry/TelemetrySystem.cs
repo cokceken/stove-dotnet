@@ -90,7 +90,7 @@ public sealed class TelemetrySystem
             timeout ?? TimeSpan.FromSeconds(5),
             () => $"no span matched. Received spans:{Environment.NewLine}{TraceTreeRenderer.Render(_store.Spans(test.TraceId))}",
             _store.Changed,
-            test.CancellationToken).ConfigureAwait(false);
+            cancellationToken: test.CancellationToken).ConfigureAwait(false);
         return match!;
     }
 
@@ -108,7 +108,12 @@ public sealed class TelemetrySystem
     /// <summary>Renders the spans received so far for the current test as a tree.</summary>
     public string RenderTree() => TraceTreeRenderer.Render(_store.Spans(StoveTestContext.Require().TraceId));
 
-    public Task OnTestStartedAsync(StoveTestContext test) => Task.CompletedTask;
+    public Task OnTestStartedAsync(StoveTestContext test)
+    {
+        ArgumentNullException.ThrowIfNull(test);
+        _store.Track(test.TraceId);
+        return Task.CompletedTask;
+    }
 
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
     {

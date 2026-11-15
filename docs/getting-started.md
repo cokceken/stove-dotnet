@@ -63,11 +63,11 @@ public Task Creates_an_order() => stove.Test(async t =>
         new { productId = "chair" }))
         .Expect(HttpStatusCode.Created);
 
-    await t.Postgres().ShouldQuery(
+    var statuses = await t.Postgres().Query(
         "select status from orders where id = @id",
         row => row.GetString(0),
-        rows => Assert.Equal(["Created"], rows),
         new NpgsqlParameter("id", response.Body.Id));
+    Assert.Equal(["Created"], statuses);
 });
 ```
 

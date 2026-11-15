@@ -27,7 +27,7 @@ public sealed class HttpClientOptions
 /// Calls the application under test over real HTTP, tagging every request with the running test's trace. The exchanges
 /// of a failed test are attached to its failure output, whichever assertion library detected the failure.
 /// </summary>
-public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted, IAfterApplicationsStarted, ITestScopeAware, IFailureDetailsProvider
+public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted, ITestScopeAware, IFailureDetailsProvider
 {
     private const int MaxExchangesPerTest = 20;
     private const int MaxSuccessBodyLength = 300;
@@ -47,12 +47,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
     {
         if (_options.BaseAddress is not null) return Task.CompletedTask;
         if (_options.ApplicationName is null && stove.Application is null) return Task.CompletedTask;
-        return OnApplicationStartedAsync(stove.GetApplication(_options.ApplicationName), cancellationToken);
-    }
-
-    public Task OnApplicationStartedAsync(IApplicationContext application, CancellationToken cancellationToken)
-    {
-        _options.BaseAddress ??= application.BaseAddress;
+        _options.BaseAddress = stove.GetApplication(_options.ApplicationName).BaseAddress;
         return Task.CompletedTask;
     }
 

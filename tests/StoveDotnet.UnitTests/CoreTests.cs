@@ -160,7 +160,7 @@ public sealed class CoreTests
         }, TestContext.Current.CancellationToken);
 
         await Eventually.UntilAsync(_ => ValueTask.FromResult(ready), TimeSpan.FromSeconds(5), () => "not ready", signal,
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(ready);
     }

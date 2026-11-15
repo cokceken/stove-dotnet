@@ -16,14 +16,16 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
 {
     private readonly ScopedMessageBuffer<ObservedRecord> _store;
     private readonly CancellationTokenSource _stopping = new();
+    private static readonly TimeSpan MinimumOffsetWait = TimeSpan.FromMilliseconds(250);
     private readonly string _observerGroupId = $"stove-observer-{Guid.NewGuid():N}";
     private KafkaContainer? _container;
     private INetwork? _network;
-    /// <summary>Enables a private container network for dependent systems. Set before startup.</summary>
-    public bool NeedsRegistryNetwork { get; set; }
+    /// <summary>Whether Stove owns the broker container, as opposed to <see cref="KafkaOptions.UseExisting"/>.</summary>
     public bool IsManaged => Options.ExistingBootstrapServers is null;
-    public INetwork RegistryNetwork => _network ?? throw new InvalidOperationException("Kafka registry network is not running.");
-    public string RegistryBootstrapServers => Options.ExistingBootstrapServers ?? "stove-kafka:9093";
+    // Schema Registry plumbing: a private container network shared with the registry container. Set before startup.
+    internal bool NeedsRegistryNetwork { get; set; }
+    internal INetwork RegistryNetwork => _network ?? throw new InvalidOperationException("Kafka registry network is not running.");
+    internal string RegistryBootstrapServers => Options.ExistingBootstrapServers ?? "stove-kafka:9093";
     private IProducer<byte[]?, byte[]?>? _producer;
     private IAdminClient? _admin;
     private Task? _observer;
@@ -182,7 +184,8 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
 
                 return false;
             },
-            (wait - TimeProvider.System.GetElapsedTime(started)) is var remaining && remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero,
+            // Finding the message may have used the whole budget; still read the committed offsets once.
+            (wait - TimeProvider.System.GetElapsedTime(started)) is var remaining && remaining > MinimumOffsetWait ? remaining : MinimumOffsetWait,
             () => $"{typeof(T).Name} at {record.Topic}[{record.Partition}]@{record.Offset} was published but not consumed. " +
                   $"Committed offsets: {(lastSeen.Count == 0 ? "(no consumer groups found)" : string.Join(", ", lastSeen.Select(g => $"{g.Key}={g.Value}")))}",
             cancellationToken: test.CancellationToken).ConfigureAwait(false);
@@ -194,14 +197,10 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
     public Task<ObservedMessage<T>> ShouldBeFailed<T>(Func<ObservedMessage<T>, bool> condition, TimeSpan? timeout = null) =>
         WaitForMessage(condition, timeout, record => Options.ErrorTopicSuffixes.Any(s => record.Topic.EndsWith(s, StringComparison.Ordinal)), "published to an error topic");
 
-    /// <summary>Messages of the running test observed so far that deserialize to <typeparamref name="T"/>.</summary>
-    public IReadOnlyList<ObservedMessage<T>> Peek<T>(string? topic = null)
-    {
-        var test = StoveTestContext.Require();
-        return MatchingAsync<T>(test, record => topic is null || record.Topic == topic, _ => true).GetAwaiter().GetResult();
-    }
-
-    /// <summary>Asynchronously reads observed messages, including registry-backed values.</summary>
+    /// <summary>
+    /// Messages of the running test observed so far that deserialize to <typeparamref name="T"/>, without waiting.
+    /// Asynchronous because registry-backed formats may fetch a schema.
+    /// </summary>
     public Task<IReadOnlyList<ObservedMessage<T>>> PeekAsync<T>(string? topic = null) =>
         MatchingAsync<T>(StoveTestContext.Require(), record => topic is null || record.Topic == topic, _ => true);
 
@@ -240,7 +239,7 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
             timeout ?? Options.DefaultTimeout,
             () => $"no {typeof(T).Name} matching the condition was {expectation}. {DescribeObserved(test)}",
             _store.Changed,
-            test.CancellationToken).ConfigureAwait(false);
+            cancellationToken: test.CancellationToken).ConfigureAwait(false);
         return match!;
     }
 

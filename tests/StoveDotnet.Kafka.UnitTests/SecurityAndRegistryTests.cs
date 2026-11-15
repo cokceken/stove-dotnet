@@ -36,7 +36,8 @@ public sealed class SecurityAndRegistryTests
     [InlineData(KafkaSecurityMode.MutualTls)]
     public async Task Missing_certificates_fail_before_container_start(KafkaSecurityMode mode)
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => StoveBuilder.Create().WithKafka(o => o.Security.Mode = mode).StartAsync(TestContext.Current.CancellationToken));
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithKafka(o => o.Security.Mode = mode).StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsType<ArgumentException>(error.InnerException);
     }
 
     [Fact]

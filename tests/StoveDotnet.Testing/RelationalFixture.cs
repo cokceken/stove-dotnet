@@ -22,7 +22,7 @@ public abstract class DatabaseModule : IAsyncDisposable
     public abstract IPluggedSystem Resolve(StoveTestContext t, bool unnamed = false);
     public abstract Task<int> Insert(StoveTestContext t, string sql, string value);
     public abstract Task<IReadOnlyList<string>> Query(StoveTestContext t, string sql);
-    public abstract Task ShouldQuery(StoveTestContext t, string sql, Action<IReadOnlyList<string>> assert);
+    public abstract Task<IReadOnlyList<string>> QueryById(StoveTestContext t, string sql);
     public abstract Task Seed(StoveTestContext t, string id, string value);
     public abstract Task<IReadOnlyList<string>> Read(StoveTestContext t, string id);
     public ValueTask DisposeAsync()

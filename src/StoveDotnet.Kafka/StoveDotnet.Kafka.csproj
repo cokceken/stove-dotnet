@@ -10,4 +10,9 @@
     <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The registry container joins a network owned by the Kafka system; that plumbing is not public API. -->
+    <InternalsVisibleTo Include="StoveDotnet.SchemaRegistry" />
+  </ItemGroup>
+
 </Project>

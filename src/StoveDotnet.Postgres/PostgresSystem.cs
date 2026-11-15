@@ -129,13 +129,6 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
         return rows;
     }
 
-    /// <summary>Runs a query, maps every row and hands the rows to <paramref name="assert"/>.</summary>
-    public async Task ShouldQuery<T>(string sql, Func<NpgsqlDataReader, T> map, Action<IReadOnlyList<T>> assert, params NpgsqlParameter[] parameters)
-    {
-        ArgumentNullException.ThrowIfNull(assert);
-        assert(await Query(sql, map, parameters).ConfigureAwait(false));
-    }
-
     private NpgsqlCommand CreateCommand(string sql, NpgsqlParameter[] parameters)
     {
         var command = DataSource.CreateCommand(sql);

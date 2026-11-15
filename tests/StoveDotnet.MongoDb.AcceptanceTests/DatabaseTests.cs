@@ -54,7 +54,7 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
     {
         var id = ObjectId.GenerateNewId();
         Assert.Equal(HttpStatusCode.Created, (await t.Http().Post("/records", new Request(id.ToString(), "İstanbul 日本語 🐘"))).StatusCode);
-        await t.MongoDb("Primary").ShouldQuery<TestDocument>("records", Builders<TestDocument>.Filter.Eq(x => x.Id, id), rows => Assert.Equal("İstanbul 日本語 🐘", Assert.Single(rows).Value));
+        Assert.Equal("İstanbul 日本語 🐘", Assert.Single(await t.MongoDb("Primary").Query("records", Builders<TestDocument>.Filter.Eq(x => x.Id, id))).Value);
         var raw = await t.MongoDb("Primary").Collection<BsonDocument>("records").Find(new BsonDocument("_id", id)).SingleAsync(t.CancellationToken);
         Assert.True(raw["_id"].IsObjectId);
         Assert.True(raw.Contains("value"));
@@ -156,11 +156,12 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
     [Fact]
     public async Task Readiness_runs_without_setup()
     {
-        await Assert.ThrowsAsync<TimeoutException>(() => StoveBuilder.Create().WithMongoDb(o =>
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithMongoDb(o =>
         {
             o.UseExisting("mongodb://127.0.0.1:1", "missing", runSetup: false);
             o.ConfigureClient = s => s.ServerSelectionTimeout = TimeSpan.FromMilliseconds(250);
         }).StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsType<TimeoutException>(error.InnerException);
     }
 
     [Fact]
@@ -209,7 +210,7 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
             o.Setup.Add((c, _) => { connectionString = c.Configuration.ConnectionString; throw original; });
             o.Cleanup = (_, _) => throw new InvalidOperationException("rollback failed");
         }).StartAsync(TestContext.Current.CancellationToken));
-        Assert.Same(original, error.InnerExceptions[0]);
+        Assert.Same(original, Assert.IsType<StoveStartupException>(error.InnerExceptions[0]).InnerException);
         Assert.Contains(error.Flatten().InnerExceptions, e => e.Message == "rollback failed");
         var settings = MongoClientSettings.FromConnectionString(connectionString);
         settings.ServerSelectionTimeout = TimeSpan.FromMilliseconds(500);
@@ -221,8 +222,11 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
     public async Task Failed_document_assertion_preserves_cause_and_identity()
     {
         var original = new InvalidOperationException("unexpected document");
-        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => fixture.Stove.Test(t =>
-            t.MongoDb("Primary").ShouldQuery<TestDocument>("records", Builders<TestDocument>.Filter.Eq(x => x.Id, ObjectId.GenerateNewId()), _ => throw original)));
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => fixture.Stove.Test(async t =>
+        {
+            await t.MongoDb("Primary").Query("records", Builders<TestDocument>.Filter.Eq(x => x.Id, ObjectId.GenerateNewId()));
+            throw original;
+        }));
         Assert.Same(original, error.InnerException);
         Assert.False(string.IsNullOrWhiteSpace(error.TraceId));
     }

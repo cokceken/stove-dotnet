@@ -42,6 +42,20 @@ public sealed class ApplicationLogCollector : ILoggerProvider, IFailureDetailsPr
         return Task.FromResult<FailureDetails?>(new FailureDetails("application logs", content.ToString().TrimEnd()));
     }
 
+    /// <summary>
+    /// For application adapters: attaches the warnings and errors logged so far to a start failure, so the startup
+    /// error reported by Stove shows what the application logged before it gave up.
+    /// </summary>
+    public void AttachStartupLogs(Exception startFailure)
+    {
+        ArgumentNullException.ThrowIfNull(startFailure);
+        var entries = _entries.Where(e => e.TraceId is null).ToArray();
+        if (entries.Length == 0 || startFailure.Data.IsReadOnly) return;
+        var content = new StringBuilder().AppendLine("Application warnings and errors before the failure:");
+        Append(content, entries, MaxUncorrelatedLines);
+        startFailure.Data[StoveStartupException.DetailsKey] = content.ToString().TrimEnd();
+    }
+
     private static void Append(StringBuilder content, Entry[] entries, int limit)
     {
         if (entries.Length > limit)
