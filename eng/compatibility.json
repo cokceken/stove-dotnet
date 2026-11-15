@@ -28,11 +28,10 @@
   ],
   "scenarios": [
     { "name": "Core", "area": "Lifecycle, correlation and failure reporting", "project": "tests/StoveDotnet.UnitTests" },
-    { "name": "Hosting", "area": "ASP.NET Core, HTTP, telemetry and WireMock", "project": "tests/StoveDotnet.Hosting.AcceptanceTests" },
+    { "name": "Hosting", "area": "ASP.NET Core, HTTP, telemetry, WireMock and test time", "project": "tests/StoveDotnet.Hosting.AcceptanceTests" },
     { "name": "Custom containers", "area": "User-supplied Testcontainers dependencies", "project": "tests/StoveDotnet.Containers.AcceptanceTests" },
     { "name": "Object storage composition", "area": "MinIO API composition example", "project": "examples/CustomContainer/Tests" },
     { "name": "OIDC", "area": "Discovery, JWKS and signed test tokens", "project": "tests/StoveDotnet.Oidc.AcceptanceTests" },
-    { "name": "Test time", "area": "Application time and hosted workers", "project": "tests/StoveDotnet.Time.AcceptanceTests" },
     { "name": "PostgreSQL", "area": "PostgreSQL container and native queries", "project": "tests/StoveDotnet.Postgres.AcceptanceTests" },
     { "name": "SQL Server", "area": "SQL Server container and native queries", "project": "tests/StoveDotnet.SqlServer.AcceptanceTests" },
     { "name": "MongoDB", "area": "Replica set and native document queries", "project": "tests/StoveDotnet.MongoDb.AcceptanceTests" },
@@ -50,7 +49,7 @@
     { "id": "StoveDotnet.AspNetCore", "area": "Applications", "purpose": "ASP.NET Core hosting and DI access", "evidence": "Hosting", "guide": "getting-started.md" },
     { "id": "StoveDotnet.Azure.ServiceBus", "area": "Messaging", "purpose": "Queues, topics, subscriptions and scheduling", "evidence": "Azure Service Bus", "guide": "azure-service-bus.md" },
     { "id": "StoveDotnet.Containers", "area": "Infrastructure", "purpose": "User-supplied dependency containers", "evidence": "Custom containers", "guide": "custom-containers.md" },
-    { "id": "StoveDotnet.Hosting", "area": "Applications", "purpose": "Named Generic Host workers", "evidence": "API and worker composition", "guide": "multiple-applications.md" },
+    { "id": "StoveDotnet.Hosting", "area": "Applications", "purpose": "Named Generic Host workers, application services and controllable time", "evidence": "API and worker composition", "guide": "multiple-applications.md" },
     { "id": "StoveDotnet.Http", "area": "Applications", "purpose": "Typed HTTP calls and assertions", "evidence": "Hosting", "guide": "practical-testing.md" },
     { "id": "StoveDotnet.Kafka", "area": "Messaging", "purpose": "Kafka publishing and observation", "evidence": "Kafka", "guide": "messaging.md" },
     { "id": "StoveDotnet.Kafka.Avro", "area": "Messaging", "purpose": "Generated Avro publishing and observation", "evidence": "Kafka", "guide": "kafka.md" },
@@ -63,7 +62,6 @@
     { "id": "StoveDotnet.SchemaRegistry", "area": "Messaging", "purpose": "Schema Registry containers and ordered schema migrations", "evidence": "Kafka", "guide": "kafka.md" },
     { "id": "StoveDotnet.SqlServer", "area": "Databases", "purpose": "SQL Server and native client", "evidence": "SQL Server", "guide": "getting-started.md" },
     { "id": "StoveDotnet.Telemetry", "area": "Diagnostics", "purpose": "OTLP trace and log collection", "evidence": "OrderService composition", "guide": "practical-testing.md" },
-    { "id": "StoveDotnet.Time", "area": "Infrastructure", "purpose": "Controllable application time", "evidence": "Test time", "guide": "practical-testing.md" },
     { "id": "StoveDotnet.WireMock", "area": "Third-party APIs", "purpose": "In-process HTTP fakes", "evidence": "Hosting", "guide": "practical-testing.md" }
   ]
 }

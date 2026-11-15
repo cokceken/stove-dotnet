@@ -40,7 +40,7 @@ Every listed package must appear in the release manifest, produce both package a
 | [`StoveDotnet.AspNetCore`](https://www.nuget.org/packages/StoveDotnet.AspNetCore) | Applications | [ASP.NET Core hosting and DI access](getting-started.md) | ✅ [Hosting](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
 | [`StoveDotnet.Azure.ServiceBus`](https://www.nuget.org/packages/StoveDotnet.Azure.ServiceBus) | Messaging | [Queues, topics, subscriptions and scheduling](azure-service-bus.md) | ✅ [Azure Service Bus](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests) |
 | [`StoveDotnet.Containers`](https://www.nuget.org/packages/StoveDotnet.Containers) | Infrastructure | [User-supplied dependency containers](custom-containers.md) | ✅ [Custom containers](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Containers.AcceptanceTests) |
-| [`StoveDotnet.Hosting`](https://www.nuget.org/packages/StoveDotnet.Hosting) | Applications | [Named Generic Host workers](multiple-applications.md) | ✅ [API and worker composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/MultiApplication/Tests) |
+| [`StoveDotnet.Hosting`](https://www.nuget.org/packages/StoveDotnet.Hosting) | Applications | [Named Generic Host workers, application services and controllable time](multiple-applications.md) | ✅ [API and worker composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/MultiApplication/Tests) |
 | [`StoveDotnet.Http`](https://www.nuget.org/packages/StoveDotnet.Http) | Applications | [Typed HTTP calls and assertions](practical-testing.md) | ✅ [Hosting](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
 | [`StoveDotnet.Kafka`](https://www.nuget.org/packages/StoveDotnet.Kafka) | Messaging | [Kafka publishing and observation](messaging.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
 | [`StoveDotnet.Kafka.Avro`](https://www.nuget.org/packages/StoveDotnet.Kafka.Avro) | Messaging | [Generated Avro publishing and observation](kafka.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
@@ -53,7 +53,6 @@ Every listed package must appear in the release manifest, produce both package a
 | [`StoveDotnet.SchemaRegistry`](https://www.nuget.org/packages/StoveDotnet.SchemaRegistry) | Messaging | [Schema Registry containers and ordered schema migrations](kafka.md) | ✅ [Kafka](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Kafka.AcceptanceTests) |
 | [`StoveDotnet.SqlServer`](https://www.nuget.org/packages/StoveDotnet.SqlServer) | Databases | [SQL Server and native client](getting-started.md) | ✅ [SQL Server](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.SqlServer.AcceptanceTests) |
 | [`StoveDotnet.Telemetry`](https://www.nuget.org/packages/StoveDotnet.Telemetry) | Diagnostics | [OTLP trace and log collection](practical-testing.md) | ✅ [OrderService composition](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/OrderService.E2ETests.XunitV3) |
-| [`StoveDotnet.Time`](https://www.nuget.org/packages/StoveDotnet.Time) | Infrastructure | [Controllable application time](practical-testing.md) | ✅ [Test time](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Time.AcceptanceTests) |
 | [`StoveDotnet.WireMock`](https://www.nuget.org/packages/StoveDotnet.WireMock) | Third-party APIs | [In-process HTTP fakes](practical-testing.md) | ✅ [Hosting](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
 
 ## Executable scenarios
@@ -61,11 +60,10 @@ Every listed package must appear in the release manifest, produce both package a
 | CI suite | What it verifies | Evidence |
 |---|---|---|
 | Core | Lifecycle, correlation and failure reporting | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.UnitTests) |
-| Hosting | ASP.NET Core, HTTP, telemetry and WireMock | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
+| Hosting | ASP.NET Core, HTTP, telemetry, WireMock and test time | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Hosting.AcceptanceTests) |
 | Custom containers | User-supplied Testcontainers dependencies | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Containers.AcceptanceTests) |
 | Object storage composition | MinIO API composition example | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/examples/CustomContainer/Tests) |
 | OIDC | Discovery, JWKS and signed test tokens | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Oidc.AcceptanceTests) |
-| Test time | Application time and hosted workers | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Time.AcceptanceTests) |
 | PostgreSQL | PostgreSQL container and native queries | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.Postgres.AcceptanceTests) |
 | SQL Server | SQL Server container and native queries | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.SqlServer.AcceptanceTests) |
 | MongoDB | Replica set and native document queries | ✅ [Test project](https://github.com/cokceken/stove-dotnet/tree/main/tests/StoveDotnet.MongoDb.AcceptanceTests) |

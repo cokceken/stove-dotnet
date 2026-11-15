@@ -62,10 +62,9 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 |---|---|
 | `StoveDotnet` | Builder, lifecycle, `stove.Test`, correlation, `Eventually`, migrations |
 | `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication<Program>()` (WebApplicationFactory + real Kestrel) |
-| `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown; DI bridge `t.Using<T>()` for any application |
+| `StoveDotnet.Hosting` | `WithHostApplication("worker", factory)`: named Generic Host workers with configuration and managed shutdown; DI bridge `t.Using<T>()` and opt-in test time (`UseStoveTime(clock)`, `t.Clock(application)`) for any application |
 | `StoveDotnet.Containers` | `WithContainer("storage", configure)`: bring your own Testcontainers image, readiness, initialization and application configuration |
 | `StoveDotnet.Http` | `t.Http()`: typed JSON calls against the application |
-| `StoveDotnet.Time` | Explicit `UseStoveTime(clock)` injection and `t.Clock(application)` using Microsoft's FakeTimeProvider |
 | `StoveDotnet.Oidc` | `WithOidc()` / `t.Oidc()`: local discovery, JWKS and signed test tokens for real bearer validation |
 | `StoveDotnet.Telemetry` | `WithTelemetry()`: OTLP/HTTP receiver for traces and logs, `t.Telemetry()` |
 | `StoveDotnet.Postgres` | `WithPostgres()`: Testcontainers PostgreSQL, raw Npgsql DSL |

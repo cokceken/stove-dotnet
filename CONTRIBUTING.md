@@ -20,10 +20,9 @@ plugins/stove-dotnet         Claude Code plugin; its skills/stove-dotnet folder 
 ```shell
 dotnet build -c Release                                          # warnings are errors
 dotnet test --project tests/StoveDotnet.UnitTests                # core only
-dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests  # no containers
+dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests  # no containers; includes test time
 dotnet test --project tests/StoveDotnet.Containers.AcceptanceTests # Docker or Podman
 dotnet test --project examples/CustomContainer/Tests             # MinIO through a real API
-dotnet test --project tests/StoveDotnet.Time.AcceptanceTests     # no containers
 dotnet test --project tests/StoveDotnet.Oidc.AcceptanceTests     # real JWT bearer, no containers
 dotnet test --project tests/StoveDotnet.Postgres.AcceptanceTests # Docker or Podman
 dotnet test --project tests/StoveDotnet.SqlServer.AcceptanceTests

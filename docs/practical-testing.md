@@ -124,14 +124,14 @@ at sample points; it cannot rule out changes between samples or after the interv
 
 ## Opt-in application time
 
-`StoveDotnet.Time` uses Microsoft's `FakeTimeProvider` from `Microsoft.Extensions.TimeProvider.Testing`; Stove adds
+`StoveDotnet.Hosting` (referenced by `StoveDotnet.AspNetCore`) uses Microsoft's `FakeTimeProvider` from `Microsoft.Extensions.TimeProvider.Testing`; Stove adds
 explicit DI registration and named application lookup, not a scheduler. See the
 [Microsoft package documentation](https://www.nuget.org/packages/Microsoft.Extensions.TimeProvider.Testing/10.9.0).
 
 ```csharp
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Time.Testing;
-using StoveDotnet.Time;
+using StoveDotnet.Hosting;
 
 var clock = new FakeTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
 builder.WithAspNetCoreApplication<Program>("api", o =>
@@ -145,7 +145,7 @@ t.Clock("api").Advance(TimeSpan.FromMinutes(5));
 The fixture creates and owns the clock. `UseStoveTime` explicitly replaces `TimeProvider` registrations; it is never
 enabled automatically. Pass the same instance to hosts that must share time, or create separate instances per host or
 isolated fixture. No clock is silently reset between tests. Tests that mutate a shared clock must be serialized; tests
-with independent hosts/clocks may run concurrently. See [serialized shared-clock tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Time.AcceptanceTests/SharedClockTests.cs).
+with independent hosts/clocks may run concurrently. See [serialized shared-clock tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Hosting.AcceptanceTests/SharedClockTests.cs).
 
 Advancement changes `GetUtcNow` and fires timers created through that provider, including provider-aware `Task.Delay`
 and `PeriodicTimer`. Await the observable effect after advancing: asynchronous continuations are not necessarily done
@@ -153,7 +153,7 @@ when `Advance` returns, and periodic consumers can coalesce ticks. Ordinary `Tas
 `now()`, token validators and external services retain their own clocks. Explicitly injecting a clock into token issuance
 does not synchronize a JWT validator. Moving the clock backwards is not a reset strategy; build another fixture instead.
 
-[Time acceptance tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Time.AcceptanceTests/TimeTests.cs) exercise real HTTP delays, hosted worker
+[Time acceptance tests](https://github.com/cokceken/stove-dotnet/blob/main/tests/StoveDotnet.Hosting.AcceptanceTests/TimeTests.cs) exercise real HTTP delays, hosted worker
 timers, shared ownership, independent parallel hosts and timer cleanup.
 
 ## Optional OIDC module

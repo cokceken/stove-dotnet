@@ -226,7 +226,7 @@ Caller cancellation is distinct from timeout. See repository `docs/practical-tes
 
 ### Application time and identity
 
-`StoveDotnet.Time` provides `services.UseStoveTime(clock)` for a fixture-owned Microsoft `FakeTimeProvider` and
+`StoveDotnet.Hosting` provides `services.UseStoveTime(clock)` for a fixture-owned Microsoft `FakeTimeProvider` and
 `t.Clock("api")` for lookup. Advance only after the application has armed its provider-aware timers. Shared clocks
 require serialized mutation; independent clocks/hosts can run in parallel. This does not change PostgreSQL, external
 systems or JWT validation time. Never assume advancing time drains all asynchronous work.

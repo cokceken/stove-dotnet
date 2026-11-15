@@ -39,7 +39,6 @@
     <Project Path="src/StoveDotnet.Redis/StoveDotnet.Redis.csproj" />
     <Project Path="src/StoveDotnet.SqlServer/StoveDotnet.SqlServer.csproj" />
     <Project Path="src/StoveDotnet.Telemetry/StoveDotnet.Telemetry.csproj" />
-    <Project Path="src/StoveDotnet.Time/StoveDotnet.Time.csproj" />
     <Project Path="src/StoveDotnet.WireMock/StoveDotnet.WireMock.csproj" />
     <Project Path="src/StoveDotnet/StoveDotnet.csproj" />
   </Folder>
@@ -57,7 +56,6 @@
     <Project Path="tests/StoveDotnet.Redis.AcceptanceTests/StoveDotnet.Redis.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.SqlServer.AcceptanceTests/StoveDotnet.SqlServer.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.Testing/StoveDotnet.Testing.csproj" />
-    <Project Path="tests/StoveDotnet.Time.AcceptanceTests/StoveDotnet.Time.AcceptanceTests.csproj" />
     <Project Path="tests/StoveDotnet.UnitTests/StoveDotnet.UnitTests.csproj" />
     <Project Path="tests/TestApps/HostingApp/HostingApp.csproj" />
     <Project Path="tests/TestApps/MongoDbApp/MongoDbApp.csproj" />

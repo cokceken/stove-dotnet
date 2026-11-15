@@ -238,7 +238,7 @@ Repository `examples/CustomContainer` demonstrates a MinIO container behind a re
 
 ## Optional test time and OIDC
 
-Add `StoveDotnet.Time` only when application time needs control. Create a fixture-owned Microsoft `FakeTimeProvider`;
+Test time is part of `StoveDotnet.Hosting` (namespace `StoveDotnet.Hosting`); use it only when application time needs control. Create a fixture-owned Microsoft `FakeTimeProvider`;
 call `services.UseStoveTime(clock)` in the worker factory or ASP.NET Core `ConfigureTestServices`. Share that exact
 instance only where intentional, and serialize shared-clock mutation. There is no automatic clock or reset.
 
