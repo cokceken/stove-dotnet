@@ -6,7 +6,7 @@ namespace StoveDotnet.MongoDb;
 
 public sealed record MongoDbExposedConfiguration(string ConnectionString, string Database) : IExposedConfiguration;
 
-public sealed record MongoDbSetupContext(IMongoClient Client, IMongoDatabase Database, MongoDbExposedConfiguration Configuration);
+public sealed record MongoDbMigrationContext(IMongoClient Client, IMongoDatabase Database, MongoDbExposedConfiguration Configuration);
 
 public sealed class MongoDbOptions : SystemOptions<MongoDbExposedConfiguration>
 {
@@ -19,19 +19,19 @@ public sealed class MongoDbOptions : SystemOptions<MongoDbExposedConfiguration>
     public Action<MongoClientSettings>? ConfigureClient { get; set; }
 
     /// <summary>Ordered collection/index/seed setup before application startup; reruns on each environment start.</summary>
-    public MigrationCollection<MongoDbSetupContext> Setup { get; } = new();
-    public Func<MongoDbSetupContext, CancellationToken, Task>? Cleanup { get; set; }
+    public MigrationCollection<MongoDbMigrationContext> Migrations { get; } = new();
+    public Func<MongoDbMigrationContext, CancellationToken, Task>? Cleanup { get; set; }
     internal string? ExistingConnectionString { get; private set; }
-    internal bool RunSetupOnExisting { get; private set; } = true;
+    internal bool RunMigrationsOnExisting { get; private set; } = true;
 
     /// <summary>Uses an external endpoint and explicit database. Stove owns its client, never the external server.</summary>
-    public MongoDbOptions UseExisting(string connectionString, string database, bool runSetup = true)
+    public MongoDbOptions UseExisting(string connectionString, string database, bool runMigrations = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         ArgumentException.ThrowIfNullOrWhiteSpace(database);
         ExistingConnectionString = connectionString;
         Database = database;
-        RunSetupOnExisting = runSetup;
+        RunMigrationsOnExisting = runMigrations;
         return this;
     }
 }
@@ -42,7 +42,7 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
 {
     private MongoDbContainer? _container;
     private MongoClient? _client;
-    private MongoDbSetupContext? _context;
+    private MongoDbMigrationContext? _context;
     private int _disposed;
 
     public IMongoClient Client => _client ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
@@ -66,11 +66,11 @@ public sealed class MongoDbSystem(string? name, MongoDbOptions options)
         Options.ConfigureClient?.Invoke(settings);
         _client = new MongoClient(settings);
         var exposed = new MongoDbExposedConfiguration(connectionString, Options.Database);
-        _context = new MongoDbSetupContext(_client, _client.GetDatabase(Options.Database), exposed);
+        _context = new MongoDbMigrationContext(_client, _client.GetDatabase(Options.Database), exposed);
         await Database.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1), cancellationToken: cancellationToken).ConfigureAwait(false);
         Expose(exposed);
-        if (Options.ExistingConnectionString is null || Options.RunSetupOnExisting)
-            await Options.Setup.RunAsync(_context, cancellationToken).ConfigureAwait(false);
+        if (Options.ExistingConnectionString is null || Options.RunMigrationsOnExisting)
+            await Options.Migrations.RunAsync(_context, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task Insert<T>(string collection, T document)

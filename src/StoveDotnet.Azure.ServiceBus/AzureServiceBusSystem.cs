@@ -21,7 +21,7 @@ public sealed class AzureServiceBusSystem
     private ServiceBusContainer? _container;
     private ServiceBusClient? _client;
     private ServiceBusAdministrationClient? _administrationClient;
-    private AzureServiceBusSetupContext? _setupContext;
+    private AzureServiceBusMigrationContext? _setupContext;
     private int _disposed;
 
     public AzureServiceBusSystem(string? name, AzureServiceBusOptions options) : base(name, options)
@@ -80,11 +80,11 @@ public sealed class AzureServiceBusSystem
 
         var exposed = new AzureServiceBusExposedConfiguration(fullyQualifiedNamespace, connectionString, isEmulator);
         Expose(exposed);
-        _setupContext = new AzureServiceBusSetupContext(Client, AdministrationClient, exposed);
-        if (isEmulator || Options.RunTopologySetupOnExisting)
+        _setupContext = new AzureServiceBusMigrationContext(Client, AdministrationClient, exposed);
+        if (isEmulator || Options.RunMigrationsOnExisting)
         {
             await EnsureTopologyAsync(cancellationToken).ConfigureAwait(false);
-            await Options.Setup.RunAsync(_setupContext, cancellationToken).ConfigureAwait(false);
+            await Options.Migrations.RunAsync(_setupContext, cancellationToken).ConfigureAwait(false);
         }
     }
 

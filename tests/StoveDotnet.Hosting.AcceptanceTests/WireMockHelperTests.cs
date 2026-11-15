@@ -45,7 +45,7 @@ public sealed class WireMockHelperTests(InProcessStoveFixture fixture)
         Assert.Equal("EUR", request.QueryValue("currency"));
         Assert.Equal(new Charge("order-1", 20m), request.BodyAs<Charge>());
         Assert.Empty(wireMock.Requests("GET"));
-        await Assert.ThrowsAsync<StoveAssertionException>(() => wireMock.ShouldHaveBeenCalled("POST", "/accounts/{accountId}/charges", times: 2));
+        await Assert.ThrowsAsync<StoveAssertionException>(() => wireMock.ShouldHaveBeenCalled("POST", "/accounts/{accountId}/charges", times: 2, within: TimeSpan.FromMilliseconds(200)));
     });
 
     [Fact]

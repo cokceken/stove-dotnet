@@ -78,7 +78,7 @@ recovery scenarios need separate verification.
 var builder = StoveBuilder.Create().WithRabbitMq("orders", o =>
 {
     o.ConfigureExposedConfiguration = c => [new("Rabbit:ConnectionString", c.ConnectionString)];
-    o.Setup.Add(async (ctx, ct) =>
+    o.Migrations.Add(async (ctx, ct) =>
     {
         await ctx.Channel.ExchangeDeclareAsync("orders", ExchangeType.Topic, cancellationToken: ct);
         await ctx.Channel.QueueDeclareAsync("orders.work", false, false, false, cancellationToken: ct);
@@ -89,7 +89,7 @@ var builder = StoveBuilder.Create().WithRabbitMq("orders", o =>
 // Add your application and start this builder in the fixture.
 ```
 
-`Setup.Add(callback, order)` prepares exchanges, queues and bindings in ascending order before the application starts.
+`Migrations.Add(callback, order)` prepares exchanges, queues and bindings in ascending order before the application starts.
 The callback receives `Connection`, a temporary `Channel`, and `Configuration`. The setup channel is disposed after
 setup; do not retain it. Setup reruns on every environment start without persisted migration history.
 
@@ -108,8 +108,8 @@ messages. Adding the observer changes the set of queues bound to the exchange, w
 | `Image`, `Username`, `Password` | Managed container defaults: `rabbitmq:4.1-alpine`, `stove`, `stove` |
 | `ConfigureContainer` | Customize native `RabbitMqBuilder` |
 | `ConfigureClient` | Customize Stove's `ConnectionFactory`, e.g. TLS or client name; automatic recovery remains disabled |
-| `UseExisting(connectionString, runSetup: true)` | Connect to an external AMQP endpoint; do not create a container |
-| `Setup` | Ordered topology/seed callbacks; optionally skipped on an existing endpoint |
+| `UseExisting(connectionString, runMigrations: true)` | Connect to an external AMQP endpoint; do not create a container |
+| `Migrations` | Ordered topology/seed callbacks; optionally skipped on an existing endpoint |
 | `Cleanup` | Optional shutdown callback with a fresh temporary channel, including on existing endpoints |
 | `JsonSerializerOptions` | Defaults to System.Text.Json web settings |
 | `DefaultTimeout` | Default positive assertion timeout, 10 seconds |

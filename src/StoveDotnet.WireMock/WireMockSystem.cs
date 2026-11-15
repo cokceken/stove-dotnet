@@ -31,6 +31,12 @@ public sealed class WireMockOptions : SystemOptions<WireMockExposedConfiguration
     /// </summary>
     public bool ScopeStubsToTest { get; set; }
 
+    /// <summary>
+    /// Default wait of <see cref="WireMockSystem.ShouldHaveBeenCalled"/> for the expected number of requests. The
+    /// assertion returns as soon as they have arrived, so the wait only costs time when the assertion fails.
+    /// </summary>
+    public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
     /// <summary>Additional WireMock.Net server settings.</summary>
     public Action<WireMockServerSettings>? ConfigureSettings { get; set; }
 }
@@ -153,13 +159,13 @@ public sealed class WireMockSystem
     public async Task<IReadOnlyList<RecordedRequest>> ShouldHaveBeenCalled(string method, string path, int times = 1, TimeSpan? within = null)
     {
         var test = StoveTestContext.Require();
-        if (within is { } wait)
+        if (times > 0)
         {
             try
             {
                 await Eventually.UntilAsync(
                     _ => ValueTask.FromResult(Requests(method, path).Count >= times),
-                    wait,
+                    within ?? Options.DefaultTimeout,
                     () => string.Empty,
                     cancellationToken: test.CancellationToken).ConfigureAwait(false);
             }

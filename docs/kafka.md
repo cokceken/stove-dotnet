@@ -92,7 +92,7 @@ await stove.Test(async t =>
 {
     await t.Kafka().Publish("orders.created", new OrderCreated { OrderId = "order-1" });
     await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "order-1");
-    var observed = await t.Kafka().PeekAsync<OrderCreated>("orders.created");
+    var observed = await t.Kafka().Peek<OrderCreated>("orders.created");
 });
 ```
 
@@ -117,5 +117,5 @@ For `Record`, register the full Avro record name; for `TopicRecord`, register `t
 `AvroKafkaSerde` accepts Confluent serializer/deserializer configuration directly and can use a caller-owned registry
 client. The serde does not dispose that client. Its `IStoveKafkaAsyncSerde` interface carries topic context and a
 cancellation token. `KafkaOptions.AsyncSerde`, when set, takes precedence over the synchronous `Serde`.
-Prefer `PeekAsync<T>` for registry-backed observation; the existing synchronous `Peek<T>` blocks until decoding finishes.
+`Peek<T>` is asynchronous because registry-backed formats may fetch a schema while decoding.
 The built-in Avro path uses the schema-ID-prefixed wire format, rather than header-based schema identification.

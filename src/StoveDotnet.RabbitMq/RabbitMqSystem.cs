@@ -7,7 +7,7 @@ using Testcontainers.RabbitMq;
 namespace StoveDotnet.RabbitMq;
 
 public sealed record RabbitMqExposedConfiguration(string ConnectionString) : IExposedConfiguration;
-public sealed record RabbitMqSetupContext(IConnection Connection, IChannel Channel, RabbitMqExposedConfiguration Configuration);
+public sealed record RabbitMqMigrationContext(IConnection Connection, IChannel Channel, RabbitMqExposedConfiguration Configuration);
 /// <summary>A binding from a predeclared exchange to Stove's exclusive observation queue.</summary>
 public sealed record RabbitMqBinding(string Exchange, string RoutingKey = "#");
 
@@ -24,17 +24,17 @@ public sealed class RabbitMqOptions : SystemOptions<RabbitMqExposedConfiguration
     public MessageObservationOptions Observation { get; } = new();
     public IList<RabbitMqBinding> Bindings { get; } = [];
     /// <summary>Ordered exchange/queue/binding setup. The callback channel is disposed after setup.</summary>
-    public MigrationCollection<RabbitMqSetupContext> Setup { get; } = new();
+    public MigrationCollection<RabbitMqMigrationContext> Migrations { get; } = new();
     /// <summary>Runs on shutdown in both modes with a new channel. Does not run if no connection was established.</summary>
-    public Func<RabbitMqSetupContext, CancellationToken, Task>? Cleanup { get; set; }
+    public Func<RabbitMqMigrationContext, CancellationToken, Task>? Cleanup { get; set; }
     internal string? ExistingConnectionString { get; private set; }
-    internal bool RunSetupOnExisting { get; private set; } = true;
+    internal bool RunMigrationsOnExisting { get; private set; } = true;
 
-    public RabbitMqOptions UseExisting(string connectionString, bool runSetup = true)
+    public RabbitMqOptions UseExisting(string connectionString, bool runMigrations = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         ExistingConnectionString = connectionString;
-        RunSetupOnExisting = runSetup;
+        RunMigrationsOnExisting = runMigrations;
         return this;
     }
 }
@@ -76,10 +76,10 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
         _connection.ConnectionShutdownAsync += (_, args) => { ObserverFailed($"connection closed: {args.ReplyText}"); return Task.CompletedTask; };
         var exposed = new RabbitMqExposedConfiguration(connectionString);
         Expose(exposed);
-        if (Options.ExistingConnectionString is null || Options.RunSetupOnExisting)
+        if (Options.ExistingConnectionString is null || Options.RunMigrationsOnExisting)
         {
             await using var channel = await Connection.CreateChannelAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-            await Options.Setup.RunAsync(new(Connection, channel, exposed), cancellationToken).ConfigureAwait(false);
+            await Options.Migrations.RunAsync(new(Connection, channel, exposed), cancellationToken).ConfigureAwait(false);
         }
         _publisher = await Connection.CreateChannelAsync(new CreateChannelOptions(true, true), cancellationToken).ConfigureAwait(false);
         if (Options.Bindings.Count == 0) return;
@@ -128,7 +128,9 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
         finally { _publishLock.Release(); }
     }
 
-    public IReadOnlyList<RabbitMqMessage<T>> Peek<T>(string? exchange = null, string? routingKey = null) => Matching<T>(StoveTestContext.Require(), exchange, routingKey).ToList();
+    /// <summary>Copies of the running test observed so far that deserialize to <typeparamref name="T"/>, without waiting.</summary>
+    public Task<IReadOnlyList<RabbitMqMessage<T>>> Peek<T>(string? exchange = null, string? routingKey = null) =>
+        Task.FromResult<IReadOnlyList<RabbitMqMessage<T>>>(Matching<T>(StoveTestContext.Require(), exchange, routingKey).ToList());
 
     /// <summary>Waits for a copy routed to Stove's queue. Does not establish application delivery, acknowledgement or processing.</summary>
     public async Task<RabbitMqMessage<T>> ShouldBePublished<T>(Func<RabbitMqMessage<T>, bool> condition, TimeSpan? timeout = null, string? exchange = null, string? routingKey = null)

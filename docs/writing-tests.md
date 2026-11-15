@@ -30,7 +30,7 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
   `OpenConnectionAsync(ct)` for native SqlClient access. Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`,
   `ConfigureConnection` and `UseExisting`.
 - **MongoDB:** `Insert(collection, document)`, `Query<T>(collection, filter)`
-  and native `Client`, `Database`, `Collection<T>()`. Ordered `Setup` prepares collections, indexes and seed data.
+  and native `Client`, `Database`, `Collection<T>()`. Ordered `Migrations` prepare collections, indexes and seed data.
 - **MySQL:** `Execute` and `Query<T>` with `MySqlParameter` and native `DataSource` access.
   Options include `Migrations`, `Cleanup`, `ConfigureDataSource`, `ConfigureContainer` and `UseExisting`.
 - **Kafka** (observes broker records and committed offsets; propagate correlation headers):
@@ -41,13 +41,13 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
     This means no matching message was observed during that window; it cannot rule out later delivery or observer lag.
   - `ShouldBeConsumed<T>` waits until a consumer group has committed past the matching message.
   - `ShouldBeFailed<T>` waits until a matching message appears on an error topic (`.error` or `.DLT` by default).
-  - `PeekAsync<T>` returns retained messages of the current test observed so far.
+  - `Peek<T>` returns retained messages of the current test observed so far.
   - `Observation` bounds evidence per test and excludes uncorrelated records by default. See [messaging guarantees](messaging.md).
   - Serialization uses System.Text.Json by default. Plug in your own with `IStoveKafkaSerde`, or use `WithKafkaAvro()`
     for generated Avro events. [Kafka security, Schema Registry and Avro](kafka.md) covers certificate configuration,
     schema migrations and subject naming.
 - **RabbitMQ:** `Publish` / `PublishRaw` await broker confirms; `ShouldBePublished`, `ShouldNotBePublished` and `Peek`
-  inspect copies on Stove's exclusive queue. Configure `Bindings` and ordered `Setup`; native `Connection` is available.
+  inspect copies on Stove's exclusive queue. Configure `Bindings` and ordered `Migrations`; native `Connection` is available.
   Observation does not prove application processing. See [setup and guarantees](messaging.md).
 - **Azure Service Bus:** typed queues/topics/subscriptions, correlated `Publish`/`Schedule`, non-destructive `Peek` and
   `ShouldBeScheduled`, plus destructive `Receive` with explicit Complete/Abandon/DeadLetter/Defer settlement. Existing

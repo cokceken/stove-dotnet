@@ -133,9 +133,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
         new(await Send(request, cancellationToken).ConfigureAwait(false), _options.JsonSerializerOptions);
 
     /// <summary>Sends a hand-built request; correlation headers are still added. The caller reads and disposes the response.</summary>
-    public Task<HttpResponseMessage> SendRaw(HttpRequestMessage request) => SendRaw(request, default);
-
-    public async Task<HttpResponseMessage> SendRaw(HttpRequestMessage request, CancellationToken cancellationToken)
+    public async Task<HttpResponseMessage> SendRaw(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var test = StoveTestContext.Require();

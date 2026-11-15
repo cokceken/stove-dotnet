@@ -84,7 +84,7 @@ spans received).
 ```csharp
 Console.WriteLine(t.Telemetry().RenderTree());
 foreach (var r in t.WireMock("payments").Requests()) Console.WriteLine($"{r} {r.Body}");
-foreach (var m in await t.Kafka().PeekAsync<JsonElement>()) Console.WriteLine($"{m.Topic}@{m.Record.Offset} {m.Record.ValueAsString}");
+foreach (var m in await t.Kafka().Peek<JsonElement>()) Console.WriteLine($"{m.Topic}@{m.Record.Offset} {m.Record.ValueAsString}");
 ```
 
 Remove the probes once the cause is found.

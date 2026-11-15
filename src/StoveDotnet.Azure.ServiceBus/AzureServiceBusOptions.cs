@@ -11,7 +11,7 @@ public sealed record AzureServiceBusExposedConfiguration(
     string? ConnectionString,
     bool IsEmulator) : IExposedConfiguration;
 
-public sealed record AzureServiceBusSetupContext(
+public sealed record AzureServiceBusMigrationContext(
     ServiceBusClient Client,
     ServiceBusAdministrationClient AdministrationClient,
     AzureServiceBusExposedConfiguration Configuration);
@@ -32,35 +32,35 @@ public sealed class AzureServiceBusOptions : SystemOptions<AzureServiceBusExpose
     /// <summary>Cancels correlated scheduled messages discovered by Stove when a test scope ends.</summary>
     public bool CancelScheduledMessagesAfterTest { get; set; } = true;
     public AzureServiceBusTopology Topology { get; } = new();
-    public MigrationCollection<AzureServiceBusSetupContext> Setup { get; } = new();
-    public Func<AzureServiceBusSetupContext, CancellationToken, Task>? Cleanup { get; set; }
+    public MigrationCollection<AzureServiceBusMigrationContext> Migrations { get; } = new();
+    public Func<AzureServiceBusMigrationContext, CancellationToken, Task>? Cleanup { get; set; }
 
     internal string? ExistingConnectionString { get; private set; }
     internal string? ExistingFullyQualifiedNamespace { get; private set; }
     internal TokenCredential? ExistingCredential { get; private set; }
-    internal bool RunTopologySetupOnExisting { get; private set; }
+    internal bool RunMigrationsOnExisting { get; private set; }
 
-    public AzureServiceBusOptions UseExisting(string connectionString, bool runTopologySetup = false)
+    public AzureServiceBusOptions UseExisting(string connectionString, bool runMigrations = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         ExistingConnectionString = connectionString;
         ExistingFullyQualifiedNamespace = null;
         ExistingCredential = null;
-        RunTopologySetupOnExisting = runTopologySetup;
+        RunMigrationsOnExisting = runMigrations;
         return this;
     }
 
     public AzureServiceBusOptions UseExisting(
         string fullyQualifiedNamespace,
         TokenCredential credential,
-        bool runTopologySetup = false)
+        bool runMigrations = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fullyQualifiedNamespace);
         ArgumentNullException.ThrowIfNull(credential);
         ExistingConnectionString = null;
         ExistingFullyQualifiedNamespace = fullyQualifiedNamespace;
         ExistingCredential = credential;
-        RunTopologySetupOnExisting = runTopologySetup;
+        RunMigrationsOnExisting = runMigrations;
         return this;
     }
 }

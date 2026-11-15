@@ -199,9 +199,9 @@ public sealed class KafkaSystem : ExposingSystem<KafkaOptions, KafkaExposedConfi
 
     /// <summary>
     /// Messages of the running test observed so far that deserialize to <typeparamref name="T"/>, without waiting.
-    /// Asynchronous because registry-backed formats may fetch a schema.
+    /// Registry-backed formats may fetch a schema while decoding.
     /// </summary>
-    public Task<IReadOnlyList<ObservedMessage<T>>> PeekAsync<T>(string? topic = null) =>
+    public Task<IReadOnlyList<ObservedMessage<T>>> Peek<T>(string? topic = null) =>
         MatchingAsync<T>(StoveTestContext.Require(), record => topic is null || record.Topic == topic, _ => true);
 
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)

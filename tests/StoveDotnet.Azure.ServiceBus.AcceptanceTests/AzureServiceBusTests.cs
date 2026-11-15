@@ -23,7 +23,7 @@ public sealed class AzureServiceBusConfigurationTests
     {
         var credential = new StubTokenCredential();
         await using var stove = await StoveBuilder.Create().WithAzureServiceBus(o =>
-            o.UseExisting("orders.servicebus.windows.net", credential, runTopologySetup: false))
+            o.UseExisting("orders.servicebus.windows.net", credential, runMigrations: false))
             .StartAsync(TestContext.Current.CancellationToken);
         await stove.Test(t =>
         {
@@ -157,7 +157,7 @@ public sealed class AzureServiceBusTests(AzureServiceBusFixture fixture) : IClas
     public async Task Existing_endpoint_keeps_the_external_emulator_running()
     {
         await using (var stove = await StoveBuilder.Create().WithAzureServiceBus(o =>
-            o.UseExisting(fixture.System.ExposedConfiguration.ConnectionString!, runTopologySetup: false))
+            o.UseExisting(fixture.System.ExposedConfiguration.ConnectionString!, runMigrations: false))
             .StartAsync(TestContext.Current.CancellationToken))
         {
             await stove.Test(async t =>

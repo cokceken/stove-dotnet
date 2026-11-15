@@ -77,7 +77,7 @@ public sealed class KafkaFeatureTests
             headers.Add(StoveHeaders.TestId, System.Text.Encoding.UTF8.GetBytes(t.TestId));
             await producer.ProduceAsync("orders", new Message<string, GeneratedEvent> { Key = "native", Value = new GeneratedEvent { Id = "native" }, Headers = headers }, t.CancellationToken);
             await t.Kafka().ShouldBePublished<GeneratedEvent>(m => m.Value.Id == "native");
-            Assert.Equal(2, (await t.Kafka().PeekAsync<GeneratedEvent>("orders")).Count);
+            Assert.Equal(2, (await t.Kafka().Peek<GeneratedEvent>("orders")).Count);
         }, TestContext.Current.CancellationToken);
     }
 

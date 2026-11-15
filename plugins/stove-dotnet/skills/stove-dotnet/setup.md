@@ -139,8 +139,8 @@ builder.Services.AddOpenTelemetry()
 `WithMongoDb(name?, configure)` defaults to `mongo:8.0`, database `stove`, single-node replica set `stove-rs`.
 Set `ReplicaSet = null` for standalone (no transactions). `ConfigureClient` receives `MongoClientSettings` and
 `ConfigureContainer` receives a `MongoDbBuilder`. Map both `c.ConnectionString` and `c.Database` into app config.
-`UseExisting(connectionString, database, runSetup: true)` selects an explicit database without changing the server.
-`Setup.Add((ctx, ct) => ..., order)` runs ordered collection/index/seed callbacks with `Client`, `Database`, and
+`UseExisting(connectionString, database, runMigrations: true)` selects an explicit database without changing the server.
+`Migrations.Add((ctx, ct) => ..., order)` runs ordered collection/index/seed callbacks with `Client`, `Database`, and
 `Configuration`; this is repeated setup, not persisted migration history. `Cleanup` receives the same context.
 
 `WithMySql(name?, configure)` defaults to `mysql:8.4`, database/user/password `stove`, using MySqlConnector.
@@ -165,12 +165,12 @@ old message from new work. Matching headers are required for reliable parallel i
 
 `WithRabbitMq(name?, configure)` uses `RabbitMQ.Client` with default `rabbitmq:4.1-alpine`, user/password `stove`.
 `ConfigureClient` receives `ConnectionFactory`; automatic recovery is disabled after that hook to avoid hidden gaps.
-`ConfigureContainer` receives `RabbitMqBuilder`. `Setup.Add((ctx, ct) => ..., order)` receives `Connection`, temporary
+`ConfigureContainer` receives `RabbitMqBuilder`. `Migrations.Add((ctx, ct) => ..., order)` receives `Connection`, temporary
 `Channel` and `Configuration`; declare exchanges/work queues/bindings there. `Bindings.Add(new("orders", "orders.#"))`
 binds Stove's exclusive queue to a named exchange. Wildcards apply only according to the exchange type.
 Map `RabbitMqExposedConfiguration.ConnectionString` to the app's actual configuration key.
 
-`UseExisting(connectionString, runSetup: true)` retains external infrastructure ownership. Cleanup runs with a fresh
+`UseExisting(connectionString, runMigrations: true)` retains external infrastructure ownership. Cleanup runs with a fresh
 channel in either mode; later disposal still runs if it fails. Stove removes its exclusive observer queue but does not
 remove user topology unless cleanup explicitly does so. `Connection` is native; callers own channels created from it.
 There are no observer bindings by default: publishing/native access works, but assertions require explicit bindings.
@@ -190,7 +190,7 @@ Use `StoveDotnet.Azure.ServiceBus`. The managed official emulator defaults to `s
 ```
 
 For Azure, use `o.UseExisting("namespace.servicebus.windows.net", new DefaultAzureCredential(),
-runTopologySetup: false)`. Any `TokenCredential` is accepted and remains caller-owned. The emulator cannot validate
+runMigrations: false)`. Any `TokenCredential` is accepted and remains caller-owned. The emulator cannot validate
 Entra ID/managed identity, so authentication/RBAC claims require a real namespace. Stove's credential configures only
 Stove's client; the application retains its production client setup. Existing topology setup defaults off because
 sender/receiver identities should not need the Data Owner role.
