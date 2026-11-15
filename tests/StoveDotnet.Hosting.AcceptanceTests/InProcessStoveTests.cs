@@ -160,6 +160,25 @@ public sealed class InProcessStoveTests(InProcessStoveFixture fixture)
     }
 
     [Fact]
+    public async Task Concurrent_scopes_end_without_interfering_with_each_others_recorded_requests()
+    {
+        // Scopes that end together each drop their own requests from the shared WireMock log.
+        await Task.WhenAll(Enumerable.Range(0, 60).Select(i => _stove.Test(async t =>
+        {
+            t.WireMock("downstream").MockGet($"/items/concurrent-{i}", responseBody: new { id = i });
+            (await t.Http().Get($"/downstream/concurrent-{i}")).Expect(HttpStatusCode.OK);
+            await t.WireMock("downstream").ShouldHaveBeenCalled("GET", $"/items/concurrent-{i}");
+        }, TestContext.Current.CancellationToken)));
+
+        await _stove.Test(t =>
+        {
+            Assert.DoesNotContain(t.WireMock("downstream").Server.LogEntries,
+                e => e.RequestMessage?.Path.StartsWith("/items/concurrent-", StringComparison.Ordinal) == true);
+            return Task.CompletedTask;
+        }, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task Passing_test_leaves_no_http_evidence_for_a_later_failure()
     {
         await _stove.Test(async t => (await t.Http().Get("/greeting")).Expect(HttpStatusCode.OK));

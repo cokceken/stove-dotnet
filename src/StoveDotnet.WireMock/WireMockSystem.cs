@@ -40,6 +40,7 @@ public sealed class WireMockSystem
     : ExposingSystem<WireMockOptions, WireMockExposedConfiguration>, IRunAware, ITestScopeAware, IFailureDetailsProvider
 {
     private readonly ConcurrentDictionary<string, ConcurrentBag<Guid>> _stubsByTest = new(StringComparer.Ordinal);
+    private readonly Lock _requestLogGate = new();
     private WireMockServer? _server;
 
     public WireMockSystem(string? name, WireMockOptions options)
@@ -214,13 +215,18 @@ public sealed class WireMockSystem
     private void ForgetRequests(StoveTestContext test)
     {
         if (_server is null) return;
-        foreach (var entry in _server.LogEntries)
+        // WireMock.Net removes a log entry by looking up its index and then removing at that index. Scopes that end
+        // together would race on stale indexes and fail or remove each other's entries, so removals take turns.
+        lock (_requestLogGate)
         {
-            if (entry.RequestMessage is not { } request) continue;
-            var ownedById = string.Equals(Header(request, StoveHeaders.TestId), test.TestId, StringComparison.Ordinal);
-            var ownedByTrace = TraceContext.TryParseTraceId(Header(request, StoveHeaders.Traceparent), out var traceId)
-                && string.Equals(traceId, test.TraceId, StringComparison.Ordinal);
-            if (ownedById || ownedByTrace) _server.DeleteLogEntry(entry.Guid);
+            foreach (var entry in _server.LogEntries)
+            {
+                if (entry.RequestMessage is not { } request) continue;
+                var ownedById = string.Equals(Header(request, StoveHeaders.TestId), test.TestId, StringComparison.Ordinal);
+                var ownedByTrace = TraceContext.TryParseTraceId(Header(request, StoveHeaders.Traceparent), out var traceId)
+                    && string.Equals(traceId, test.TraceId, StringComparison.Ordinal);
+                if (ownedById || ownedByTrace) _server.DeleteLogEntry(entry.Guid);
+            }
         }
     }
 
