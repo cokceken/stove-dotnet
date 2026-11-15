@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -21,9 +23,15 @@ public sealed class HttpClientOptions
     public IDictionary<string, string> DefaultHeaders { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
 
-/// <summary>Calls the application under test over real HTTP, tagging every request with the running test's trace.</summary>
-public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted, IAfterApplicationsStarted
+/// <summary>
+/// Calls the application under test over real HTTP, tagging every request with the running test's trace. The exchanges
+/// of a failed test are attached to its failure output, whichever assertion library detected the failure.
+/// </summary>
+public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted, ITestScopeAware, IFailureDetailsProvider
 {
+    private const int MaxExchangesPerTest = 20;
+    private const int MaxSuccessBodyLength = 300;
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _exchanges = new(StringComparer.Ordinal);
     private readonly HttpClientOptions _options;
     private HttpClient? _client;
 
@@ -39,12 +47,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
     {
         if (_options.BaseAddress is not null) return Task.CompletedTask;
         if (_options.ApplicationName is null && stove.Application is null) return Task.CompletedTask;
-        return OnApplicationStartedAsync(stove.GetApplication(_options.ApplicationName), cancellationToken);
-    }
-
-    public Task OnApplicationStartedAsync(IApplicationContext application, CancellationToken cancellationToken)
-    {
-        _options.BaseAddress ??= application.BaseAddress;
+        _options.BaseAddress = stove.GetApplication(_options.ApplicationName).BaseAddress;
         return Task.CompletedTask;
     }
 
@@ -109,8 +112,13 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(test.CancellationToken, cancellationToken);
         var requestBody = _options.Diagnostics.IncludeRequestBody && request.Content is not null
             ? _options.Diagnostics.Body(await request.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false), request: true) : null;
-        using var response = await SendRaw(request, linked.Token).ConfigureAwait(false);
+        var watch = Stopwatch.StartNew();
+        using var response = await SendCore(test, request, requestBody, watch, linked.Token).ConfigureAwait(false);
         var rawBody = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
+        var shownBody = _options.Diagnostics.Body(rawBody);
+        if (response.IsSuccessStatusCode && shownBody.Length > MaxSuccessBodyLength) shownBody = shownBody[..MaxSuccessBodyLength] + "… [truncated]";
+        Record(test, request, requestBody, watch, $"{(int)response.StatusCode} {response.StatusCode}",
+            $"Response body: {(rawBody.Length == 0 ? "(empty)" : shownBody)}");
         var responseHeaders = response.Headers.Concat(response.Content.Headers)
             .ToDictionary(h => h.Key, h => (IReadOnlyList<string>)h.Value.ToList(), StringComparer.OrdinalIgnoreCase);
         var diagnostic = $"{request.Method} {_options.Diagnostics.Url(request.RequestUri)} → {(int)response.StatusCode} {response.StatusCode}\n"
@@ -124,7 +132,7 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
     public async Task<StoveHttpResponse<T>> Send<T>(HttpRequestMessage request, CancellationToken cancellationToken = default) =>
         new(await Send(request, cancellationToken).ConfigureAwait(false), _options.JsonSerializerOptions);
 
-    /// <summary>Sends a hand-built request; correlation headers are still added.</summary>
+    /// <summary>Sends a hand-built request; correlation headers are still added. The caller reads and disposes the response.</summary>
     public Task<HttpResponseMessage> SendRaw(HttpRequestMessage request) => SendRaw(request, default);
 
     public async Task<HttpResponseMessage> SendRaw(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -132,6 +140,14 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
         ArgumentNullException.ThrowIfNull(request);
         var test = StoveTestContext.Require();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(test.CancellationToken, cancellationToken);
+        var watch = Stopwatch.StartNew();
+        var response = await SendCore(test, request, requestBody: null, watch, linked.Token).ConfigureAwait(false);
+        Record(test, request, requestBody: null, watch, $"{(int)response.StatusCode} {response.StatusCode}", "Response body: (not read by Stove; raw response)");
+        return response;
+    }
+
+    private async Task<HttpResponseMessage> SendCore(StoveTestContext test, HttpRequestMessage request, string? requestBody, Stopwatch watch, CancellationToken cancellationToken)
+    {
         foreach (var (key, value) in _options.DefaultHeaders)
             if (!request.Headers.Contains(key)) request.Headers.TryAddWithoutValidation(key, value);
         foreach (var (key, value) in test.CorrelationHeaders())
@@ -143,7 +159,47 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationStarted,
         // The application's HttpClient instrumentation also observes this call and re-propagates Activity.Current;
         // keep it inside the test's trace.
         using var activity = test.StartCorrelatedActivity("stove.http");
-        return await Client().SendAsync(request, linked.Token).ConfigureAwait(false);
+        try
+        {
+            return await Client().SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // No response to show: a refused connection or a timeout is the evidence.
+            Record(test, request, requestBody, watch, $"no response: {ex.GetType().Name}: {ex.Message}", detail: null);
+            throw;
+        }
+    }
+
+    private void Record(StoveTestContext test, HttpRequestMessage request, string? requestBody, Stopwatch watch, string outcome, string? detail)
+    {
+        var line = string.Create(CultureInfo.InvariantCulture,
+            $"  {request.Method} {_options.Diagnostics.Url(request.RequestUri)} → {outcome} ({watch.Elapsed.TotalMilliseconds:0.#}ms)");
+        if (requestBody is not null) line += $"{Environment.NewLine}    Request body: {requestBody}";
+        if (detail is not null) line += $"{Environment.NewLine}    {detail}";
+        var exchanges = _exchanges.GetOrAdd(test.TestId, _ => new ConcurrentQueue<string>());
+        exchanges.Enqueue(line);
+        while (exchanges.Count > MaxExchangesPerTest) exchanges.TryDequeue(out _);
+    }
+
+    public Task OnTestStartedAsync(StoveTestContext test) => Task.CompletedTask;
+
+    public Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
+    {
+        ArgumentNullException.ThrowIfNull(test);
+        // Failure details are collected after the scope ends; keep a failed test's exchanges until then.
+        if (failure is null) _exchanges.TryRemove(test.TestId, out _);
+        return Task.CompletedTask;
+    }
+
+    public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(test);
+        if (!_exchanges.TryRemove(test.TestId, out var exchanges) || exchanges.IsEmpty) return Task.FromResult<FailureDetails?>(null);
+        var lines = exchanges.ToArray();
+        var header = lines.Length < MaxExchangesPerTest ? $"Requests sent ({lines.Length}):" : $"Requests sent (latest {lines.Length}):";
+        return Task.FromResult<FailureDetails?>(new FailureDetails(
+            Name is null ? "http" : $"http '{Name}'", header + Environment.NewLine + string.Join(Environment.NewLine, lines)));
     }
 
     private HttpClient Client() => _client ??= new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false })

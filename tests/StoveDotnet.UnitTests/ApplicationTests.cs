@@ -46,8 +46,9 @@ public sealed class ApplicationTests
         var failure = new InvalidOperationException("not ready");
         var builder = StoveBuilder.Create().WithApplication("api", new App("api", events))
             .WithApplication("worker", new App("worker", events), new ApplicationOptions { ReadyAsync = (_, _) => throw failure });
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
-        Assert.Contains("worker", error.Message, StringComparison.Ordinal);
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("Application 'worker' failed to start or become ready", error.Message, StringComparison.Ordinal);
+        Assert.Contains("not ready", error.Message, StringComparison.Ordinal);
         Assert.Same(failure, error.InnerException);
         Assert.Equal(["start api", "start worker", "stop worker", "stop api"], events);
     }

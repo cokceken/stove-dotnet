@@ -44,6 +44,9 @@ public sealed class StoveTestContext
 
     public string RootSpanId { get; }
 
+    /// <summary>When the test scope was created; lets modules relate uncorrelated evidence to the test's time window.</summary>
+    public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+
     /// <summary>W3C <c>traceparent</c> header value for this test.</summary>
     public string Traceparent => TraceContext.FormatTraceparent(TraceId, RootSpanId);
 

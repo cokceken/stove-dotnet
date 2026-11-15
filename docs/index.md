@@ -20,11 +20,11 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
     var response = (await t.Http().Post<Order>("/orders", new { productId = "chair" }))
         .Expect(HttpStatusCode.Created);
 
-    await t.Postgres().ShouldQuery(
+    var statuses = await t.Postgres().Query(
         "select status from orders where id = @id",
         row => row.GetString(0),
-        rows => Assert.Equal(["Created"], rows),
         new NpgsqlParameter("id", response.Body.Id));
+    Assert.Equal(["Created"], statuses);
 
     await t.Kafka().ShouldBePublished<OrderCreated>(
         message => message.Value.OrderId == response.Body.Id);

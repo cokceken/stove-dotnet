@@ -16,7 +16,10 @@ public sealed class LifecycleTests
 
         var error = await Assert.ThrowsAsync<AggregateException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
 
-        Assert.Same(startup, error.InnerExceptions[0]);
+        var startupFailure = Assert.IsType<StoveStartupException>(error.InnerExceptions[0]);
+        Assert.Same(startup, startupFailure.InnerException);
+        Assert.Contains("'failing' failed to start", startupFailure.Message, StringComparison.Ordinal);
+        Assert.Contains("migration failed", startupFailure.Message, StringComparison.Ordinal);
         Assert.Contains(cleanup, error.Flatten().InnerExceptions);
         Assert.Equal(["failing", "first"], stopped);
     }
@@ -40,11 +43,11 @@ public sealed class LifecycleTests
         await starting.Task.WaitAsync(TestContext.Current.CancellationToken);
         var stoppedBeforeCompletion = stopped;
         finishStart.SetResult();
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => run);
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => run);
 
         Assert.False(stoppedBeforeCompletion);
         Assert.True(stopped);
-        Assert.Same(startup, error);
+        Assert.Same(startup, error.InnerException);
     }
 
     [Fact]

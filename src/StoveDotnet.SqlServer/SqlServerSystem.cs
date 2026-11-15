@@ -156,13 +156,6 @@ public sealed class SqlServerSystem : ExposingSystem<SqlServerOptions, SqlServer
         return rows;
     }
 
-    /// <summary>Queries once and passes the mapped rows to your assertion library.</summary>
-    public async Task ShouldQuery<T>(string sql, Func<SqlDataReader, T> map, Action<IReadOnlyList<T>> assert, params SqlParameter[] parameters)
-    {
-        ArgumentNullException.ThrowIfNull(assert);
-        assert(await Query(sql, map, parameters).ConfigureAwait(false));
-    }
-
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)

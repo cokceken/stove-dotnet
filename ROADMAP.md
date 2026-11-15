@@ -30,7 +30,7 @@ reasoning and [module conventions](docs/modules.md) for implementation requireme
 | Framework adoption | Separate xUnit v3, NUnit, MSTest and TUnit examples on .NET 10/MTP, five tests each; runner failure/skip/filter checks and teardown audits; isolated package-consumer verification |
 | CI and packages | Shared CI/release matrix with separate suite jobs, fail-fast disabled, packaging gated on tests and an isolated package smoke test |
 | HTTP adoption | Fluent expected status, bounded/redacted diagnostics, correlated hand-built request wrappers and lazy typed responses |
-| Waiting | Effective deadline tokens, configurable retry, value diagnostics and sequential bounded throughout sampling; legacy retry behavior retained |
+| Waiting | Effective deadline tokens, configurable retry, value diagnostics and sequential bounded throughout sampling; one retry rule per method |
 | Test time | Optional Microsoft FakeTimeProvider integration with explicit fixture ownership, timers and shared/independent host examples |
 | Identity | Optional generic OIDC discovery/JWKS and configurable signed/invalid tokens, tested through real JWT bearer authentication |
 | Isolation | Shared unique-data tests, concurrent independently owned API/worker/database/broker environments and serialized shared-clock fixtures |

@@ -22,7 +22,6 @@ Register with `WithMongoDb(configure)` or `WithMongoDb(name, configure)`; resolv
 | `Client`, `Database`, `Collection<T>(name, settings)` | Native APIs; collection settings and native BSON serializers remain available |
 | `Insert<T>(collection, document)` | Inserts one document with the current test's cancellation token |
 | `Query<T>(collection, filter)` | Reads all current matches once using a native `FilterDefinition<T>` |
-| `ShouldQuery<T>(collection, filter, assert)` | Passes the current matches to the caller's assertion callback |
 
 `MongoDbSetupContext` exposes `Client`, `Database` and `Configuration`. Setup uses the core ordered callback collection;
 there is no persisted migration history or schema management. Setup reruns each start unless explicitly disabled for
@@ -76,7 +75,6 @@ Register with `WithMySql(configure)` or `WithMySql(name, configure)`; resolve wi
 | `DataSource` | Native `MySqlDataSource`; caller disposes connections obtained from it |
 | `Execute(sql, params MySqlParameter[])` | Runs a statement and returns affected rows |
 | `Query<T>(sql, map, params MySqlParameter[])` | Reads current rows once with a `MySqlDataReader` mapper |
-| `ShouldQuery<T>(sql, map, assert, params MySqlParameter[])` | Passes mapped rows to the caller's assertion callback |
 
 The module opens a real connection before exposing configuration, including when migrations are disabled. Every DSL
 operation owns and disposes its connection/command/reader and uses the test's cancellation token. Client customization

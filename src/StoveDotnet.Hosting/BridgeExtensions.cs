@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace StoveDotnet.AspNetCore;
+namespace StoveDotnet.Hosting;
 
 /// <summary>Access to the application's own services, resolved from a fresh DI scope.</summary>
 public static class BridgeExtensions

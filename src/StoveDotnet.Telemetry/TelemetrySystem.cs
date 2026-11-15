@@ -21,7 +21,13 @@ public sealed class TelemetryOptions : SystemOptions<TelemetryExposedConfigurati
     /// <summary>No new data for this long means the application has finished exporting.</summary>
     public TimeSpan QuietPeriod { get; set; } = TimeSpan.FromMilliseconds(300);
 
-    /// <summary>Maximum number of log lines attached to a failed test.</summary>
+    /// <summary>
+    /// Also list OTLP logs under the trace tree of a failed test. Off by default: in-process applications already
+    /// attach their logs, with exception details, as <c>application logs</c>, so this would print them twice.
+    /// </summary>
+    public bool IncludeLogsInFailureDetails { get; set; }
+
+    /// <summary>Maximum number of log lines attached to a failed test when <see cref="IncludeLogsInFailureDetails"/> is set.</summary>
     public int MaxLogsInFailureDetails { get; set; } = 200;
 
     /// <summary>
@@ -84,7 +90,7 @@ public sealed class TelemetrySystem
             timeout ?? TimeSpan.FromSeconds(5),
             () => $"no span matched. Received spans:{Environment.NewLine}{TraceTreeRenderer.Render(_store.Spans(test.TraceId))}",
             _store.Changed,
-            test.CancellationToken).ConfigureAwait(false);
+            cancellationToken: test.CancellationToken).ConfigureAwait(false);
         return match!;
     }
 
@@ -102,7 +108,12 @@ public sealed class TelemetrySystem
     /// <summary>Renders the spans received so far for the current test as a tree.</summary>
     public string RenderTree() => TraceTreeRenderer.Render(_store.Spans(StoveTestContext.Require().TraceId));
 
-    public Task OnTestStartedAsync(StoveTestContext test) => Task.CompletedTask;
+    public Task OnTestStartedAsync(StoveTestContext test)
+    {
+        ArgumentNullException.ThrowIfNull(test);
+        _store.Track(test.TraceId);
+        return Task.CompletedTask;
+    }
 
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
     {
@@ -131,20 +142,20 @@ public sealed class TelemetrySystem
         var logs = _store.Logs(test.TraceId);
         _store.Evict(test.TraceId);
 
-        var content = new StringBuilder()
-            .AppendLine(TraceTreeRenderer.Render(spans))
-            .AppendLine()
-            .AppendLine(CultureInfo.InvariantCulture, $"Logs ({logs.Count}):");
-
-        foreach (var log in logs.TakeLast(Options.MaxLogsInFailureDetails))
+        var content = new StringBuilder().AppendLine(TraceTreeRenderer.Render(spans));
+        if (Options.IncludeLogsInFailureDetails)
         {
-            content.AppendLine(CultureInfo.InvariantCulture,
-                $"  {log.Timestamp:HH:mm:ss.fff} [{log.Severity}] {log.Category}: {log.Body}");
-        }
+            content.AppendLine().AppendLine(CultureInfo.InvariantCulture, $"Logs ({logs.Count}):");
+            foreach (var log in logs.TakeLast(Options.MaxLogsInFailureDetails))
+            {
+                content.AppendLine(CultureInfo.InvariantCulture,
+                    $"  {log.Timestamp:HH:mm:ss.fff} [{log.Severity}] {log.Category}: {log.Body}");
+            }
 
-        if (logs.Count == 0)
-        {
-            content.AppendLine("  (no logs received)");
+            if (logs.Count == 0)
+            {
+                content.AppendLine("  (no logs received)");
+            }
         }
 
         return new FailureDetails(Name is null ? "telemetry" : $"telemetry '{Name}'", content.ToString().TrimEnd());

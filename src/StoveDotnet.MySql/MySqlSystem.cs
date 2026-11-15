@@ -131,13 +131,6 @@ public sealed class MySqlSystem : ExposingSystem<MySqlOptions, MySqlExposedConfi
         return rows;
     }
 
-    /// <summary>Runs a query, maps every row and hands the rows to <paramref name="assert"/>.</summary>
-    public async Task ShouldQuery<T>(string sql, Func<MySqlDataReader, T> map, Action<IReadOnlyList<T>> assert, params MySqlParameter[] parameters)
-    {
-        ArgumentNullException.ThrowIfNull(assert);
-        assert(await Query(sql, map, parameters).ConfigureAwait(false));
-    }
-
     private static MySqlCommand CreateCommand(MySqlConnection connection, string sql, MySqlParameter[] parameters)
     {
         var command = connection.CreateCommand();

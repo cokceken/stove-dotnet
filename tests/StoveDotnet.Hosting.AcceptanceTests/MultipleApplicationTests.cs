@@ -35,9 +35,11 @@ public sealed class MultipleApplicationTests
         var worker = new ProbeWorker { FailStart = true };
         var builder = StoveBuilder.Create().WithHostApplication("worker",
             _ => Host.CreateDefaultBuilder().ConfigureServices(s => s.AddSingleton<IHostedService>(_ => worker)).Build());
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
-        Assert.Contains("worker", error.Message, StringComparison.Ordinal);
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => builder.StartAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("Application 'worker' failed to start or become ready", error.Message, StringComparison.Ordinal);
         Assert.Contains("start failed", error.InnerException!.Message, StringComparison.Ordinal);
+        // What the host logged before giving up travels with the startup error.
+        Assert.Contains("Application warnings and errors before the failure:", error.Message, StringComparison.Ordinal);
         Assert.True(worker.Disposed);
     }
 
@@ -60,6 +62,36 @@ public sealed class MultipleApplicationTests
         Assert.Contains("application:worker", error.Message, StringComparison.Ordinal);
         Assert.Contains("current-test-message", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("previous-test-message", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failure_output_includes_untraced_warnings_from_the_test_window_only()
+    {
+        await using var stove = await StoveBuilder.Create()
+            .WithHostApplication("worker", _ => Host.CreateDefaultBuilder().Build())
+            .StartAsync(TestContext.Current.CancellationToken);
+        var logger = stove.GetApplication("worker").Services.GetRequiredService<ILoggerFactory>().CreateLogger("background");
+        await Untraced(() => logger.LogWarning("earlier-warning"));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        var error = await Assert.ThrowsAsync<StoveTestFailedException>(() => stove.Test(async _ =>
+        {
+            await Untraced(() => logger.LogInformation("background-info"));
+            await Untraced(() => logger.LogError(new InvalidOperationException("consumer crashed"), "background-error"));
+            throw new InvalidOperationException("contract failed");
+        }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("not test-correlated", error.Message, StringComparison.Ordinal);
+        Assert.Contains("background-error", error.Message, StringComparison.Ordinal);
+        Assert.Contains("consumer crashed", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("background-info", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("earlier-warning", error.Message, StringComparison.Ordinal);
+
+        // A background service has no ambient Activity; neither does this callback.
+        static Task Untraced(Action log)
+        {
+            using (ExecutionContext.SuppressFlow()) return Task.Run(log);
+        }
     }
 
     [Fact]

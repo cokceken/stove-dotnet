@@ -28,11 +28,11 @@ public sealed class OrderTests(StoveFixture fixture)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var order = response.Body;
 
-        await t.Postgres().ShouldQuery(
+        var rows = await t.Postgres().Query(
             "select status, payment_id from orders where id = @id",
             r => (Status: r.GetString(0), PaymentId: r.GetString(1)),
-            rows => Assert.Equal([("Created", "pay-1")], rows),
             new NpgsqlParameter("id", order.Id));
+        Assert.Equal([("Created", "pay-1")], rows);
 
         Assert.True(await t.Redis().Database().KeyExistsAsync($"order:{order.Id}"));
 
@@ -121,10 +121,10 @@ public sealed class OrderTests(StoveFixture fixture)
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.Equal(paymentId, response.Body.PaymentId);
             await payments.ShouldHaveCharged(c => c.OrderId == orderId && c.Amount == (index + 1) * 10m);
-            await t.Postgres().ShouldQuery("select payment_id from orders where id = @id", r => r.GetString(0),
-                rows => Assert.Equal([paymentId], rows), new NpgsqlParameter("id", orderId));
+            Assert.Equal([paymentId], await t.Postgres().Query(
+                "select payment_id from orders where id = @id", r => r.GetString(0), new NpgsqlParameter("id", orderId)));
             await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == orderId);
-            Assert.All(t.Kafka().Peek<OrderCreated>("orders.created"), m => Assert.Equal(orderId, m.Value.OrderId));
+            Assert.All(await t.Kafka().PeekAsync<OrderCreated>("orders.created"), m => Assert.Equal(orderId, m.Value.OrderId));
         }, TestContext.Current.CancellationToken)));
     }
 
@@ -145,8 +145,7 @@ public sealed class OrderTests(StoveFixture fixture)
 
     private static async Task AssertNoOrderSideEffects(StoveTestContext t, Guid orderId)
     {
-        await t.Postgres().ShouldQuery("select id from orders where id = @id", r => r.GetGuid(0),
-            rows => Assert.Empty(rows), new NpgsqlParameter("id", orderId));
+        Assert.Empty(await t.Postgres().Query("select id from orders where id = @id", r => r.GetGuid(0), new NpgsqlParameter("id", orderId)));
         Assert.False(await t.Redis().Database().KeyExistsAsync($"order:{orderId}"));
         await t.Kafka().ShouldNotBePublished<OrderCreated>(m => m.Value.OrderId == orderId,
             within: TimeSpan.FromSeconds(1), topic: "orders.created");

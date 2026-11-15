@@ -37,13 +37,13 @@ public sealed class ContainerTests
     public async Task Initialization_failure_removes_the_started_container()
     {
         Uri? address = null;
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => StoveBuilder.Create()
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create()
             .WithContainer(o =>
             {
                 o.CreateContainer = () => Web("ready").Build();
                 o.InitializeAsync = (container, _) => { address = Address(container); throw new InvalidOperationException("initialization failed"); };
             }).StartAsync(TestContext.Current.CancellationToken));
-        Assert.Equal("initialization failed", error.Message);
+        Assert.Equal("initialization failed", Assert.IsType<InvalidOperationException>(error.InnerException).Message);
         using var client = new HttpClient();
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetStringAsync(address, TestContext.Current.CancellationToken));
     }
@@ -74,13 +74,14 @@ public sealed class ContainerTests
     {
         IContainer? native = null;
         var app = new UnexpectedApplication();
-        await Assert.ThrowsAnyAsync<TimeoutException>(() => StoveBuilder.Create().WithContainer(o =>
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithContainer(o =>
         {
             o.CreateContainer = () => native = Web("ready")
                 .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080)
                     .ForPath("/missing").ForStatusCode(HttpStatusCode.OK), w => w.WithTimeout(TimeSpan.FromSeconds(2))))
                 .Build();
         }).WithApplication(app).StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsAssignableFrom<TimeoutException>(error.InnerException);
         Assert.False(app.Started);
         Assert.NotNull(native);
         Assert.Equal(TestcontainersStates.Undefined, native.State);
@@ -92,8 +93,9 @@ public sealed class ContainerTests
         await using var external = Web("external").Build();
         await external.StartAsync(TestContext.Current.CancellationToken);
         var address = Address(external);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => StoveBuilder.Create()
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create()
             .WithContainer(o => o.CreateContainer = () => external).StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsType<InvalidOperationException>(error.InnerException);
         using var client = new HttpClient();
         Assert.Equal("external", await client.GetStringAsync(address, TestContext.Current.CancellationToken));
     }

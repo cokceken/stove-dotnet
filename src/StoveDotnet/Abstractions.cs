@@ -25,17 +25,16 @@ public interface IExposesConfiguration
     IEnumerable<KeyValuePair<string, string?>> Configuration();
 }
 
-/// <summary>Systems that need access to the running application, e.g. its DI container or base address.</summary>
-public interface IAfterApplicationStarted
-{
-    Task OnApplicationStartedAsync(IApplicationContext application, CancellationToken cancellationToken);
-}
-
 /// <summary>Systems that keep per-test state (stubs, collected telemetry, ...).</summary>
 public interface ITestScopeAware
 {
     Task OnTestStartedAsync(StoveTestContext test);
 
+    /// <summary>
+    /// <paramref name="failure"/> is set only when a failure report will be requested through
+    /// <see cref="IFailureDetailsProvider"/>; a passed, skipped or cancelled test ends with <c>null</c>, and the system
+    /// should release what it kept for the scope.
+    /// </summary>
     Task OnTestEndedAsync(StoveTestContext test, Exception? failure);
 }
 

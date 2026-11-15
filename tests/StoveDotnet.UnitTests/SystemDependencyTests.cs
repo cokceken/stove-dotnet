@@ -21,8 +21,28 @@ public sealed class SystemDependencyTests
         var events = new List<string>();
         var broker = new System("broker", events) { Fail = true };
         var registry = new System("registry", events) { Dependencies = [broker] };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => StoveBuilder.Create().WithSystem(registry).WithSystem(broker).StartAsync(TestContext.Current.CancellationToken));
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithSystem(registry).WithSystem(broker).StartAsync(TestContext.Current.CancellationToken));
+        // Only the system that failed is reported; its dependent never started.
+        Assert.Single(error.Failures);
+        Assert.Contains("'broker' failed to start", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("registry", error.Message, StringComparison.Ordinal);
         Assert.Equal(["start broker", "stop registry", "stop broker"], events);
+    }
+
+    [Fact]
+    public async Task Every_system_that_fails_in_a_parallel_start_is_reported()
+    {
+        var events = new List<string>();
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create()
+            .WithSystem(new System("database", events) { Fail = true })
+            .WithSystem(new System("healthy", events))
+            .WithSystem(new System("broker", events) { Fail = true })
+            .StartAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(2, error.Failures.Count);
+        Assert.Contains("2 systems failed to start", error.Message, StringComparison.Ordinal);
+        Assert.Contains("'database' failed to start", error.Message, StringComparison.Ordinal);
+        Assert.Contains("'broker' failed to start", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("healthy", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

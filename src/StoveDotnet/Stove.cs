@@ -47,7 +47,18 @@ public sealed class Stove : IAsyncDisposable
                 ? dependent.Dependencies.Select(d => starts[d]).ToArray() : [];
             starts.Add(system, StartSystem(system, dependencies, cancellationToken));
         }
-        await Task.WhenAll(starts.Values).ConfigureAwait(false);
+        try
+        {
+            await Task.WhenAll(starts.Values).ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Systems start in parallel: report every one that failed, not whichever task happened to be first.
+            var failures = starts.Values.Where(t => t.IsFaulted).SelectMany(t => t.Exception!.InnerExceptions)
+                .OfType<StoveStartupException>().ToList();
+            if (failures.Count == 0) throw;
+            throw failures.Count == 1 ? failures[0] : new StoveStartupException(failures);
+        }
 
         var configuration = CollectConfiguration();
 
@@ -62,24 +73,40 @@ public sealed class Stove : IAsyncDisposable
                 if (registration.Options.ReadyAsync is { } ready) await ready(context, cancellationToken).ConfigureAwait(false);
                 _contexts.Add(registration.Name ?? "", context);
             }
-            catch (Exception ex) when (registration.Name is not null && ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                throw new InvalidOperationException($"Application '{registration.Name}' failed to start or become ready.", ex);
+                throw new StoveStartupException(
+                    registration.Name is null ? "The application" : $"Application '{registration.Name}'", "failed to start or become ready", ex);
             }
         }
         await Task.WhenAll(_registry.OfType<IAfterApplicationsStarted>()
             .Select(async s => await s.OnApplicationsStartedAsync(this, cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
-        if (_contexts.Count > 0)
-            await Task.WhenAll(_registry.OfType<IAfterApplicationStarted>().Where(s => s is not IAfterApplicationsStarted)
-                .Select(async s => await s.OnApplicationStartedAsync(GetApplication(), cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
     }
 
     private static async Task StartSystem(IPluggedSystem system, Task[] dependencies, CancellationToken cancellationToken)
     {
-        await Task.WhenAll(dependencies).ConfigureAwait(false);
+        try
+        {
+            await Task.WhenAll(dependencies).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The dependency reports its own failure; this system never started.
+            throw new DependencyNotStartedException();
+        }
         cancellationToken.ThrowIfCancellationRequested();
-        if (system is IRunAware runnable) await runnable.RunAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (system is IRunAware runnable) await runnable.RunAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new StoveStartupException(
+                system.Name is null ? system.GetType().Name : $"{system.GetType().Name} '{system.Name}'", "failed to start", ex);
+        }
     }
+
+    private sealed class DependencyNotStartedException : Exception;
 
     private Dictionary<string, string?> CollectConfiguration()
     {
@@ -149,12 +176,14 @@ public sealed class Stove : IAsyncDisposable
             error = ex;
         }
 
+        // Skips and cancellation produce no failure report, so systems must not hold evidence for one.
+        var failure = error is not null && !IsPassThrough(error, test.CancellationToken) ? error : null;
         Exception? endError = null;
         foreach (var aware in _registry.OfType<ITestScopeAware>())
         {
             try
             {
-                await aware.OnTestEndedAsync(test, error).ConfigureAwait(false);
+                await aware.OnTestEndedAsync(test, failure).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -164,7 +193,7 @@ public sealed class Stove : IAsyncDisposable
 
         if (error is not null)
         {
-            if (IsPassThrough(error, test.CancellationToken))
+            if (failure is null)
             {
                 ExceptionDispatchInfo.Capture(error).Throw();
             }
@@ -275,6 +304,42 @@ public sealed class Stove : IAsyncDisposable
         }
 
         await SystemDisposal.RunAsync(actions).ConfigureAwait(false);
+    }
+}
+
+/// <summary>
+/// A system or application failed while the environment was starting. The message names what failed and repeats the
+/// cause; the original exception is the <see cref="Exception.InnerException"/>. When several systems fail in the
+/// same parallel start, <see cref="Failures"/> holds one exception per system.
+/// </summary>
+public sealed class StoveStartupException : Exception
+{
+    /// <summary>
+    /// An application adapter may store text (e.g. the application's startup logs) under this key in the
+    /// <see cref="Exception.Data"/> of the exception it throws; it is appended to the message.
+    /// </summary>
+    public const string DetailsKey = "StoveDotnet.StartupDetails";
+
+    internal StoveStartupException(string subject, string outcome, Exception cause)
+        : base(BuildMessage(subject, outcome, cause), cause)
+    {
+        Failures = [this];
+    }
+
+    internal StoveStartupException(IReadOnlyList<StoveStartupException> failures)
+        : base($"{failures.Count} systems failed to start:{Environment.NewLine}{string.Join(Environment.NewLine, failures.Select(f => "- " + f.Message))}",
+            failures[0].InnerException)
+    {
+        Failures = failures;
+    }
+
+    public IReadOnlyList<StoveStartupException> Failures { get; }
+
+    private static string BuildMessage(string subject, string outcome, Exception cause)
+    {
+        var message = $"{subject} {outcome}: {cause.GetType().Name}: {cause.Message}";
+        return cause.Data[DetailsKey] is string details && details.Length > 0
+            ? $"{message}{Environment.NewLine}{details}" : message;
     }
 }
 
