@@ -1,7 +1,6 @@
 # Architecture and product decisions
 
-Recorded: 2026-09-14. These decisions summarize the agreed direction from the module review and test restructuring.
-Implementation status and proposed future milestones live in the [roadmap](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md). Detailed module authoring
+What is planned next lives in the [roadmap](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md). Detailed module authoring
 requirements live in [module conventions](modules.md).
 
 | ID | Accepted decision | Reason and consequence |
@@ -24,61 +23,25 @@ requirements live in [module conventions](modules.md).
 | D16 | RabbitMQ observes dedicated queues and exposes native confirms | Bind an exclusive queue to named exchanges; never compete for application messages. Keep publisher confirms, routing and application processing distinct; fail on observer loss rather than hide gaps with recovery |
 | D17 | Azure is a package family; Service Bus is independently consumable | `StoveDotnet.Azure.ServiceBus` owns its SDK/emulator dependencies; a future `StoveDotnet.Azure` may be a convenience meta-package |
 | D18 | Service Bus separates broker state, destructive receive and business processing | Peek scheduled state without waiting; explicit receive settlement may compete, and successful processing requires a business-visible assertion |
+| D19 | HTTP responses offer fluent status checks with bounded, redacted diagnostics | Raw access and lazy deserialization stay; raw response data remains caller-controlled |
+| D20 | One retry rule per method | `AssertAsync` retries every exception; `UntilAsync` polls a value and lets exceptions propagate; `RetryOn` overrides either. Probes are awaited sequentially, never abandoned or overlapped. Replaces an earlier decision to keep a separate legacy retry behavior |
+| D21 | Test time uses Microsoft's `FakeTimeProvider`, owned by the fixture | No second timer scheduler; fixtures register a clock per application. External database and token-validation clocks stay independent |
+| D22 | The OIDC module stays generic | Local discovery/JWKS and signed-token scenarios verified through real JWT bearer validation; domain roles and interactive identity-provider flows are out of scope |
+| D23 | Applications are named and run in-process | APIs and Generic Host workers keep separate configuration and lifetimes while sharing dependencies; registration order is startup order and shutdown reverses it. Separate-process hosting and per-application instrumentation isolation are out of scope |
+| D24 | Core has no test-framework dependency | xUnit v3, NUnit, MSTest and TUnit examples share only application and environment setup; CI verifies runner outcomes and teardown for each |
+| D25 | Custom containers reuse native Testcontainers builders | Stove owns startup, configuration mapping, failure evidence and disposal, and adds no second Docker API. Adopting existing containers, resource reuse and Compose orchestration are out of scope |
+| D26 | Systems declare startup prerequisites through `ISystemDependencies` | Independent systems still start in parallel; shutdown reverses the dependency order |
+| D27 | Borrow capabilities from the original Stove, not its shape | Useful references are structured operation reporting, container/provided runtime modes, migrations and separate gRPC client/mock modules. JVM-specific abstractions and feature parity are not goals |
+| D28 | Failure evidence needs no application cooperation | A failed test reports the requests it sent and the application's in-process logs whichever assertion library failed; telemetry adds the trace tree |
+| D29 | Startup failures name what failed | `StoveStartupException` names the system or application, repeats the cause and lists every system that failed in a parallel start |
 
-## What the original Stove informs
+## Open questions
 
-### Practical consumer evidence: RailSense
+gRPC streaming scope and the choice of emulators for further cloud services are not decided. Resolve them with the
+module's implementation and acceptance evidence; the [roadmap](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md)
+proposes the initial boundaries.
 
-RailSense's response/upload helpers, waits, clock and fake OIDC server informed the reusable features in
-[practical testing](practical-testing.md). The consumer was inspected without modification. Accepted decisions:
+## Changing a decision
 
-- Extend HTTP wrappers with fluent status checks and configurable bounded/redacted diagnostics; retain raw access
-  and lazy deserialization. Raw response data remains caller-controlled.
-- One retry rule per method: `AssertAsync` retries every exception, `UntilAsync` polls a value and lets exceptions
-  propagate; `RetryOn` narrows or widens either. This replaces the earlier decision to keep a separate legacy retry
-  behavior, which made the same assertion behave differently depending on its overload. Await cooperative probes
-  sequentially; never abandon timed-out work and start overlapping probes. Absence sampling has a bounded, documented scope.
-- Use Microsoft's `FakeTimeProvider` in an optional package. Fixtures explicitly own clocks and register them per app;
-  avoid a second timer scheduler. External database and token-validation clocks remain independent.
-- Reuse named applications for shared unique-data and independent environment examples. No implicit transaction/reset API.
-- Keep the optional OIDC module generic: local discovery/JWKS and signed token scenarios verified through JWT bearer.
-  Domain roles and interactive identity-provider flows stay outside this module.
-
-Named in-process applications are now supported. APIs and Generic Host workers keep separate configuration and
-lifetimes while sharing dependencies. Registration order controls startup/readiness; reverse order controls shutdown.
-HTTP clients explicitly target applications when no default exists. Core stays independent of Microsoft hosting APIs;
-`StoveDotnet.Hosting` provides worker lifecycle and application-local log collection. Separate-process hosting and
-global instrumentation isolation remain outside this increment. See [the adoption guide](multiple-applications.md).
-
-Framework adoption now has executable evidence: separate xUnit v3, NUnit, MSTest and TUnit examples share
-only application/environment setup. CI checks native assertions, cancellation, runner failure/skip outcomes,
-filtering and teardown on .NET 10/MTP, then repeats against isolated package consumers. The core remains free
-of framework dependencies. The immediate next step is a real consumer pilot; dashboard integration is deferred
-while existing failure output serves diagnosis. See the [adopter guide](test-frameworks.md).
-
-The local original-Stove checkout was reviewed during the initial assessment. Useful references include structured
-operation reporting, explicit container/provided runtime capabilities, migration behavior and separate gRPC client/mock
-modules. Its Spring Kafka integration can observe consumer outcomes directly, whereas StoveDotnet's current Kafka
-consumption assertion uses committed offsets.
-
-The decision is to borrow useful capabilities and behavior, not reproduce JVM-specific abstractions or claim feature
-parity. Broader operation reporting, container controls, reuse and processing adapters remain future work.
-
-## Accepted direction versus unresolved design
-
-Generic dependency containers are supported through the optional `StoveDotnet.Containers` package. Consumers supply a
-fresh Testcontainers factory with native readiness and optional initialization; Stove owns startup, configuration mapping,
-failure evidence and disposal. Native builder options are reused rather than mirrored into a second Docker API.
-Dedicated modules remain useful for provider clients and testing semantics. Existing-container adoption, resource reuse,
-Compose orchestration is outside this increment. A real MinIO/API example validates the boundary. Systems can now declare
-startup prerequisites through `ISystemDependencies`, used by Schema Registry to wait for Kafka; independent systems
-still start in parallel, and shutdown reverses the dependency order.
-
-The database-first direction and the architecture/testing rules above are accepted. MongoDB's API/topology/transaction
-scope and MySQL's driver/version policy are implemented (D13/D14). Broker retention/correlation and RabbitMQ observation
-are now implemented (D15/D16). Azure Service Bus is implemented under D17/D18. gRPC streaming scope and other cloud
-emulator choices are not finalized. The roadmap proposes a sequence and initial boundaries for those decisions. They
-should be resolved with their module's implementation and acceptance evidence.
-
-When changing an accepted decision, record the new requirement, the tradeoff and which earlier decision it replaces.
-Do not silently rewrite an implemented limitation as a guaranteed capability.
+Record the new requirement, the tradeoff and which earlier decision it replaces. Do not silently rewrite an
+implemented limitation as a guaranteed capability.

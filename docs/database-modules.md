@@ -169,5 +169,5 @@ contract with its own driver/app and adds Unicode and cancellation-within-scope 
 OrderService or the other provider suites.
 
 Both defaults were exercised locally on Windows x64 with Podman and .NET 10. The image tags select version lines and
-are not immutable image digests. This is not a full architecture/runtime matrix. See [roadmap verification](https://github.com/cokceken/stove-dotnet/blob/main/ROADMAP.md)
-for the recorded results and the shared CI workflow for remote checks.
+are not immutable image digests. This is not a full architecture/runtime matrix. See
+[compatibility](compatibility.md) for the tested versions and the shared CI workflow for remote checks.
