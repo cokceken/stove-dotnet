@@ -41,7 +41,12 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
         _factory.UseKestrel(_options.Port);
         try
         {
-            await Task.Run(_factory.StartServer, cancellationToken).ConfigureAwait(false);
+            var factory = _factory;
+            await ApplicationStartGate.RunAsync(async () =>
+            {
+                await Task.Run(factory.StartServer, cancellationToken).ConfigureAwait(false);
+                return true;
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

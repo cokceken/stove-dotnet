@@ -20,19 +20,22 @@ public sealed class HostApplicationUnderTest(
 
     public async Task<IApplicationContext> StartAsync(IReadOnlyDictionary<string, string?> configuration, CancellationToken cancellationToken)
     {
-        _host = await factory(configuration, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("The application factory returned no host.");
-        _host.Services.GetRequiredService<ILoggerFactory>().AddProvider(_logs);
-        try
+        return await ApplicationStartGate.RunAsync<IApplicationContext>(async () =>
         {
-            await _host.StartAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logs.AttachStartupLogs(ex);
-            throw;
-        }
-        return new HostContext(_host.Services);
+            _host = await factory(configuration, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The application factory returned no host.");
+            _host.Services.GetRequiredService<ILoggerFactory>().AddProvider(_logs);
+            try
+            {
+                await _host.StartAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logs.AttachStartupLogs(ex);
+                throw;
+            }
+            return new HostContext(_host.Services);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken) => _logs.DescribeAsync(test, cancellationToken);
