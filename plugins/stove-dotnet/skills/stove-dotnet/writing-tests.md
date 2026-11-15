@@ -212,7 +212,7 @@ await Eventually.AssertAsync(async () =>
     TimeSpan.FromSeconds(10), t.CancellationToken);
 ```
 
-Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `within:`, telemetry
+Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `ShouldHaveBeenCalled` (it waits), telemetry
 `ShouldContainSpan`, or `Eventually`.
 
 `AssertAsync` retries every exception except cancellation, so assertions from xUnit, NUnit, MSTest or TUnit work as

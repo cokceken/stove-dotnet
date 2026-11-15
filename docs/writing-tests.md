@@ -59,7 +59,8 @@ public Task Marks_order_paid_when_payment_completed_is_consumed() => stove.Test(
   - `Stub(request => ..., response => ...)` uses WireMock.Net's own builders; `request.WithPathTemplate(...)` is
     available there.
   - `Requests(method?, path?)` returns `RecordedRequest`s with `BodyAs<T>()`, `PathParameters`, `Query` and `Headers`.
-  - `ShouldHaveBeenCalled(method, path, times, within?)` returns the matching requests; `ShouldNotHaveBeenCalled`.
+  - `ShouldHaveBeenCalled(method, path, times, within?)` waits for the requests (5 seconds by default) and returns
+    them; `ShouldNotHaveBeenCalled` checks once.
   - `path` is an exact path or an OpenAPI template: `/stock/{productId}`, or `/{bucket}/{key+}` for the rest of the path.
   - `Server` gives raw access.
   - Stubs created in a test are removed when the test ends.

@@ -61,7 +61,7 @@ Kiota, Refit, AutoRest), an SDK's service model, or the provider's documentation
 | `Guid MockRaw(method, path, statusCode, string body, contentType, responseHeaders = null, delay = null)` | also a `byte[] body` overload; for XML, text or binary |
 | `Guid Stub(Func<IRequestBuilder, IRequestBuilder> request, Func<IResponseBuilder, IResponseBuilder> response)` | WireMock.Net builders; use `request.WithPathTemplate("/items/{id}")` |
 | `IReadOnlyList<RecordedRequest> Requests(method = null, path = null)` | the current test's requests; no waiting, no count check |
-| `Task<IReadOnlyList<RecordedRequest>> ShouldHaveBeenCalled(method, path, times = 1, within = null)` | exact count; returns the matching requests |
+| `Task<IReadOnlyList<RecordedRequest>> ShouldHaveBeenCalled(method, path, times = 1, within = null)` | exact count; waits up to `within` (default 5 s) for the requests and returns them |
 | `Task ShouldNotHaveBeenCalled(method, path)` | same as `times: 0` |
 | `RecordedRequest` | `Method, Path, Url, PathParameters, Query, Headers, Body, BodyBytes`, `BodyAs<T>()`, `Header(name)`, `QueryValue(name)` |
 | `WireMockExposedConfiguration ExposedConfiguration` | `BaseUrl (Uri), Host, Port` |

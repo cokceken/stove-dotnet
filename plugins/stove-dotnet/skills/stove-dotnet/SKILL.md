@@ -87,8 +87,10 @@ Namespaces:
 - Exposed configuration keys must be unique across systems. Use the app's real keys.
 - Named instances: `t.WireMock("payments")`. `t.WireMock()` resolves the unnamed instance, or the only instance of
   that kind. If several exist and none is unnamed, it throws.
-- `ShouldHaveBeenCalled(method, path, times = 1, within = null)` checks an **exact** count. Pass `within` only when the
-  app calls asynchronously (background work, consumers).
+- `ShouldHaveBeenCalled(method, path, times = 1, within = null)` checks an **exact** count. It waits for the requests
+  (default 5 seconds, `WireMockOptions.DefaultTimeout`) and returns as soon as they arrived, so asynchronous calls need
+  no extra handling. `ShouldNotHaveBeenCalled` checks once.
+- Use the same version of every StoveDotnet package; they pin each other to exact versions.
 - WireMock stubs created in a test are removed when the test ends. Re-create them in each test.
 - `ShouldBeConsumed` needs a consumer group that **commits** offsets. Pass the app's group id with `consumerGroup:`.
 - Kafka publishes default to System.Text.Json web settings (camelCase). Messages that fail to deserialize to `T` never

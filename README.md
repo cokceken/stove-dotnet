@@ -81,8 +81,8 @@ public Task Creates_order_when_stock_is_available() => stove.Test(async t =>
 
 Requirements: .NET 10 and a Docker-compatible container runtime (Docker or Podman) for the container modules.
 
-Published packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet). Install the ones you need into
-your e2e test project. MongoDB, MySQL, RabbitMQ and Azure Service Bus are implemented in this checkout; their publication is not implied by this table:
+The packages are in preview on [nuget.org](https://www.nuget.org/packages?q=StoveDotnet) and are released together:
+use the same version of every StoveDotnet package. Install the ones you need into your e2e test project:
 
 ```shell
 dotnet add package StoveDotnet.AspNetCore --prerelease
