@@ -39,17 +39,18 @@ internal static class TraceTreeRenderer
             output.Append(' ').Append(url);
         }
 
-        output.Append(" (").Append(span.ServiceName).Append(", ").Append(span.Kind).Append(", ")
+        output.Append(" (").Append(span.Source).Append(", ").Append(span.Kind).Append(", ")
             .Append(span.Duration.TotalMilliseconds.ToString("0.#", CultureInfo.InvariantCulture)).Append("ms)");
 
         if (span.IsError)
         {
             var exception = span.Events.FirstOrDefault(e => e.Name == "exception");
             var message = exception?.Attributes.GetValueOrDefault("exception.message") ?? span.StatusMessage;
-            var type = exception?.Attributes.GetValueOrDefault("exception.type");
+            // Without an exception event, the runtime's own instrumentation still records error.type.
+            var type = exception?.Attributes.GetValueOrDefault("exception.type") ?? span.Attribute("error.type");
             if (message is not null || type is not null)
             {
-                output.Append(" error: ").Append(type is null ? string.Empty : $"{type}: ").Append(message);
+                output.Append(" error: ").Append(type).Append(type is not null && message is not null ? ": " : string.Empty).Append(message);
             }
         }
 

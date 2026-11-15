@@ -38,7 +38,6 @@ cat > Smoke.csproj <<EOF
     <PackageReference Include="StoveDotnet.AspNetCore" Version="$version" />
     <PackageReference Include="StoveDotnet.Hosting" Version="$version" />
     <PackageReference Include="StoveDotnet.Containers" Version="$version" />
-    <PackageReference Include="StoveDotnet.Time" Version="$version" />
     <PackageReference Include="StoveDotnet.Oidc" Version="$version" />
     <PackageReference Include="StoveDotnet.Http" Version="$version" />
     <PackageReference Include="StoveDotnet.Kafka" Version="$version" />
@@ -61,7 +60,6 @@ using StoveDotnet;
 using StoveDotnet.Hosting;
 using StoveDotnet.Containers;
 using DotNet.Testcontainers.Builders;
-using StoveDotnet.Time;
 using StoveDotnet.Oidc;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.Extensions.Hosting;
@@ -165,7 +163,7 @@ Console.WriteLine("StoveDotnet.Hosting works at runtime");
 var timer = Task.Delay(TimeSpan.FromHours(1), clock);
 clock.Advance(TimeSpan.FromHours(1));
 await timer.WaitAsync(TimeSpan.FromSeconds(5));
-Console.WriteLine("StoveDotnet.Time and StoveDotnet.Oidc work at runtime");
+Console.WriteLine("Test time (StoveDotnet.Hosting) and StoveDotnet.Oidc work at runtime");
 EOF
 
 dotnet build -c Release --nologo -v quiet

@@ -95,8 +95,8 @@ logs at Information or above, subject to the application's logging filters, are 
 log entries; this is a diagnostic snapshot, not a complete durable log. Uncorrelated background logs and logs from
 other tests are excluded. Propagate `traceparent` over the broker and create a consumer Activity as the example does.
 
-Telemetry modules remain optional. Multiple OpenTelemetry providers in one process can observe the same global
-instrumentation: application names alone do not isolate providers or guarantee correct span service attribution.
+Telemetry remains optional. Activities are process-wide: a span belongs to a test by its trace, not to an
+application, and with several applications in one process only its place in the trace tree tells which one created it.
 Use application-local logs and explicit business side effects as evidence; configure instrumentation deliberately.
 An arbitrary background-service failure is not automatically a failed test: assert the observable result with a
 bounded wait, and include application logging. Host liveness monitoring and separate-process hosting are future work.

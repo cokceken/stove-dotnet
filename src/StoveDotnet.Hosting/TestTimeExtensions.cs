@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
 
-namespace StoveDotnet.Time;
+namespace StoveDotnet.Hosting;
 
 /// <summary>Explicit clock injection. The fixture owns the clock; sharing an instance shares timestamps and timers.</summary>
 public static class TestTimeExtensions

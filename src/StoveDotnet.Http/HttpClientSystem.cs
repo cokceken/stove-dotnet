@@ -150,14 +150,19 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
     {
         foreach (var (key, value) in _options.DefaultHeaders)
             if (!request.Headers.Contains(key)) request.Headers.TryAddWithoutValidation(key, value);
+        // The runtime's HTTP handler starts a client span under the activity below and writes that span into
+        // traceparent, unless the header is already there. Leaving the header to it makes the application's request
+        // span a child of the call that caused it; Stove writes the header itself only where the runtime will not.
+        var runtimePropagates = RuntimePropagatesTraceContext();
         foreach (var (key, value) in test.CorrelationHeaders())
         {
             request.Headers.Remove(key);
+            if (runtimePropagates && string.Equals(key, StoveHeaders.Traceparent, StringComparison.OrdinalIgnoreCase)) continue;
             request.Headers.TryAddWithoutValidation(key, value);
         }
 
-        // The application's HttpClient instrumentation also observes this call and re-propagates Activity.Current;
-        // keep it inside the test's trace.
+        // With this activity current, the client span and everything the application does for the request stay in
+        // the test's trace.
         using var activity = test.StartCorrelatedActivity("stove.http");
         try
         {
@@ -169,6 +174,15 @@ public sealed class HttpClientSystem : IPluggedSystem, IAfterApplicationsStarted
             Record(test, request, requestBody, watch, $"no response: {ex.GetType().Name}: {ex.Message}", detail: null);
             throw;
         }
+    }
+
+    private static bool RuntimePropagatesTraceContext()
+    {
+        if (AppContext.TryGetSwitch("System.Net.Http.EnableActivityPropagation", out var enabled) && !enabled) return false;
+        var variable = Environment.GetEnvironmentVariable("DOTNET_SYSTEM_NET_HTTP_ENABLEACTIVITYPROPAGATION");
+        if (variable is "0" || string.Equals(variable, "false", StringComparison.OrdinalIgnoreCase)) return false;
+        // An application may replace the propagator, for example with one that writes no headers or another format.
+        return DistributedContextPropagator.Current.Fields.Contains(StoveHeaders.Traceparent, StringComparer.OrdinalIgnoreCase);
     }
 
     private void Record(StoveTestContext test, HttpRequestMessage request, string? requestBody, Stopwatch watch, string outcome, string? detail)

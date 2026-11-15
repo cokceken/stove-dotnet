@@ -1,3 +1,4 @@
+extern alias ClockApp;
 using System.Net;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,10 +7,11 @@ using Microsoft.Extensions.Time.Testing;
 using StoveDotnet.AspNetCore;
 using StoveDotnet.Hosting;
 using StoveDotnet.Http;
-using StoveDotnet.Time;
 using Xunit;
+using ClockAppMarker = ClockApp::ClockAppMarker;
+using TimerWorker = ClockApp::TimerWorker;
 
-namespace StoveDotnet.Time.AcceptanceTests;
+namespace StoveDotnet.Hosting.AcceptanceTests;
 
 public sealed class TimeTests
 {

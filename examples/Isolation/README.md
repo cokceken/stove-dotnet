@@ -4,13 +4,13 @@
 | --- | --- | --- |
 | Shared API, worker, PostgreSQL and broker; unique IDs and correlated messages | [OrderTests](../MultiApplication/Tests/OrderTests.cs) | Yes, when application behavior is keyed and tests avoid global resets or configuration changes. |
 | Fresh database/container, broker and hosts per scenario; even the same business key may be reused | [IsolatedEnvironmentTests](../MultiApplication/Tests/IsolatedEnvironmentTests.cs) | Yes, at greater startup/resource cost. Each environment disposes its own hosts before its dependencies. |
-| API and worker share one fixture-owned clock | [TimeTests](../../tests/StoveDotnet.Time.AcceptanceTests/TimeTests.cs) | Serialize all tests advancing that clock; unique row IDs alone do not isolate time. |
-| Separate fixtures own separate clocks and hosts | [TimeTests](../../tests/StoveDotnet.Time.AcceptanceTests/TimeTests.cs) | Yes; the suite advances two isolated environments concurrently. |
-| Shared mutable clock across test classes | [SharedClockTests](../../tests/StoveDotnet.Time.AcceptanceTests/SharedClockTests.cs) | Explicitly serialized through an xUnit collection. Use equivalent fixture/scheduling rules with other frameworks. |
+| API and worker share one fixture-owned clock | [TimeTests](../../tests/StoveDotnet.Hosting.AcceptanceTests/TimeTests.cs) | Serialize all tests advancing that clock; unique row IDs alone do not isolate time. |
+| Separate fixtures own separate clocks and hosts | [TimeTests](../../tests/StoveDotnet.Hosting.AcceptanceTests/TimeTests.cs) | Yes; the suite advances two isolated environments concurrently. |
+| Shared mutable clock across test classes | [SharedClockTests](../../tests/StoveDotnet.Hosting.AcceptanceTests/SharedClockTests.cs) | Explicitly serialized through an xUnit collection. Use equivalent fixture/scheduling rules with other frameworks. |
 
 ```shell
 dotnet test --project examples/MultiApplication/Tests -c Release
-dotnet test --project tests/StoveDotnet.Time.AcceptanceTests -c Release
+dotnet test --project tests/StoveDotnet.Hosting.AcceptanceTests -c Release
 ```
 
 The first command requires Docker or Podman; the clock tests run with real in-process Kestrel and Generic Hosts.
