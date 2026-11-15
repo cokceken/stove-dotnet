@@ -83,7 +83,7 @@ public sealed class SqlServerModule(string? name) : DatabaseModule
     public override IPluggedSystem Resolve(StoveTestContext t, bool unnamed = false) => t.SqlServer(unnamed ? null : name);
     public override Task<int> Insert(StoveTestContext t, string sql, string value) => t.SqlServer(name).Execute(sql, new SqlParameter("id", 1), new SqlParameter("value", value));
     public override Task<IReadOnlyList<string>> Query(StoveTestContext t, string sql) => t.SqlServer(name).Query(sql, r => r.GetString(0));
-    public override Task ShouldQuery(StoveTestContext t, string sql, Action<IReadOnlyList<string>> assert) => t.SqlServer(name).ShouldQuery(sql, r => r.GetString(0), assert, new SqlParameter("id", 1));
+    public override Task<IReadOnlyList<string>> QueryById(StoveTestContext t, string sql) => t.SqlServer(name).Query(sql, r => r.GetString(0), new SqlParameter("id", 1));
     public override async Task Seed(StoveTestContext t, string id, string value) => await t.SqlServer(name).Execute("insert into records values (@id, @value)", new SqlParameter("id", id), new SqlParameter("value", value));
     public override Task<IReadOnlyList<string>> Read(StoveTestContext t, string id) => t.SqlServer(name).Query("select value from records where id = @id", r => r.GetString(0), new SqlParameter("id", id));
 }

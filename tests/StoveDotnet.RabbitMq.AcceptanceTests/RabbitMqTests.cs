@@ -168,7 +168,7 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
             o.Setup.Add((ctx, _) => { connectionString = ctx.Configuration.ConnectionString; throw original; });
             o.Cleanup = (_, _) => throw new InvalidOperationException("rollback failed");
         }).StartAsync(TestContext.Current.CancellationToken));
-        Assert.Same(original, error.InnerExceptions[0]);
+        Assert.Same(original, Assert.IsType<StoveStartupException>(error.InnerExceptions[0]).InnerException);
         Assert.Contains(error.Flatten().InnerExceptions, e => e.Message == "rollback failed");
         await Assert.ThrowsAsync<BrokerUnreachableException>(() => new ConnectionFactory { Uri = new Uri(connectionString), RequestedConnectionTimeout = TimeSpan.FromSeconds(1) }.CreateConnectionAsync(TestContext.Current.CancellationToken));
     }
@@ -176,8 +176,9 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
     [Fact]
     public async Task Missing_endpoint_is_validated_without_setup()
     {
-        await Assert.ThrowsAsync<BrokerUnreachableException>(() => StoveBuilder.Create().WithRabbitMq(o =>
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithRabbitMq(o =>
             o.UseExisting("amqp://stove:stove@127.0.0.1:1", runSetup: false)).StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsType<BrokerUnreachableException>(error.InnerException);
     }
 
     [Fact]

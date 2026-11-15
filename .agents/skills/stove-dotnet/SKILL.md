@@ -50,8 +50,8 @@ Stove stove = await StoveBuilder.Create()
 public Task Creates_order() => stove.Test(async t =>
 {
     var response = await t.Http().Post<OrderDto>("/orders", new { productId = "chair" });
-    await t.Postgres().ShouldQuery("select status from orders where id = @id", r => r.GetString(0),
-        rows => Assert.Equal(["Created"], rows), new NpgsqlParameter("id", response.Body.Id));
+    Assert.Equal(["Created"], await t.Postgres().Query("select status from orders where id = @id",
+        r => r.GetString(0), new NpgsqlParameter("id", response.Body.Id)));
     await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == response.Body.Id);
 });
 ```
@@ -61,7 +61,7 @@ Namespaces:
 | Namespace | Provides |
 |---|---|
 | `StoveDotnet` | `StoveBuilder`, `Stove`, `StoveTestContext`, `Eventually`, exceptions |
-| `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication`, `t.Using<T>()` |
+| `StoveDotnet.AspNetCore` | `WithAspNetCoreApplication` (brings `StoveDotnet.Hosting` and its `t.Using<T>()`) |
 | `StoveDotnet.Http` | `WithHttpClient`, `t.Http()` |
 | `StoveDotnet.Containers` | `WithContainer`, `t.Container(name?).Container` for user-supplied Testcontainers dependencies |
 | `StoveDotnet.Time` | Opt-in `UseStoveTime(clock)`, `t.Clock(application?)` |

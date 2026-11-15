@@ -126,7 +126,7 @@ _ = StoveBuilder.Create().WithAzureServiceBus(o =>
     o.UseExisting("example.servicebus.windows.net", new DefaultAzureCredential(), runTopologySetup: false));
 
 // Compile native document/relational APIs without containers.
-_ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Empty, _ => { }));
+_ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").Query("records", Builders<BsonDocument>.Filter.Empty));
 _ = (Func<StoveTestContext, Task>)(t => t.MySql().Execute("select @id", new MySqlParameter("id", 1)));
 
 // Runtime check without containers: start WireMock from the packages and run a real stove.Test against it.

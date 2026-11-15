@@ -6,6 +6,12 @@
 
   <ItemGroup>
     <PackageReference Include="WireMock.Net.Minimal" />
+    <!--
+      WireMock.Net.Minimal 2.19.0 resolves Microsoft.AspNetCore.WebUtilities 2.3.0 through Microsoft.AspNetCore.Http,
+      which is affected by GHSA-6527-9fp8-r4x6 (fixed in 2.3.14). Referencing the patched version here also lifts it
+      for projects consuming this package. Remove once WireMock.Net depends on a patched version itself.
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" />
     <ProjectReference Include="..\StoveDotnet\StoveDotnet.csproj" />
   </ItemGroup>
 

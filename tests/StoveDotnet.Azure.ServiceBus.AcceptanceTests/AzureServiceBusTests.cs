@@ -12,8 +12,9 @@ public sealed class AzureServiceBusConfigurationTests
     [Fact]
     public async Task Managed_emulator_requires_explicit_license_acceptance()
     {
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() =>
             StoveBuilder.Create().WithAzureServiceBus().StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsType<InvalidOperationException>(error.InnerException);
         Assert.Contains("AcceptLicenseAgreement", error.Message, StringComparison.Ordinal);
     }
 

@@ -90,7 +90,7 @@ public abstract class RelationalModuleTests(RelationalFixture fixture)
             {
                 const string value = "chair'; DROP TABLE products; --";
                 Assert.Equal(1, await module.Insert(t, $"insert into {table} values (@id, @value)", value));
-                await module.ShouldQuery(t, $"select value from {table} where id = @id", rows => Assert.Equal([value], rows));
+                Assert.Equal([value], await module.QueryById(t, $"select value from {table} where id = @id"));
             }, TestContext.Current.CancellationToken);
         }
         finally
@@ -110,7 +110,7 @@ public abstract class RelationalModuleTests(RelationalFixture fixture)
         var error = await Assert.ThrowsAsync<AggregateException>(() => module.Register(StoveBuilder.Create())
             .StartAsync(TestContext.Current.CancellationToken));
 
-        Assert.Same(startupError, error.InnerExceptions[0]);
+        Assert.Same(startupError, Assert.IsType<StoveStartupException>(error.InnerExceptions[0]).InnerException);
         Assert.Contains(cleanupError, error.Flatten().InnerExceptions);
         await module.System.DisposeAsync();
         await Assert.ThrowsAnyAsync<Exception>(async () =>
@@ -130,8 +130,9 @@ public abstract class RelationalModuleTests(RelationalFixture fixture)
         var appStarted = false;
         var app = new ConfigurationProbe((_, _) => { appStarted = true; return Task.CompletedTask; });
 
-        await Assert.ThrowsAnyAsync<DbException>(() => module.Register(StoveBuilder.Create()).WithApplication(app)
+        var error = await Assert.ThrowsAsync<StoveStartupException>(() => module.Register(StoveBuilder.Create()).WithApplication(app)
             .StartAsync(TestContext.Current.CancellationToken));
+        Assert.IsAssignableFrom<DbException>(error.InnerException);
         Assert.False(appStarted);
     }
 

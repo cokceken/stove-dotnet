@@ -39,7 +39,15 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
     {
         _factory = new StoveWebApplicationFactory(configuration, _options, _logs);
         _factory.UseKestrel(_options.Port);
-        await Task.Run(_factory.StartServer, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await Task.Run(_factory.StartServer, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logs.AttachStartupLogs(ex);
+            throw;
+        }
 
         var addresses = _factory.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses;
         var address = addresses?.FirstOrDefault()

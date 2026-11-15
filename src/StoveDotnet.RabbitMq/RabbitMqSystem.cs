@@ -137,7 +137,7 @@ public sealed class RabbitMqSystem : ExposingSystem<RabbitMqOptions, RabbitMqExp
         var test = StoveTestContext.Require();
         RabbitMqMessage<T>? match = null;
         await Eventually.UntilAsync(_ => ValueTask.FromResult((match = Matching<T>(test, exchange, routingKey).FirstOrDefault(condition)) is not null),
-            timeout ?? Options.DefaultTimeout, () => $"No {typeof(T).Name} matching the condition reached RabbitMQ observation bindings.", _store.Changed, test.CancellationToken).ConfigureAwait(false);
+            timeout ?? Options.DefaultTimeout, () => $"No {typeof(T).Name} matching the condition reached RabbitMQ observation bindings.", _store.Changed, cancellationToken: test.CancellationToken).ConfigureAwait(false);
         return match!;
     }
 

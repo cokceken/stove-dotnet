@@ -24,8 +24,10 @@ lifecycle/configuration conventions. It deliberately has no vendor clients or au
   cleanup, client disposal and container disposal independently. Release temporary connections if opening fails.
 - Keep migration ordering local to each module; registration order does not establish dependencies between systems.
 - Application adapters are separate from dependency systems: applications start sequentially after dependency readiness.
-  Use `IAfterApplicationsStarted` and `stove.GetApplication(name)` for explicit application binding. Legacy
-  `IAfterApplicationStarted` hooks resolve the default/only application and therefore reject ambiguous topologies.
+  Use `IAfterApplicationsStarted` and `stove.GetApplication(name)` to bind to an application; `GetApplication()`
+  without a name resolves the default or only application and rejects ambiguous topologies.
+  An adapter may attach startup evidence to the exception it throws from `StartAsync` under
+  `StoveStartupException.DetailsKey`; `ApplicationLogCollector.AttachStartupLogs` does this for host logs.
   An application adapter may implement `IFailureDetailsProvider`; Stove prefixes its evidence with the application name.
 
 ## Test operations

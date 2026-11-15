@@ -4,44 +4,53 @@ namespace StoveDotnet;
 
 public sealed class EventuallyOptions
 {
-    /// <summary>New overloads retry Stove assertions by default. Include your test framework's assertion exception explicitly.</summary>
-    public Func<Exception, bool> RetryOn { get; set; } = error => error is StoveAssertionException;
+    /// <summary>
+    /// Which exceptions mean "not yet". <c>null</c> selects the method's default: <c>AssertAsync</c> retries every
+    /// exception, <c>UntilAsync</c> retries none. Cancellation is never retried.
+    /// </summary>
+    public Func<Exception, bool>? RetryOn { get; set; }
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromMilliseconds(50);
 }
 
 /// <summary>Sequential, cooperative polling using wall-clock deadlines, independent of application test clocks.</summary>
 public static class Eventually
 {
-    /// <summary>Legacy probe: false is retried; exceptions propagate immediately.</summary>
+    /// <summary>
+    /// Polls until the probe returns true. An exception from the probe is an error and propagates, unless
+    /// <see cref="EventuallyOptions.RetryOn"/> selects it. A signal wakes the next poll early.
+    /// </summary>
     public static Task UntilAsync(Func<CancellationToken, ValueTask<bool>> probe, TimeSpan timeout,
-        Func<string> describeTimeout, AsyncChangeSignal? signal = null, CancellationToken cancellationToken = default) =>
-        Poll(probe, value => value, timeout, describeTimeout, new EventuallyOptions { RetryOn = _ => false },
-            value => value.ToString(), signal, cancellationToken, backoff: true);
-
-    public static Task UntilAsync(Func<CancellationToken, ValueTask<bool>> probe, TimeSpan timeout,
-        EventuallyOptions options, Func<string> describeTimeout, AsyncChangeSignal? signal = null,
+        Func<string> describeTimeout, AsyncChangeSignal? signal = null, EventuallyOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        Poll(probe, value => value, timeout, describeTimeout, options, value => value.ToString(), signal, cancellationToken);
+        Poll(probe, value => value, timeout, describeTimeout, options, _ => false, value => value.ToString(), signal, cancellationToken);
 
-    /// <summary>Returns the matching value; timeout includes the last observed value (customize to redact sensitive data).</summary>
+    /// <summary>
+    /// Polls until the value matches and returns it; exceptions propagate as for the bool probe. A timeout includes
+    /// the last observed value (customize <paramref name="describeValue"/> to redact sensitive data).
+    /// </summary>
     public static Task<T> UntilAsync<T>(Func<CancellationToken, ValueTask<T>> probe, Func<T, bool> matches,
         TimeSpan timeout, EventuallyOptions? options = null, Func<T, string>? describeValue = null,
         CancellationToken cancellationToken = default) =>
-        Poll(probe, matches, timeout, () => "probe did not match", options ?? new EventuallyOptions(),
+        Poll(probe, matches, timeout, () => "probe did not match", options, _ => false,
             describeValue ?? (value => value?.ToString() ?? "<null>"), null, cancellationToken);
 
-    /// <summary>Compatibility overload: retries every exception except cancellation; the delegate receives no timeout token.</summary>
-    public static Task AssertAsync(Func<Task> assertion, TimeSpan timeout, CancellationToken cancellationToken = default) =>
-        Poll(async _ => { await assertion().ConfigureAwait(false); return true; }, value => value, timeout,
-            () => "assertion did not pass", new EventuallyOptions { RetryOn = _ => true }, _ => "assertion failed", null, cancellationToken, backoff: true);
+    /// <summary>Retries the assertion until it stops throwing. Use the token overload to cancel in-flight I/O at the deadline.</summary>
+    public static Task AssertAsync(Func<Task> assertion, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(assertion);
+        return AssertAsync(_ => assertion(), timeout, options: null, cancellationToken);
+    }
 
-    /// <summary>Retries selected exceptions. The assertion receives the linked caller/deadline token.</summary>
+    /// <summary>
+    /// Retries the assertion until it stops throwing: any exception, from any assertion library, means "not yet"
+    /// unless <see cref="EventuallyOptions.RetryOn"/> narrows it. The assertion receives the linked caller/deadline token.
+    /// </summary>
     public static async Task AssertAsync(Func<CancellationToken, Task> assertion, TimeSpan timeout,
         EventuallyOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(assertion);
         await Poll(async ct => { await assertion(ct).ConfigureAwait(false); return true; }, value => value, timeout,
-            () => "assertion did not pass", options ?? new EventuallyOptions(), _ => "assertion failed", null, cancellationToken).ConfigureAwait(false);
+            () => "assertion did not pass", options, _ => true, _ => "assertion failed", null, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Samples an assertion throughout a bounded interval. Every failure propagates immediately; no retries.
@@ -92,19 +101,20 @@ public static class Eventually
     }
 
     private static async Task<T> Poll<T>(Func<CancellationToken, ValueTask<T>> probe, Func<T, bool> matches,
-        TimeSpan timeout, Func<string> description, EventuallyOptions options, Func<T, string> describeValue,
-        AsyncChangeSignal? signal, CancellationToken cancellationToken, bool backoff = false)
+        TimeSpan timeout, Func<string> description, EventuallyOptions? options, Func<Exception, bool> defaultRetryOn,
+        Func<T, string> describeValue, AsyncChangeSignal? signal, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(probe);
         ArgumentNullException.ThrowIfNull(matches);
-        Validate(timeout, options, allowLegacyTimeouts: backoff);
+        options ??= new EventuallyOptions();
+        Validate(timeout, options);
+        var retryOn = options.RetryOn ?? defaultRetryOn;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        if (timeout != TimeSpan.Zero) deadline.CancelAfter(timeout);
+        deadline.CancelAfter(timeout);
         var watch = Stopwatch.StartNew();
         var attempts = 0;
         var observed = "<no value>";
         Exception? last = null;
-        var delay = options.PollInterval;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -125,19 +135,18 @@ public static class Eventually
                 cancellationToken.ThrowIfCancellationRequested();
                 throw Failure();
             }
-            catch (Exception ex) when (ex is not OperationCanceledException && options.RetryOn(ex))
+            catch (Exception ex) when (ex is not OperationCanceledException && retryOn(ex))
             {
                 last = ex;
             }
             cancellationToken.ThrowIfCancellationRequested();
             if (Expired()) throw Failure();
             if (matched) return value;
-            if (timeout == TimeSpan.Zero) throw Failure();
             try
             {
                 // Cancel the delay when signalled too; no abandoned polling tasks accumulate.
                 using var delayCancellation = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
-                var wait = Task.Delay(delay, delayCancellation.Token);
+                var wait = Task.Delay(options.PollInterval, delayCancellation.Token);
                 if (changed is null) await wait.ConfigureAwait(false);
                 else
                 {
@@ -150,20 +159,15 @@ public static class Eventually
                 cancellationToken.ThrowIfCancellationRequested();
                 throw Failure();
             }
-            if (backoff) delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 2, 500));
         }
-        bool Expired() => deadline.IsCancellationRequested ||
-            (timeout > TimeSpan.Zero && watch.Elapsed >= timeout);
+        bool Expired() => deadline.IsCancellationRequested || watch.Elapsed >= timeout;
         StoveTimeoutException Failure() => Timeout(timeout, watch, attempts,
             $"{description()}; last observed: {Bound(observed)}; last failure: {Bound(last?.Message ?? "<none>")}", last);
     }
 
-    private static void Validate(TimeSpan timeout, EventuallyOptions options, bool allowLegacyTimeouts = false)
+    private static void Validate(TimeSpan timeout, EventuallyOptions options)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(options.RetryOn);
-        if ((!allowLegacyTimeouts || (timeout != TimeSpan.Zero && timeout != System.Threading.Timeout.InfiniteTimeSpan))
-            && (timeout <= TimeSpan.Zero || timeout.TotalMilliseconds > uint.MaxValue - 1)) throw new ArgumentOutOfRangeException(nameof(timeout));
+        if (timeout <= TimeSpan.Zero || timeout.TotalMilliseconds > uint.MaxValue - 1) throw new ArgumentOutOfRangeException(nameof(timeout));
         if (options.PollInterval <= TimeSpan.Zero || options.PollInterval.TotalMilliseconds > uint.MaxValue - 1)
             throw new ArgumentOutOfRangeException(nameof(options), "PollInterval must be a positive supported delay.");
     }

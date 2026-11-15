@@ -23,7 +23,15 @@ public sealed class HostApplicationUnderTest(
         _host = await factory(configuration, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The application factory returned no host.");
         _host.Services.GetRequiredService<ILoggerFactory>().AddProvider(_logs);
-        await _host.StartAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _host.StartAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logs.AttachStartupLogs(ex);
+            throw;
+        }
         return new HostContext(_host.Services);
     }
 

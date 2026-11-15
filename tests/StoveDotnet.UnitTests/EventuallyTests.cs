@@ -5,13 +5,11 @@ namespace StoveDotnet.UnitTests;
 public sealed class EventuallyTests
 {
     [Fact]
-    public async Task Legacy_zero_timeout_checks_once_and_legacy_assertion_retries_nested_timeouts()
+    public async Task Timeouts_must_be_positive_and_assertions_retry_nested_timeouts()
     {
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Eventually.UntilAsync(_ => ValueTask.FromResult(true), TimeSpan.Zero, () => "immediate"));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Eventually.AssertAsync(() => Task.CompletedTask, Timeout.InfiniteTimeSpan));
         var calls = 0;
-        await Eventually.UntilAsync(_ => { calls++; return ValueTask.FromResult(true); }, TimeSpan.Zero, () => "immediate");
-        Assert.Equal(1, calls);
-        await Assert.ThrowsAsync<StoveTimeoutException>(() => Eventually.UntilAsync(_ => ValueTask.FromResult(false), TimeSpan.Zero, () => "immediate"));
-        calls = 0;
         await Eventually.AssertAsync(() =>
         {
             if (++calls == 1) throw new StoveTimeoutException("inner timeout");
@@ -41,16 +39,35 @@ public sealed class EventuallyTests
     }
 
     [Fact]
-    public async Task Programming_errors_fail_immediately_but_legacy_assertions_retry()
+    public async Task Both_assertion_overloads_retry_every_exception_unless_narrowed_and_probes_propagate()
     {
         var calls = 0;
-        Task Fail() { calls++; throw new InvalidOperationException("bug"); }
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Eventually.AssertAsync(_ => Fail(), TimeSpan.FromSeconds(1)));
+        Task Fail() { calls++; throw new InvalidOperationException("not yet"); }
+
+        // The same assertion behaves the same whether or not it takes the deadline token.
+        foreach (var assert in new Func<Task>[]
+        {
+            () => Eventually.AssertAsync(Fail, TimeSpan.FromMilliseconds(180)),
+            () => Eventually.AssertAsync(_ => Fail(), TimeSpan.FromMilliseconds(180)),
+        })
+        {
+            calls = 0;
+            var timeout = await Assert.ThrowsAsync<StoveTimeoutException>(assert);
+            Assert.True(calls > 2);
+            Assert.IsType<InvalidOperationException>(timeout.InnerException);
+            Assert.Contains("not yet", timeout.Message, StringComparison.Ordinal);
+        }
+
+        calls = 0;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Eventually.AssertAsync(_ => Fail(), TimeSpan.FromSeconds(1),
+            new EventuallyOptions { RetryOn = error => error is StoveAssertionException }));
         Assert.Equal(1, calls);
-        var legacy = await Assert.ThrowsAsync<StoveTimeoutException>(() => Eventually.AssertAsync(Fail, TimeSpan.FromMilliseconds(180)));
-        Assert.True(calls > 2);
-        Assert.IsType<InvalidOperationException>(legacy.InnerException);
-        Assert.Contains("bug", legacy.Message, StringComparison.Ordinal);
+
+        // A probe returns "not yet" as a value; an exception from it is an error.
+        calls = 0;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Eventually.UntilAsync(
+            async _ => { await Fail(); return true; }, TimeSpan.FromSeconds(1), () => "probe"));
+        Assert.Equal(1, calls);
     }
 
     [Fact]

@@ -12,7 +12,7 @@ public class ApplicationOptions
 
 internal sealed record ApplicationRegistration(string? Name, IApplicationUnderTest Application, ApplicationOptions Options);
 
-/// <summary>Systems that bind to explicitly selected applications after all applications are ready.</summary>
+/// <summary>Systems that need the running applications, e.g. a base address or DI container. Runs after all applications are ready.</summary>
 public interface IAfterApplicationsStarted
 {
     Task OnApplicationsStartedAsync(Stove stove, CancellationToken cancellationToken);

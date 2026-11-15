@@ -91,14 +91,13 @@ HttpResponseMessage raw = await t.Http().SendRaw(new HttpRequestMessage(...));
 int rows = await t.Postgres().Execute("insert into orders (id, status) values (@id, @status)",
     new NpgsqlParameter("id", id), new NpgsqlParameter("status", "Created"));
 IReadOnlyList<T> list = await t.Postgres().Query("select ...", reader => reader.GetString(0), params NpgsqlParameter[]);
-await t.Postgres().ShouldQuery("select ...", reader => (reader.GetGuid(0), reader.GetString(1)),
-    rows => Assert.Equal([(id, "Created")], rows), new NpgsqlParameter("id", id));
 NpgsqlDataSource ds = t.Postgres().DataSource;
 ```
 
 - Raw Npgsql only; there is no Dapper or EF.
 - The mapper receives `NpgsqlDataReader`.
-- `ShouldQuery` runs once. Wrap it in `Eventually.AssertAsync` when the app writes asynchronously.
+- `Query` runs once and returns the rows; assert on them with the project's assertion library. Wrap the query and
+  the assertion in `Eventually.AssertAsync` when the app writes asynchronously.
 
 ### Kafka (`t.Kafka(name?)`): broker observation with propagated correlation
 
@@ -109,7 +108,7 @@ await t.Kafka().PublishRaw(topic, bytes, key: null, headers: null);
 ObservedMessage<T> m = await t.Kafka().ShouldBePublished<T>(m => m.Value.OrderId == id, timeout: null, topic: null);
 ObservedMessage<T> m = await t.Kafka().ShouldBeConsumed<T>(m => m.Value.OrderId == id, timeout: null, topic: null, consumerGroup: "order-service");
 ObservedMessage<T> m = await t.Kafka().ShouldBeFailed<T>(m => ..., timeout: null);   // on topics ending with .error / .DLT
-IReadOnlyList<ObservedMessage<T>> seen = t.Kafka().Peek<T>(topic: "orders.created"); // no waiting
+IReadOnlyList<ObservedMessage<T>> seen = await t.Kafka().PeekAsync<T>(topic: "orders.created"); // no waiting
 m.Value; m.Key; m.Topic; m.Headers; m.Record.Partition; m.Record.Offset;
 ```
 
@@ -208,22 +207,22 @@ await t.Using<IServiceA, IServiceB>(async (a, b) => { ... });   // up to 3 servi
 
 ```csharp
 await Eventually.AssertAsync(async () =>
-    await t.Postgres().ShouldQuery("select status from orders where id = @id", r => r.GetString(0),
-        rows => Assert.Equal(["Paid"], rows), new NpgsqlParameter("id", id)),
+    Assert.Equal(["Paid"], await t.Postgres().Query("select status from orders where id = @id",
+        r => r.GetString(0), new NpgsqlParameter("id", id))),
     TimeSpan.FromSeconds(10), t.CancellationToken);
 ```
 
 Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `within:`, telemetry
 `ShouldContainSpan`, or `Eventually`.
 
-The old `AssertAsync(Func<Task>, timeout, ct)` retries all non-cancellation exceptions. The token-aware
-`AssertAsync(Func<CancellationToken, Task>, timeout, options?, ct)` retries only `StoveAssertionException` by default;
-configure `EventuallyOptions.RetryOn` to include framework assertion exceptions or selected transient errors.
-Forward the effective token to I/O. `UntilAsync<T>(probe, matches, timeout, options?, describeValue?, ct)` returns the
-matching value and reports the last observation on timeout; redact it with `describeValue` when needed.
+`AssertAsync` retries every exception except cancellation, so assertions from xUnit, NUnit, MSTest or TUnit work as
+they are. `AssertAsync(Func<CancellationToken, Task>, timeout, options?, ct)` behaves the same and also hands the
+deadline token to the assertion; forward it to I/O. `UntilAsync<T>(probe, matches, timeout, options?, describeValue?, ct)`
+polls a value, returns the match and reports the last observation on timeout (redact it with `describeValue` when
+needed); an exception from its probe is an error and propagates. `EventuallyOptions.RetryOn` overrides either default.
 `ThroughoutAsync(assertion, duration, pollInterval?, ct)` samples sequentially with immediate failure, no retries or final
 boundary probe. Cancellation is cooperative: Stove awaits an unfinished probe instead of overlapping or abandoning it.
-Caller cancellation is distinct from timeout. See repository `docs/practical-testing.md` for compatibility details.
+Caller cancellation is distinct from timeout. See repository `docs/practical-testing.md` for details.
 
 ### Application time and identity
 
@@ -269,8 +268,6 @@ var id = ObjectId.GenerateNewId();
 await t.MongoDb().Insert("records", new BsonDocument { ["_id"] = id, ["value"] = "ready" });
 IReadOnlyList<BsonDocument> documents = await t.MongoDb().Query<BsonDocument>(
     "records", Builders<BsonDocument>.Filter.Eq("_id", id));
-await t.MongoDb().ShouldQuery<BsonDocument>("records", Builders<BsonDocument>.Filter.Eq("_id", id),
-    rows => Assert.Single(rows));
 IMongoCollection<BsonDocument> collection = t.MongoDb().Collection<BsonDocument>("records");
 IMongoDatabase database = t.MongoDb().Database;
 IMongoClient client = t.MongoDb().Client;
@@ -288,8 +285,6 @@ Use namespace `StoveDotnet.MySql` with `MySqlConnector`.
 ```csharp
 await t.MySql().Execute("insert into records values (@id, @value)",
     new MySqlParameter("id", id), new MySqlParameter("value", "ready"));
-await t.MySql().ShouldQuery("select value from records where id = @id", r => r.GetString(0),
-    rows => Assert.Equal(["ready"], rows), new MySqlParameter("id", id));
 IReadOnlyList<string> values = await t.MySql().Query("select value from records", r => r.GetString(0));
 MySqlDataSource dataSource = t.MySql().DataSource;
 ```
