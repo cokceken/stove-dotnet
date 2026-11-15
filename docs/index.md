@@ -69,6 +69,9 @@ managed-identity-compatible tests.
 ## Choose a path
 
 - [Build your first Stove test](getting-started.md)
+- [Set up the environment: configuration, named and existing instances](setup.md)
+- [Write tests with each module and fake third-party APIs](writing-tests.md)
+- [Read a failure report](failure-reports.md)
 - [Review verified compatibility and security evidence](compatibility.md)
 - [Understand correlation, waiting and isolation](practical-testing.md)
 - [Test an API and worker together](multiple-applications.md)

@@ -19,6 +19,9 @@ theme:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Environment setup: setup.md
+  - Writing tests: writing-tests.md
+  - Failure reports: failure-reports.md
   - Compatibility and trust: compatibility.md
   - Testing applications:
       - Practical testing: practical-testing.md

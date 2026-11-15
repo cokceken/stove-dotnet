@@ -1,5 +1,20 @@
 # Contributing
 
+See the [project roadmap](ROADMAP.md) for what is planned and [architecture decisions](docs/decisions.md) for the
+agreed design direction.
+
+## Repository layout
+
+```
+src/                         library packages
+tests/StoveDotnet.UnitTests   core only; no application host or containers
+tests/*.AcceptanceTests      separate Hosting, database, Redis, Kafka, RabbitMq and Azure Service Bus suites
+tests/StoveDotnet.Testing     provider-neutral database contracts; no database drivers
+tests/TestApps/               small real applications using native clients, with no Stove references
+examples/Frameworks/         Framework examples, shared SampleApi, and OrderService composition tests with typed fakes
+plugins/stove-dotnet         Claude Code plugin; its skills/stove-dotnet folder is the agent skill
+```
+
 ## Build and test
 
 ```shell
@@ -19,7 +34,22 @@ dotnet test --project tests/StoveDotnet.Kafka.AcceptanceTests
 dotnet test --project tests/StoveDotnet.RabbitMq.AcceptanceTests
 dotnet test --project tests/StoveDotnet.Azure.ServiceBus.AcceptanceTests
 dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3     # Docker or Podman
+# the deliberately failing demo test:
+dotnet test --project examples/Frameworks/OrderService.E2ETests.XunitV3 -- --explicit only
 ```
+
+Podman works as the container runtime through its Docker-compatible API. Run suites individually on machines with
+limited memory; the database suites each start two named database containers. CI runs the suites in separate jobs,
+and a provider failure does not prevent other suites from reporting their results.
+
+The database application contracts cover HTTP writes observed by Stove, Stove seeding read by the application,
+startup migrations, named database routing, existing endpoints, concurrency and failure handling. Module contracts
+cover native clients and lifecycle edge cases. See [module conventions](docs/modules.md).
+
+OrderService remains a focused composition example using PostgreSQL, Redis, Kafka and third-party HTTP APIs. Its tests
+cover retrieval, rejected-order side effects, payment consumption, concurrent requests and failure diagnostics. The
+optional `OrderId` on creation lets a caller identify an attempted order even when it is rejected; it is not an
+idempotency guarantee. Concurrent tests use distinct identifiers and trace-scoped WireMock stubs.
 
 Each module suite references only its own provider. Database suites share provider-neutral contracts in
 `tests/StoveDotnet.Testing` and exercise native-client applications under `tests/TestApps`. Keep core tests free of
