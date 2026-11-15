@@ -59,6 +59,38 @@ jobs:
       - name: Run suite
         run: dotnet test --project "${{ matrix.project }}" -c Release --no-build
 
+  # The suites above need Linux containers, which hosted Windows and macOS runners do not provide. These suites start
+  # no containers, so they cover the core, application hosting, HTTP, WireMock, telemetry and OIDC on both systems.
+  cross-platform:
+    name: ${{ matrix.suite }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        suite: [Core, Hosting, Kafka serialization and configuration, OIDC]
+        include:
+          - suite: Core
+            project: tests/StoveDotnet.UnitTests
+          - suite: Hosting
+            project: tests/StoveDotnet.Hosting.AcceptanceTests
+          - suite: Kafka serialization and configuration
+            project: tests/StoveDotnet.Kafka.UnitTests
+          - suite: OIDC
+            project: tests/StoveDotnet.Oidc.AcceptanceTests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
+        with:
+          global-json-file: global.json
+      - name: Build suite and its dependencies
+        run: dotnet build "${{ matrix.project }}" -c Release
+      - name: Run suite
+        run: dotnet test --project "${{ matrix.project }}" -c Release --no-build
+
   frameworks:
     name: Framework / ${{ matrix.framework }}
     runs-on: ubuntu-latest
