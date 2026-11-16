@@ -28,22 +28,19 @@ public sealed class HostApplicationUnderTest(
     /// <inheritdoc />
     public async Task<IApplicationContext> StartAsync(IReadOnlyDictionary<string, string?> configuration, CancellationToken cancellationToken)
     {
-        return await ApplicationStartGate.RunAsync<IApplicationContext>(async () =>
+        _host = await factory(configuration, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The application factory returned no host.");
+        _host.Services.GetRequiredService<ILoggerFactory>().AddProvider(_logs);
+        try
         {
-            _host = await factory(configuration, cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("The application factory returned no host.");
-            _host.Services.GetRequiredService<ILoggerFactory>().AddProvider(_logs);
-            try
-            {
-                await _host.StartAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logs.AttachStartupLogs(ex);
-                throw;
-            }
-            return new HostContext(_host.Services);
-        }, cancellationToken).ConfigureAwait(false);
+            await _host.StartAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logs.AttachStartupLogs(ex);
+            throw;
+        }
+        return new HostContext(_host.Services);
     }
 
     /// <inheritdoc />

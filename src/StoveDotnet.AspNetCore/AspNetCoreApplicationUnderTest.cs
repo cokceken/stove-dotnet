@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -44,15 +45,15 @@ public sealed class AspNetCoreApplicationUnderTest<TEntryPoint> : IApplicationUn
     public async Task<IApplicationContext> StartAsync(IReadOnlyDictionary<string, string?> configuration, CancellationToken cancellationToken)
     {
         _factory = new StoveWebApplicationFactory(configuration, _options, _logs);
-        _factory.UseKestrel(_options.Port);
+        // The endpoint is part of the Kestrel options, which are applied before the host is built.
+        // WebApplicationFactory.UseKestrel(int port) instead sets the address after the build, while the application's
+        // own entry point is already on its way to starting the server; when the entry point wins, startup fails with
+        // "IServerAddressesFeature.Addresses cannot be modified after the server has started".
+        var port = _options.Port;
+        _factory.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, port));
         try
         {
-            var factory = _factory;
-            await ApplicationStartGate.RunAsync(async () =>
-            {
-                await Task.Run(factory.StartServer, cancellationToken).ConfigureAwait(false);
-                return true;
-            }, cancellationToken).ConfigureAwait(false);
+            await Task.Run(_factory.StartServer, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
