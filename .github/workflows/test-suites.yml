@@ -2,6 +2,11 @@ name: test suites
 
 on:
   workflow_call:
+    inputs:
+      cross-platform:
+        description: Run the container-free suites on Windows and macOS as well.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -61,24 +66,17 @@ jobs:
 
   # The suites above need Linux containers, which hosted Windows and macOS runners do not provide. These suites start
   # no containers, so they cover the core, application hosting, HTTP, WireMock, telemetry and OIDC on both systems.
+  # One job per operating system: the suites take about a minute each, while a macOS runner can take many minutes to
+  # become available, so one wait for a runner is cheaper than four.
   cross-platform:
-    name: ${{ matrix.suite }} / ${{ matrix.os }}
+    name: Cross-platform / ${{ matrix.os }}
+    if: ${{ inputs.cross-platform }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
-        suite: [Core, Hosting, Kafka serialization and configuration, OIDC]
-        include:
-          - suite: Core
-            project: tests/StoveDotnet.UnitTests
-          - suite: Hosting
-            project: tests/StoveDotnet.Hosting.AcceptanceTests
-          - suite: Kafka serialization and configuration
-            project: tests/StoveDotnet.Kafka.UnitTests
-          - suite: OIDC
-            project: tests/StoveDotnet.Oidc.AcceptanceTests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -86,10 +84,23 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
-      - name: Build suite and its dependencies
-        run: dotnet build "${{ matrix.project }}" -c Release
-      - name: Run suite
-        run: dotnet test --project "${{ matrix.project }}" -c Release --no-build
+      - name: Build and run suites
+        shell: pwsh
+        run: |
+          $projects = @(
+            'tests/StoveDotnet.UnitTests',
+            'tests/StoveDotnet.Hosting.AcceptanceTests',
+            'tests/StoveDotnet.Kafka.UnitTests',
+            'tests/StoveDotnet.Oidc.AcceptanceTests')
+          # Every suite runs even when an earlier one fails, so one run reports all failures.
+          $failed = @()
+          foreach ($project in $projects) {
+            Write-Host "==> $project"
+            dotnet build $project -c Release
+            if ($LASTEXITCODE -eq 0) { dotnet test --project $project -c Release --no-build }
+            if ($LASTEXITCODE -ne 0) { $failed += $project }
+          }
+          if ($failed.Count -gt 0) { throw "Failed suites: $($failed -join ', ')" }
 
   frameworks:
     name: Framework / ${{ matrix.framework }}
