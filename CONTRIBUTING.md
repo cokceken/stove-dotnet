@@ -99,13 +99,19 @@ Releases are published by `.github/workflows/release.yml` when a `v*` tag is pus
 
 **Each release:**
 
+1. For a stable version, and for any release with breaking changes, write `release-notes/<tag>.md` (for example
+   `release-notes/v0.2.0.md`) and merge it to `main`. The file becomes the top of the GitHub release, followed by the
+   generated list of changes. A stable tag without this file is rejected; a pre-release may go without.
+2. Tag and push:
+
 ```shell
 git switch main && git pull
 git tag v0.1.0-preview.1
 git push origin v0.1.0-preview.1
 ```
 
-Only tag a commit already contained in `origin/main`. The workflow runs all tests, builds and packs without publishing
+Only tag a commit already contained in `origin/main`. The workflow first rejects a tag whose version is not valid
+SemVer or not higher than every version already on nuget.org, then runs all tests, builds and packs without publishing
 permissions, verifies the exact IDs in `eng/package-manifest.txt`, runs isolated package checks, and uploads a one-day
 artifact. The separate `publish` job then waits for approval on the `nuget.org` environment, exchanges its OIDC token
 for a short-lived NuGet API key, creates a draft GitHub release, pushes the packages, and publishes the now-immutable
