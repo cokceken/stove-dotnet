@@ -11,27 +11,64 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace StoveDotnet.Oidc;
 
+/// <summary>Addresses of the local identity provider and the audience its tokens carry.</summary>
+/// <param name="Issuer">The <c>iss</c> value of issued tokens.</param>
+/// <param name="MetadataAddress">The OpenID Connect discovery document; point the application's JWT bearer
+/// <c>MetadataAddress</c> or <c>Authority</c> here.</param>
+/// <param name="JwksUri">The published signing keys.</param>
+/// <param name="Audience">The <c>aud</c> value of issued tokens.</param>
 public sealed record OidcExposedConfiguration(Uri Issuer, Uri MetadataAddress, Uri JwksUri, string Audience) : IExposedConfiguration;
 
+/// <summary>Options of the local OpenID Connect metadata server and token issuer.</summary>
 public sealed class OidcOptions : SystemOptions<OidcExposedConfiguration>
 {
     /// <summary>Defaults to the local server URL. With a custom issuer, configure the app's MetadataAddress separately.</summary>
     public Uri? Issuer { get; set; }
+    /// <summary>
+    /// The <c>aud</c> claim of issued tokens unless a token overrides it. Defaults to <c>stove-api</c>.
+    /// </summary>
     public string Audience { get; set; } = "stove-api";
     /// <summary>Controls token issuance only, not the validator's clock.</summary>
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 }
 
-public enum OidcTokenSignature { PublishedKey, InvalidSignature, UnknownKey, NoSignature }
+/// <summary>How an issued token is signed, to exercise the application's signature validation.</summary>
+public enum OidcTokenSignature
+{
+    /// <summary>Signed with the key published at the JWKS endpoint. The application accepts it.</summary>
+    PublishedKey,
 
+    /// <summary>Carries the published key id but is signed with another key, so the signature does not verify.</summary>
+    InvalidSignature,
+
+    /// <summary>Signed with a key whose id is not published.</summary>
+    UnknownKey,
+
+    /// <summary>Not signed at all.</summary>
+    NoSignature,
+}
+
+/// <summary>
+/// Per-token overrides for <see cref="OidcSystem.IssueToken"/>. Everything not set comes from the system's options.
+/// </summary>
 public sealed class OidcTokenOptions
 {
+    /// <summary>Overrides the <c>iss</c> claim, for example to test issuer validation.</summary>
     public string? Issuer { get; set; }
+    /// <summary>Overrides the <c>aud</c> claim, for example to test audience validation.</summary>
     public string? Audience { get; set; }
+    /// <summary>Overrides the <c>iat</c> claim. Defaults to the issuer's current time.</summary>
     public DateTimeOffset? IssuedAt { get; set; }
+    /// <summary>Overrides the <c>nbf</c> claim. Defaults to the issue time.</summary>
     public DateTimeOffset? NotBefore { get; set; }
+    /// <summary>Overrides the <c>exp</c> claim. Defaults to five minutes after the issue time.</summary>
     public DateTimeOffset? ExpiresAt { get; set; }
+    /// <summary>
+    /// Claims of the token. Starts with <c>sub = stove-user</c>; add roles, scopes or anything the application
+    /// reads.
+    /// </summary>
     public IDictionary<string, object> Claims { get; } = new Dictionary<string, object> { ["sub"] = "stove-user" };
+    /// <summary>How the token is signed. Defaults to the published key, which the application accepts.</summary>
     public OidcTokenSignature Signature { get; set; }
 }
 
@@ -48,6 +85,7 @@ public sealed class OidcSystem(string? name, OidcOptions options)
     private WebApplication? _server;
     private bool _disposed;
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -107,6 +145,7 @@ public sealed class OidcSystem(string? name, OidcOptions options)
         }
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         lock (_gate)
@@ -120,14 +159,24 @@ public sealed class OidcSystem(string? name, OidcOptions options)
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class OidcStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithOidc(this StoveBuilder builder, Action<OidcOptions>? configure = null) => builder.WithOidc(null, configure);
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithOidc(this StoveBuilder builder, string? name, Action<OidcOptions>? configure = null)
     {
         var options = new OidcOptions();
         configure?.Invoke(options);
         return builder.WithSystem(new OidcSystem(name, options));
     }
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static OidcSystem Oidc(this StoveTestContext test, string? name = null) => test.GetSystem<OidcSystem>(name);
 }

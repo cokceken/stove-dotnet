@@ -2,6 +2,7 @@ using System.Diagnostics;
 
 namespace StoveDotnet;
 
+/// <summary>How <see cref="Eventually"/> polls and which exceptions it treats as "not yet".</summary>
 public sealed class EventuallyOptions
 {
     /// <summary>
@@ -9,6 +10,7 @@ public sealed class EventuallyOptions
     /// exception, <c>UntilAsync</c> retries none. Cancellation is never retried.
     /// </summary>
     public Func<Exception, bool>? RetryOn { get; set; }
+    /// <summary>Pause between attempts. Defaults to 50 ms.</summary>
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromMilliseconds(50);
 }
 
@@ -179,13 +181,19 @@ public static class Eventually
         return last is null ? new StoveTimeoutException(message) : new StoveTimeoutException(message, last);
     }
 }
+/// <summary>
+/// A wait in <see cref="Eventually"/> or a module's <c>Should*</c> method ran out of time. The message reports
+/// elapsed time, attempts and what was last observed; the last retried exception is the inner exception.
+/// </summary>
 public sealed class StoveTimeoutException : TimeoutException
 {
+    /// <summary>Creates the exception with a description of what was waited for and what was observed.</summary>
     public StoveTimeoutException(string message)
         : base(message)
     {
     }
 
+    /// <summary>Creates the exception, keeping the last retried failure as the inner exception.</summary>
     public StoveTimeoutException(string message, Exception innerException)
         : base(message, innerException)
     {
@@ -200,6 +208,10 @@ public sealed class AsyncChangeSignal
     /// <summary>Completes on the next <see cref="Notify"/>. Obtain it before inspecting the store to avoid missing a change.</summary>
     public Task NextChange() => Volatile.Read(ref _next).Task;
 
+    /// <summary>
+    /// Completes the task handed out by <see cref="NextChange"/> and arms a new one. Call it after the store
+    /// changed.
+    /// </summary>
     public void Notify() =>
         Interlocked.Exchange(ref _next, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
 }

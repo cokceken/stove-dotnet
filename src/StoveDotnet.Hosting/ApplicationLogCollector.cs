@@ -19,9 +19,12 @@ public sealed class ApplicationLogCollector : ILoggerProvider, IFailureDetailsPr
     private readonly ConcurrentQueue<Entry> _entries = new();
     private int _count;
 
+    /// <inheritdoc />
     public ILogger CreateLogger(string categoryName) => new Logger(this, categoryName);
+    /// <inheritdoc />
     public void Dispose() { }
 
+    /// <inheritdoc />
     public Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(test);

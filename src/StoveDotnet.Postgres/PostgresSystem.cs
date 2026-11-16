@@ -3,6 +3,14 @@ using Testcontainers.PostgreSql;
 
 namespace StoveDotnet.Postgres;
 
+/// <summary>Connection details of the running PostgreSQL.</summary>
+/// <param name="ConnectionString">Connection string of the running server, ready to map into application
+/// configuration.</param>
+/// <param name="Host">Host name of the server.</param>
+/// <param name="Port">Port of the server.</param>
+/// <param name="Database">Database name.</param>
+/// <param name="Username">User name.</param>
+/// <param name="Password">Password.</param>
 public sealed record PostgresExposedConfiguration(
     string ConnectionString,
     string Host,
@@ -11,16 +19,24 @@ public sealed record PostgresExposedConfiguration(
     string Username,
     string Password) : IExposedConfiguration;
 
+/// <summary>What a PostgreSQL migration receives.</summary>
+/// <param name="DataSource">Stove's data source; open connections or create commands from it.</param>
+/// <param name="Configuration">Connection details of the running server.</param>
 public sealed record PostgresMigrationContext(NpgsqlDataSource DataSource, PostgresExposedConfiguration Configuration);
 
+/// <summary>Options of the PostgreSQL module.</summary>
 public sealed class PostgresOptions : SystemOptions<PostgresExposedConfiguration>
 {
+    /// <summary>Container image. Defaults to <c>postgres:17-alpine</c>.</summary>
     public string Image { get; set; } = "postgres:17-alpine";
 
+    /// <summary>Database created in the container. Defaults to <c>stove</c>.</summary>
     public string Database { get; set; } = "stove";
 
+    /// <summary>User created in the container. Defaults to <c>stove</c>.</summary>
     public string Username { get; set; } = "stove";
 
+    /// <summary>Password of the container user. Defaults to <c>stove</c>.</summary>
     public string Password { get; set; } = "stove";
 
     /// <summary>Further container customization, e.g. <c>b => b.WithCommand("-c", "max_connections=200")</c>.</summary>
@@ -56,6 +72,10 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
     private NpgsqlDataSource? _dataSource;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public PostgresSystem(string? name, PostgresOptions options)
         : base(name, options)
     {
@@ -64,6 +84,7 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
     /// <summary>Raw Npgsql access for anything the DSL does not cover.</summary>
     public NpgsqlDataSource DataSource => _dataSource ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         string connectionString;
@@ -136,6 +157,7 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
         return command;
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -151,11 +173,17 @@ public sealed class PostgresSystem : ExposingSystem<PostgresOptions, PostgresExp
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class PostgresStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithPostgres(this StoveBuilder builder, Action<PostgresOptions>? configure = null) =>
         builder.WithPostgres(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithPostgres(this StoveBuilder builder, string? name, Action<PostgresOptions>? configure = null)
     {
         var options = new PostgresOptions();
@@ -163,5 +191,9 @@ public static class PostgresStoveExtensions
         return builder.WithSystem(new PostgresSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static PostgresSystem Postgres(this StoveTestContext test, string? name = null) => test.GetSystem<PostgresSystem>(name);
 }

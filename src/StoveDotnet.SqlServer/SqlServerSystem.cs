@@ -3,6 +3,11 @@ using Testcontainers.MsSql;
 
 namespace StoveDotnet.SqlServer;
 
+/// <summary>Connection details of the running SQL Server.</summary>
+/// <param name="ConnectionString">Connection string of the running server, ready to map into application
+/// configuration.</param>
+/// <param name="Server">Host and port in SQL Server's <c>host,port</c> form.</param>
+/// <param name="Database">Database name.</param>
 public sealed record SqlServerExposedConfiguration(string ConnectionString, string Server, string Database) : IExposedConfiguration;
 
 /// <summary>Opens native connections for migrations and cleanup. The caller disposes each connection.</summary>
@@ -10,15 +15,22 @@ public sealed record SqlServerMigrationContext(
     Func<CancellationToken, Task<SqlConnection>> OpenConnectionAsync,
     SqlServerExposedConfiguration Configuration);
 
+/// <summary>Options of the SQL Server module.</summary>
 public sealed class SqlServerOptions : SystemOptions<SqlServerExposedConfiguration>
 {
+    /// <summary>
+    /// Container image. Defaults to the SQL Server 2022 tag; set a fixed tag or digest for a reproducible
+    /// environment.
+    /// </summary>
     public string Image { get; set; } = "mcr.microsoft.com/mssql/server:2022-latest";
 
     /// <summary>Database created in the managed container. Existing instances use their connection string's database.</summary>
     public string Database { get; set; } = "stove";
 
+    /// <summary>Password of the <c>sa</c> login in the container.</summary>
     public string Password { get; set; } = "Stove_password123!";
 
+    /// <summary>Further container customization.</summary>
     public Func<MsSqlBuilder, MsSqlBuilder>? ConfigureContainer { get; set; }
 
     /// <summary>Configures each native connection before opening it, e.g. an access-token callback.</summary>
@@ -51,10 +63,15 @@ public sealed class SqlServerSystem : ExposingSystem<SqlServerOptions, SqlServer
     private SqlServerMigrationContext? _context;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public SqlServerSystem(string? name, SqlServerOptions options) : base(name, options)
     {
     }
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -126,6 +143,9 @@ public sealed class SqlServerSystem : ExposingSystem<SqlServerOptions, SqlServer
         }
     }
 
+    /// <summary>
+    /// Executes a statement (for example seeding test data) and returns the number of affected rows.
+    /// </summary>
     public async Task<int> Execute(string sql, params SqlParameter[] parameters)
     {
         var test = StoveTestContext.Require();
@@ -137,6 +157,7 @@ public sealed class SqlServerSystem : ExposingSystem<SqlServerOptions, SqlServer
         return await command.ExecuteNonQueryAsync(test.CancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Runs a query once and maps every row.</summary>
     public async Task<IReadOnlyList<T>> Query<T>(string sql, Func<SqlDataReader, T> map, params SqlParameter[] parameters)
     {
         ArgumentNullException.ThrowIfNull(map);
@@ -156,6 +177,7 @@ public sealed class SqlServerSystem : ExposingSystem<SqlServerOptions, SqlServer
         return rows;
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -170,11 +192,17 @@ public sealed class SqlServerSystem : ExposingSystem<SqlServerOptions, SqlServer
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class SqlServerStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithSqlServer(this StoveBuilder builder, Action<SqlServerOptions>? configure = null) =>
         builder.WithSqlServer(name: null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithSqlServer(this StoveBuilder builder, string? name, Action<SqlServerOptions>? configure = null)
     {
         var options = new SqlServerOptions();
@@ -182,5 +210,9 @@ public static class SqlServerStoveExtensions
         return builder.WithSystem(new SqlServerSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static SqlServerSystem SqlServer(this StoveTestContext test, string? name = null) => test.GetSystem<SqlServerSystem>(name);
 }

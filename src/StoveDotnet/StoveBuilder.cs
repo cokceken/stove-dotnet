@@ -10,8 +10,12 @@ public sealed class StoveBuilder
     {
     }
 
+    /// <summary>
+    /// Starts describing an environment. Add systems and applications, then call <see cref="StartAsync"/>.
+    /// </summary>
     public static StoveBuilder Create() => new();
 
+    /// <summary>Environment-wide options.</summary>
     public StoveOptions Options { get; } = new();
 
     /// <summary>Resolves a registered system for configuring dependent systems before startup.</summary>
@@ -43,6 +47,7 @@ public sealed class StoveBuilder
         return this;
     }
 
+    /// <summary>Changes environment-wide options.</summary>
     public StoveBuilder Configure(Action<StoveOptions> configure)
     {
         configure(Options);
@@ -75,6 +80,7 @@ public sealed class StoveBuilder
     }
 }
 
+/// <summary>Options that apply to the whole environment rather than to one system.</summary>
 public sealed class StoveOptions
 {
     /// <summary>How long failure details providers (e.g. telemetry) may wait for late data when a test fails.</summary>

@@ -19,12 +19,12 @@ public sealed class RabbitFixture : IAsyncLifetime
     {
         options.ConfigureExposedConfiguration = c => [new($"Rabbit:{name}", c.ConnectionString)];
         options.ConfigureClient = c => c.ClientProvidedName = "stove-contract";
-        options.Setup.Add(async (ctx, ct) =>
+        options.Migrations.Add(async (ctx, ct) =>
         {
             await ctx.Channel.QueueDeclareAsync("orders.work", false, false, false, cancellationToken: ct);
             await ctx.Channel.QueueBindAsync("orders.work", "orders", "orders.submit", cancellationToken: ct);
         }, order: 2);
-        options.Setup.Add((ctx, ct) => ctx.Channel.ExchangeDeclareAsync("orders", ExchangeType.Topic, cancellationToken: ct), order: 1);
+        options.Migrations.Add((ctx, ct) => ctx.Channel.ExchangeDeclareAsync("orders", ExchangeType.Topic, cancellationToken: ct), order: 1);
         options.Bindings.Add(new("orders", "orders.#"));
     }
     public async ValueTask InitializeAsync()
@@ -118,7 +118,7 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
             await ready.Task.WaitAsync(TimeSpan.FromSeconds(10), t.CancellationToken);
             await t.RabbitMq("Primary").Publish("orders", "orders.created", new TestWork(t.TestId, "parallel"));
             await t.RabbitMq("Primary").ShouldBePublished<TestWork>(m => m.Value.Id == t.TestId);
-            Assert.All(t.RabbitMq("Primary").Peek<TestWork>(), m => Assert.Equal(t.TestId, m.Value.Id));
+            Assert.All(await t.RabbitMq("Primary").Peek<TestWork>(), m => Assert.Equal(t.TestId, m.Value.Id));
         })));
     }
 
@@ -127,7 +127,7 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
     {
         string queue;
         RabbitMqSystem system = null!;
-        await using (var stove = await Existing(o => o.Setup.Add((_, _) => throw new InvalidOperationException("must not run"))))
+        await using (var stove = await Existing(o => o.Migrations.Add((_, _) => throw new InvalidOperationException("must not run"))))
         {
             await stove.Test(async t =>
             {
@@ -165,7 +165,7 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
         string connectionString = "";
         var error = await Assert.ThrowsAsync<AggregateException>(() => StoveBuilder.Create().WithRabbitMq(o =>
         {
-            o.Setup.Add((ctx, _) => { connectionString = ctx.Configuration.ConnectionString; throw original; });
+            o.Migrations.Add((ctx, _) => { connectionString = ctx.Configuration.ConnectionString; throw original; });
             o.Cleanup = (_, _) => throw new InvalidOperationException("rollback failed");
         }).StartAsync(TestContext.Current.CancellationToken));
         Assert.Same(original, Assert.IsType<StoveStartupException>(error.InnerExceptions[0]).InnerException);
@@ -177,7 +177,7 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
     public async Task Missing_endpoint_is_validated_without_setup()
     {
         var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithRabbitMq(o =>
-            o.UseExisting("amqp://stove:stove@127.0.0.1:1", runSetup: false)).StartAsync(TestContext.Current.CancellationToken));
+            o.UseExisting("amqp://stove:stove@127.0.0.1:1", runMigrations: false)).StartAsync(TestContext.Current.CancellationToken));
         Assert.IsType<BrokerUnreachableException>(error.InnerException);
     }
 
@@ -257,9 +257,9 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
             await NativePublish(channel, "invalid", new Dictionary<string, object?> { [StoveHeaders.TestId] = t.TestId, [StoveHeaders.Traceparent] = "invalid" }, t.CancellationToken);
             await NativePublish(channel, "trace", new Dictionary<string, object?> { [StoveHeaders.Traceparent] = System.Text.Encoding.UTF8.GetBytes(t.Traceparent) }, t.CancellationToken);
             await t.RabbitMq().ShouldBePublished<TestWork>(m => m.Value.Id == "trace");
-            Assert.Equal(["trace"], t.RabbitMq().Peek<TestWork>().Select(m => m.Value.Id));
+            Assert.Equal(["trace"], (await t.RabbitMq().Peek<TestWork>()).Select(m => m.Value.Id));
         });
-        await stove.Test(t => { Assert.Empty(t.RabbitMq().Peek<TestWork>()); return Task.CompletedTask; });
+        await stove.Test(async t => Assert.Empty(await t.RabbitMq().Peek<TestWork>()));
     }
 
     [Fact]
@@ -270,8 +270,8 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
             builder.WithRabbitMq(name, o =>
             {
                 RabbitFixture.Configure(o, name);
-                o.UseExisting(system.ExposedConfiguration.ConnectionString, runSetup: false);
-                o.Setup.Add((_, _) => throw new InvalidOperationException("must not run"));
+                o.UseExisting(system.ExposedConfiguration.ConnectionString, runMigrations: false);
+                o.Migrations.Add((_, _) => throw new InvalidOperationException("must not run"));
             });
         await using (var stove = await builder.WithHttpClient().WithAspNetCoreApplication<Program>().StartAsync(TestContext.Current.CancellationToken))
             await stove.Test(async t =>
@@ -312,7 +312,7 @@ public sealed class RabbitMqTests(RabbitFixture fixture) : IClassFixture<RabbitF
 
     private Task<Stove> Existing(Action<RabbitMqOptions>? configure = null) => StoveBuilder.Create().WithRabbitMq(o =>
     {
-        o.UseExisting(fixture.Primary.ExposedConfiguration.ConnectionString, runSetup: false);
+        o.UseExisting(fixture.Primary.ExposedConfiguration.ConnectionString, runMigrations: false);
         o.Bindings.Add(new("orders", "orders.#"));
         configure?.Invoke(o);
     }).StartAsync(TestContext.Current.CancellationToken);

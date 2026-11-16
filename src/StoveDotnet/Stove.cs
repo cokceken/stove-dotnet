@@ -278,6 +278,10 @@ public sealed class Stove : IAsyncDisposable
         return string.IsNullOrEmpty(fileName) ? testMethod : $"{fileName}.{testMethod}";
     }
 
+    /// <summary>
+    /// Stops the applications in reverse start order, then the systems in reverse dependency order. Every step is
+    /// attempted; failures are reported together in an <see cref="AggregateException"/>.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -333,6 +337,7 @@ public sealed class StoveStartupException : Exception
         Failures = failures;
     }
 
+    /// <summary>One entry per system or application that failed. A single failure contains itself.</summary>
     public IReadOnlyList<StoveStartupException> Failures { get; }
 
     private static string BuildMessage(string subject, string outcome, Exception cause)
@@ -343,6 +348,10 @@ public sealed class StoveStartupException : Exception
     }
 }
 
+/// <summary>
+/// A test body failed inside <see cref="Stove.Test"/>. The message starts with the original failure and continues
+/// with what each system observed for the test; the original exception is the inner exception.
+/// </summary>
 public sealed class StoveTestFailedException : Exception
 {
     internal StoveTestFailedException(StoveTestContext test, Exception error, IReadOnlyList<FailureDetails> details)
@@ -353,10 +362,13 @@ public sealed class StoveTestFailedException : Exception
         Details = details;
     }
 
+    /// <summary>Name of the failed test, derived from its file and method.</summary>
     public string TestName { get; }
 
+    /// <summary>W3C trace id of the failed test, for finding it in logs and traces.</summary>
     public string TraceId { get; }
 
+    /// <summary>The sections of the report, one per system or application that had something to say.</summary>
     public IReadOnlyList<FailureDetails> Details { get; }
 
     private static string BuildMessage(StoveTestContext test, Exception error, IReadOnlyList<FailureDetails> details)
