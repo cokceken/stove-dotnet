@@ -4,18 +4,39 @@ using Testcontainers.Kafka;
 
 namespace StoveDotnet.Kafka;
 
-public enum KafkaSecurityMode { Plaintext, Tls, MutualTls }
+/// <summary>How Stove's clients, and a broker Stove starts, secure their connections.</summary>
+public enum KafkaSecurityMode
+{
+    /// <summary>No encryption or authentication.</summary>
+    Plaintext,
+
+    /// <summary>TLS: clients verify the broker certificate.</summary>
+    Tls,
+
+    /// <summary>TLS with client certificates: the broker also verifies the client.</summary>
+    MutualTls,
+}
 
 /// <summary>PEM certificates for Stove clients and, when managed, the broker's external listener.</summary>
 public sealed class KafkaSecurityOptions
 {
+    /// <summary>
+    /// Whether connections are plaintext, TLS, or TLS with client certificates. Defaults to plaintext.
+    /// </summary>
     public KafkaSecurityMode Mode { get; set; }
+    /// <summary>PEM file of the certificate authority that signed the broker certificate.</summary>
     public string? CaCertificateLocation { get; set; }
+    /// <summary>PEM file of the client certificate, for mutual TLS.</summary>
     public string? ClientCertificateLocation { get; set; }
+    /// <summary>PEM file of the client private key, for mutual TLS.</summary>
     public string? ClientKeyLocation { get; set; }
+    /// <summary>Password of the client private key, when it is encrypted.</summary>
     public string? ClientKeyPassword { get; set; }
+    /// <summary>PEM file of the broker certificate. Required when Stove starts a secured broker.</summary>
     public string? BrokerCertificateLocation { get; set; }
+    /// <summary>PEM file of the broker private key. Required when Stove starts a secured broker.</summary>
     public string? BrokerKeyLocation { get; set; }
+    /// <summary>Password of the broker private key, when it is encrypted.</summary>
     public string? BrokerKeyPassword { get; set; }
 
     internal void Validate(bool managed)

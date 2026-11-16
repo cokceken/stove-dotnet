@@ -32,13 +32,10 @@ need a feasibility check before committing each service. Share emulator lifecycl
 
 | Work | Current gap | Recommendation |
 | --- | --- | --- |
-| Unmapped configuration | A system whose `ConfigureExposedConfiguration` maps nothing starts silently, and the application keeps the connection details from its own settings | Fail or warn at startup, with an explicit opt-out for systems only the test uses |
-| WireMock correlation | Requests without correlation headers are visible to every test, while the brokers exclude uncorrelated data by default | Offer the brokers' strict policy for WireMock, or document why HTTP differs |
 | WireMock request log | The log of each WireMock server grows for the whole run and is scanned on every read. WireMock.Net drops incoming requests from the log when entries are removed while requests arrive, so Stove does not trim it | Revisit if WireMock.Net makes removal safe, or keep a per-test index beside the log |
 | Operation diagnostics | PostgreSQL, SQL Server, MongoDB, MySQL and Redis contribute nothing to a failure report | Add bounded per-test operation reports, with a deliberate policy for SQL, parameters and sensitive values |
 | Processing semantics | Kafka committed offsets do not establish successful business processing | Keep documentation precise; design stronger adapters only for a concrete use case |
-| Redis acceptance depth | One dedicated test plus composition coverage | Add existing-service ownership, cleanup-failure and cancellation/readiness cases |
-| Version/platform coverage | CI runs Linux x64 only | Record tested combinations and add CI coverage where users need it |
+| Version/platform coverage | Container-backed suites run on Linux x64 only; Windows and macOS run the container-free suites | Record tested combinations and add coverage where users need it |
 
 Kafka transient observer lag and broader fault-injection coverage also remain limitations; bounded absence assertions
 do not establish broker-wide absence.

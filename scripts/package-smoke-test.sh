@@ -121,7 +121,7 @@ _ = (Func<StoveTestContext, Task>)(async t =>
 });
 
 _ = StoveBuilder.Create().WithAzureServiceBus(o =>
-    o.UseExisting("example.servicebus.windows.net", new DefaultAzureCredential(), runTopologySetup: false));
+    o.UseExisting("example.servicebus.windows.net", new DefaultAzureCredential(), runMigrations: false));
 
 // Compile native document/relational APIs without containers.
 _ = (Func<StoveTestContext, Task>)(t => t.MongoDb("documents").Query("records", Builders<BsonDocument>.Filter.Empty));

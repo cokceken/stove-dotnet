@@ -34,7 +34,7 @@ var stove = await StoveBuilder.Create()
 
 Topology uses the Azure SDK's `CreateQueueOptions`, `CreateTopicOptions`, `CreateSubscriptionOptions` and
 `CreateRuleOptions`. Missing entities and rules are created before applications start; existing entities are not
-silently updated. `Setup` adds ordered native callbacks after typed topology. The emulator container is destroyed with
+silently updated. `Migrations` adds ordered native callbacks after typed topology. The emulator container is destroyed with
 the environment. Stable topology is shared by all test scopes and is not purged between tests.
 
 ## Existing namespaces and passwordless authentication
@@ -43,7 +43,7 @@ the environment. Stable topology is shared by all test scopes and is not purged 
 .WithAzureServiceBus(o => o.UseExisting(
     "orders.servicebus.windows.net",
     new DefaultAzureCredential(),
-    runTopologySetup: false))
+    runMigrations: false))
 ```
 
 The overload accepts any `Azure.Core.TokenCredential`, including `DefaultAzureCredential`, managed/workload identity
@@ -55,7 +55,7 @@ Expose `FullyQualifiedNamespace` to applications using passwordless authenticati
 `ConnectionString`; the application should select connection string when present and namespace plus its normal
 credential otherwise.
 
-`runTopologySetup: false` is the safe default for existing namespaces. Sending requires the Azure Service Bus Data
+`runMigrations: false` is the safe default for existing namespaces. Sending requires the Azure Service Bus Data
 Sender role, receiving requires Data Receiver, and topology administration generally requires Data Owner. A
 least-privileged production application should not be granted ownership merely to make tests convenient. Token/RBAC
 behavior requires an opt-in test against real Azure because the emulator does not support Entra ID.

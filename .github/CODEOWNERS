@@ -7,3 +7,6 @@
 /NuGet.Config @cokceken
 /eng/package-manifest.txt @cokceken
 /scripts/verify-package-manifest.ps1 @cokceken
+/scripts/verify-release-version.ps1 @cokceken
+/scripts/release-version.ps1 @cokceken
+/scripts/get-package-push-order.ps1 @cokceken

@@ -29,9 +29,11 @@
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- API docs in the package, for IDEs and AI agents reading the NuGet cache. -->
+    <!--
+      API docs in the package, for IDEs and AI agents reading the NuGet cache. A public member without a doc comment
+      is a build error (CS1591 with warnings as errors), so the reference cannot fall behind the API.
+    -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <!-- SourceLink (built into the .NET SDK) and symbols. -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

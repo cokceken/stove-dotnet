@@ -3,8 +3,16 @@ using Azure.Messaging.ServiceBus;
 
 namespace StoveDotnet.Azure.ServiceBus;
 
+/// <summary>A message read from Service Bus with its body deserialized.</summary>
+/// <param name="Value">The deserialized JSON body.</param>
+/// <param name="NativeMessage">The SDK message, for properties, sequence number and state.</param>
 public sealed record AzureServiceBusMessage<T>(T Value, ServiceBusReceivedMessage NativeMessage);
 
+/// <summary>
+/// A queue, topic or subscription of the running namespace. Obtain it from <see
+/// cref="AzureServiceBusSystem.Queue"/>, <see cref="AzureServiceBusSystem.Topic"/> or <see
+/// cref="AzureServiceBusSystem.Subscription"/>.
+/// </summary>
 public sealed class AzureServiceBusEntity
 {
     private readonly AzureServiceBusSystem _system;
@@ -22,6 +30,10 @@ public sealed class AzureServiceBusEntity
         _canSend = canSend;
     }
 
+    /// <summary>
+    /// Publishes <paramref name="value"/> as JSON to the queue or topic, carrying the running test's correlation
+    /// properties.
+    /// </summary>
     public async Task Publish<T>(T value, IDictionary<string, object>? applicationProperties = null)
         => await Publish(_system.CreateMessage(value, applicationProperties)).ConfigureAwait(false);
 
@@ -37,6 +49,10 @@ public sealed class AzureServiceBusEntity
         await sender.SendMessageAsync(message, test.CancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Schedules <paramref name="value"/> as JSON for delivery at <paramref name="enqueueAt"/> and returns the
+    /// sequence number, which can cancel it.
+    /// </summary>
     public async Task<long> Schedule<T>(T value, DateTimeOffset enqueueAt, IDictionary<string, object>? applicationProperties = null)
         => await Schedule(_system.CreateMessage(value, applicationProperties), enqueueAt).ConfigureAwait(false);
 
@@ -64,6 +80,10 @@ public sealed class AzureServiceBusEntity
         return messages.Where(m => _system.Owns(m, test)).Select(Deserialize<T>).Where(m => m is not null).Cast<AzureServiceBusMessage<T>>().ToArray();
     }
 
+    /// <summary>
+    /// Waits until a scheduled message of the running test matches <paramref name="condition"/>. Inspects broker
+    /// state without receiving, so the message stays scheduled.
+    /// </summary>
     public async Task<AzureServiceBusMessage<T>> ShouldBeScheduled<T>(
         Func<AzureServiceBusMessage<T>, bool> condition,
         TimeSpan? timeout = null)
@@ -143,6 +163,10 @@ public sealed class AzureServiceBusEntity
     }
 }
 
+/// <summary>
+/// A message received in peek-lock mode. Settle it exactly once with <see cref="Complete"/>, <see cref="Abandon"/>,
+/// <see cref="DeadLetter"/> or <see cref="Defer"/>, then dispose it.
+/// </summary>
 public sealed class AzureServiceBusDelivery<T> : IAsyncDisposable
 {
     private readonly ServiceBusReceiver _receiver;
@@ -157,14 +181,22 @@ public sealed class AzureServiceBusDelivery<T> : IAsyncDisposable
         _cancellationToken = cancellationToken;
     }
 
+    /// <summary>The deserialized JSON body.</summary>
     public T Value { get; }
+    /// <summary>The SDK message, for properties, delivery count and lock details.</summary>
     public ServiceBusReceivedMessage NativeMessage { get; }
 
+    /// <summary>Completes the message, removing it from the entity.</summary>
     public Task Complete() => Settle(ct => _receiver.CompleteMessageAsync(NativeMessage, ct));
+    /// <summary>
+    /// Releases the lock so the message is delivered again, optionally changing application properties.
+    /// </summary>
     public Task Abandon(IDictionary<string, object>? propertiesToModify = null) =>
         Settle(ct => _receiver.AbandonMessageAsync(NativeMessage, propertiesToModify, ct));
+    /// <summary>Moves the message to the dead-letter subqueue with an optional reason and description.</summary>
     public Task DeadLetter(string? reason = null, string? description = null) =>
         Settle(ct => _receiver.DeadLetterMessageAsync(NativeMessage, reason, description, ct));
+    /// <summary>Defers the message; it can only be received again by its sequence number.</summary>
     public Task Defer(IDictionary<string, object>? propertiesToModify = null) =>
         Settle(ct => _receiver.DeferMessageAsync(NativeMessage, propertiesToModify, ct));
 
@@ -184,6 +216,7 @@ public sealed class AzureServiceBusDelivery<T> : IAsyncDisposable
         }
     }
 
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.CompareExchange(ref _settled, 1, 0) == 0)
