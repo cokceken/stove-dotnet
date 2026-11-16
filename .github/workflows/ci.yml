@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request replaces its running checks. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   tests:
     uses: ./.github/workflows/test-suites.yml

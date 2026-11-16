@@ -21,6 +21,10 @@ concurrency:
 jobs:
   tests:
     uses: ./.github/workflows/test-suites.yml
+    with:
+      # The tag must be on main, where CI ran the Windows and macOS suites for this commit. Waiting for a macOS
+      # runner again only delays the release; the packages are built and verified on Linux.
+      cross-platform: false
 
   prepare:
     needs: tests
