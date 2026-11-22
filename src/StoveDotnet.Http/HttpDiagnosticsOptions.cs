@@ -5,13 +5,21 @@ namespace StoveDotnet.Http;
 /// <summary>Controls diagnostic text only; never changes the request, RawBody or response headers.</summary>
 public sealed class HttpDiagnosticsOptions
 {
+    /// <summary>Maximum number of body characters shown. Defaults to 2048.</summary>
     public int MaxBodyLength { get; set; } = 2048;
     /// <summary>Opt in to buffering request content for diagnostics. Leave false for streaming or binary uploads.</summary>
     public bool IncludeRequestBody { get; set; }
+    /// <summary>
+    /// Headers whose values are replaced by <c>[redacted]</c>. Pre-populated with common credential headers; add
+    /// your own.
+    /// </summary>
     public ISet<string> SensitiveHeaders { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         { "Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "X-Device-Key" };
+    /// <summary>Rewrites the URL before it is shown. The query string is already removed.</summary>
     public Func<string, string>? RedactUrl { get; set; }
+    /// <summary>Rewrites the request body before it is shown.</summary>
     public Func<string, string>? RedactRequestBody { get; set; }
+    /// <summary>Rewrites the response body before it is shown.</summary>
     public Func<string, string>? RedactResponseBody { get; set; }
 
     internal string Body(string body, bool request = false)

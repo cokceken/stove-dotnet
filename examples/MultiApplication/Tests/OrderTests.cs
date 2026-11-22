@@ -31,7 +31,7 @@ public sealed class EnvironmentFixture : IAsyncLifetime
         .WithRabbitMq(o =>
         {
             o.ConfigureExposedConfiguration = c => [new("Rabbit:Uri", c.ConnectionString)];
-            o.Setup.Add(async (ctx, ct) =>
+            o.Migrations.Add(async (ctx, ct) =>
             {
                 await ctx.Channel.ExchangeDeclareAsync("orders", ExchangeType.Direct, cancellationToken: ct);
                 await ctx.Channel.QueueDeclareAsync("orders.work", false, false, false, cancellationToken: ct);

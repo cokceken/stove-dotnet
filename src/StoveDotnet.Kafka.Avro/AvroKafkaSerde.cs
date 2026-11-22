@@ -12,6 +12,7 @@ public sealed class AvroKafkaSerde(Func<ISchemaRegistryClient> client, AvroSeria
     private readonly ConcurrentDictionary<Type, object> _serializers = new();
     private readonly ConcurrentDictionary<Type, object> _deserializers = new();
 
+    /// <inheritdoc />
     public async Task<byte[]> SerializeAsync<T>(T value, SerializationContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -19,6 +20,7 @@ public sealed class AvroKafkaSerde(Func<ISchemaRegistryClient> client, AvroSeria
         return await serializer.SerializeAsync(value, context).WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public async Task<T> DeserializeAsync<T>(byte[] data, SerializationContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -28,6 +30,7 @@ public sealed class AvroKafkaSerde(Func<ISchemaRegistryClient> client, AvroSeria
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class AvroKafkaStoveExtensions
 {
     /// <summary>Uses registry-backed Avro values for Publish and all Kafka observation assertions. Register Kafka and the registry first.</summary>

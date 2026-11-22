@@ -23,13 +23,16 @@ public sealed partial class PathTemplate
         _regex = new Regex(Pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
+    /// <summary>The template as written, for example <c>/stock/{productId}</c>.</summary>
     public string Template { get; }
 
     /// <summary>The anchored regular expression the template compiles to.</summary>
     public string Pattern { get; }
 
+    /// <summary>Placeholder names in the order they appear.</summary>
     public IReadOnlyList<string> ParameterNames { get; }
 
+    /// <summary>Parses a template. Parsed templates are cached.</summary>
     public static PathTemplate Parse(string template)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(template);
@@ -45,6 +48,7 @@ public sealed partial class PathTemplate
         }
     }
 
+    /// <summary>Whether <paramref name="path"/> fits the template.</summary>
     public bool IsMatch(string? path) => path is not null && _regex.IsMatch(path);
 
     /// <summary>Extracts placeholder values from <paramref name="path"/>; returns false when it does not match.</summary>
@@ -71,6 +75,7 @@ public sealed partial class PathTemplate
         return true;
     }
 
+    /// <summary>The template as written.</summary>
     public override string ToString() => Template;
 
     private static string BuildPattern(string template, out List<string> parameterNames)
@@ -100,6 +105,7 @@ public sealed partial class PathTemplate
     private static partial Regex Placeholder();
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class PathTemplateRequestBuilderExtensions
 {
     /// <summary>Matches requests whose path fits an OpenAPI-style template, e.g. <c>/stock/{productId}</c>.</summary>

@@ -124,7 +124,7 @@ public sealed class OrderTests(StoveFixture fixture)
             Assert.Equal([paymentId], await t.Postgres().Query(
                 "select payment_id from orders where id = @id", r => r.GetString(0), new NpgsqlParameter("id", orderId)));
             await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == orderId);
-            Assert.All(await t.Kafka().PeekAsync<OrderCreated>("orders.created"), m => Assert.Equal(orderId, m.Value.OrderId));
+            Assert.All(await t.Kafka().Peek<OrderCreated>("orders.created"), m => Assert.Equal(orderId, m.Value.OrderId));
         }, TestContext.Current.CancellationToken)));
     }
 

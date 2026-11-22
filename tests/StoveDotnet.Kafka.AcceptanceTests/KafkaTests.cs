@@ -83,7 +83,7 @@ public sealed class KafkaTests(KafkaFixture fixture) : IClassFixture<KafkaFixtur
             await t.Kafka().Publish("orders.created", new OrderCreated("mine", 1m));
             await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "mine");
 
-            Assert.DoesNotContain(await t.Kafka().PeekAsync<OrderCreated>("orders.created"), m => m.Value.OrderId == "isolated");
+            Assert.DoesNotContain(await t.Kafka().Peek<OrderCreated>("orders.created"), m => m.Value.OrderId == "isolated");
         });
     }
 
@@ -126,7 +126,7 @@ public sealed class KafkaTests(KafkaFixture fixture) : IClassFixture<KafkaFixtur
         var headers = new Headers { { StoveHeaders.Traceparent, System.Text.Encoding.UTF8.GetBytes(t.Traceparent) } };
         await producer.ProduceAsync("orders.created", new Message<Null, string> { Value = "{\"orderId\":\"barrier\",\"amount\":1}", Headers = headers }, t.CancellationToken);
         await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "barrier");
-        Assert.DoesNotContain(await t.Kafka().PeekAsync<OrderCreated>(), m => m.Value.OrderId == id);
+        Assert.DoesNotContain(await t.Kafka().Peek<OrderCreated>(), m => m.Value.OrderId == id);
     }, TestContext.Current.CancellationToken);
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class KafkaTests(KafkaFixture fixture) : IClassFixture<KafkaFixtur
         }, TestContext.Current.CancellationToken));
         Assert.Contains("retention limit", error.InnerException!.Message, StringComparison.Ordinal);
         Assert.Contains(error.Details, d => d.Content.Contains("retention limit", StringComparison.Ordinal));
-        await stove.Test(async t => Assert.Empty(await t.Kafka().PeekAsync<OrderCreated>()));
+        await stove.Test(async t => Assert.Empty(await t.Kafka().Peek<OrderCreated>()));
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public sealed class KafkaTests(KafkaFixture fixture) : IClassFixture<KafkaFixtur
         {
             await t.Kafka().Publish("orders.created", new OrderCreated("barrier", 1));
             await t.Kafka().ShouldBePublished<OrderCreated>(m => m.Value.OrderId == "barrier");
-            Assert.DoesNotContain(await t.Kafka().PeekAsync<OrderCreated>(), m => m.Value.OrderId == id);
+            Assert.DoesNotContain(await t.Kafka().Peek<OrderCreated>(), m => m.Value.OrderId == id);
         });
     }
 

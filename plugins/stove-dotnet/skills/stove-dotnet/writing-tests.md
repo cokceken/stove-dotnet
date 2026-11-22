@@ -108,7 +108,7 @@ await t.Kafka().PublishRaw(topic, bytes, key: null, headers: null);
 ObservedMessage<T> m = await t.Kafka().ShouldBePublished<T>(m => m.Value.OrderId == id, timeout: null, topic: null);
 ObservedMessage<T> m = await t.Kafka().ShouldBeConsumed<T>(m => m.Value.OrderId == id, timeout: null, topic: null, consumerGroup: "order-service");
 ObservedMessage<T> m = await t.Kafka().ShouldBeFailed<T>(m => ..., timeout: null);   // on topics ending with .error / .DLT
-IReadOnlyList<ObservedMessage<T>> seen = await t.Kafka().PeekAsync<T>(topic: "orders.created"); // no waiting
+IReadOnlyList<ObservedMessage<T>> seen = await t.Kafka().Peek<T>(topic: "orders.created"); // no waiting
 m.Value; m.Key; m.Topic; m.Headers; m.Record.Partition; m.Record.Offset;
 ```
 
@@ -212,7 +212,7 @@ await Eventually.AssertAsync(async () =>
     TimeSpan.FromSeconds(10), t.CancellationToken);
 ```
 
-Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `within:`, telemetry
+Never use `Task.Delay` to wait for the app. Use Kafka `ShouldBe*` waits, WireMock `ShouldHaveBeenCalled` (it waits), telemetry
 `ShouldContainSpan`, or `Eventually`.
 
 `AssertAsync` retries every exception except cancellation, so assertions from xUnit, NUnit, MSTest or TUnit work as
@@ -301,7 +301,7 @@ await t.RabbitMq().Publish("orders", "orders.submit", new { id, value = "hello" 
 RabbitMqMessage<JsonElement> message = await t.RabbitMq().ShouldBePublished<JsonElement>(
     m => m.Value.GetProperty("id").GetString() == id, routingKey: "orders.processed");
 await t.RabbitMq().ShouldNotBePublished<JsonElement>(_ => true, TimeSpan.FromMilliseconds(200), routingKey: "orders.failed");
-IReadOnlyList<RabbitMqMessage<JsonElement>> records = t.RabbitMq().Peek<JsonElement>();
+IReadOnlyList<RabbitMqMessage<JsonElement>> records = await t.RabbitMq().Peek<JsonElement>();
 ```
 
 `Publish` waits for publisher confirmation with mandatory routing enabled by default. An unroutable message raises

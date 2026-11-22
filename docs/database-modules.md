@@ -59,7 +59,9 @@ application's own SQL client.
 ## Redis
 
 Reference `StoveDotnet.Redis`. Tests use StackExchange.Redis directly through `Multiplexer` and `Database(db)`.
-Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer` and `UseExisting`.
+Options: `Migrations`, `Cleanup`, `Image`, `ConfigureContainer`, `ConfigureClient` (customizes the
+`ConfigurationOptions` of Stove's own client) and `UseExisting`. Stove connects before the application starts, so an
+unreachable server fails startup; cleanup callbacks also run against an existing server, which Stove never stops.
 
 ## Test isolation
 
@@ -83,15 +85,15 @@ Register with `WithMongoDb(configure)` or `WithMongoDb(name, configure)`; resolv
 | `ReplicaSet` | Defaults to `stove-rs`, a single-node replica set; set null for standalone |
 | `ConfigureContainer` | Customize the native `MongoDbBuilder` before building |
 | `ConfigureClient` | Customize `MongoClientSettings` before Stove creates its client |
-| `UseExisting(connectionString, database, runSetup: true)` | Explicit database selection on an external server; no container or topology changes |
-| `Setup.Add((ctx, ct) => ..., order)` | Ordered collection/index/seed setup before application startup |
+| `UseExisting(connectionString, database, runMigrations: true)` | Explicit database selection on an external server; no container or topology changes |
+| `Migrations.Add((ctx, ct) => ..., order)` | Ordered collection/index/seed setup before application startup |
 | `Cleanup` | Receives the setup context at environment disposal, including on external endpoints |
 | `ExposedConfiguration` | Original connection string and selected database, mapped to application keys by the caller |
 | `Client`, `Database`, `Collection<T>(name, settings)` | Native APIs; collection settings and native BSON serializers remain available |
 | `Insert<T>(collection, document)` | Inserts one document with the current test's cancellation token |
 | `Query<T>(collection, filter)` | Reads all current matches once using a native `FilterDefinition<T>` |
 
-`MongoDbSetupContext` exposes `Client`, `Database` and `Configuration`. Setup uses the core ordered callback collection;
+`MongoDbMigrationContext` exposes `Client`, `Database` and `Configuration`. Migrations use the core ordered callback collection;
 there is no persisted migration history or schema management. Setup reruns each start unless explicitly disabled for
 an existing endpoint. Write idempotent setup when reusing a database. MongoDB's `ping` verifies connectivity before
 setup/application startup even when setup is disabled; it does not prove that every collection operation is authorized.
@@ -104,7 +106,7 @@ Configure both the connection string and database in your application:
     o.ConfigureExposedConfiguration = c =>
         [new("Mongo:ConnectionString", c.ConnectionString), new("Mongo:Database", c.Database)];
     o.ConfigureClient = settings => settings.ApplicationName = "stove-tests";
-    o.Setup.Add(async (ctx, ct) =>
+    o.Migrations.Add(async (ctx, ct) =>
     {
         await ctx.Database.CreateCollectionAsync("records", cancellationToken: ct);
         await ctx.Database.GetCollection<BsonDocument>("records").Indexes.CreateOneAsync(

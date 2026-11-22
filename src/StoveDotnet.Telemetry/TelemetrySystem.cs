@@ -2,6 +2,7 @@ using System.Diagnostics;
 
 namespace StoveDotnet.Telemetry;
 
+/// <summary>Options of in-process trace capture.</summary>
 public sealed class TelemetryOptions
 {
     /// <summary>
@@ -29,6 +30,10 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
     private readonly TelemetryStore _store = new();
     private ActivityListener? _listener;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public TelemetrySystem(string? name, TelemetryOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -36,10 +41,13 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
         Options = options;
     }
 
+    /// <inheritdoc />
     public string? Name { get; }
 
+    /// <summary>The options this system was registered with.</summary>
     public TelemetryOptions Options { get; }
 
+    /// <inheritdoc />
     public Task RunAsync(CancellationToken cancellationToken)
     {
         if (Options.SettleTimeout <= TimeSpan.Zero) throw new InvalidOperationException("SettleTimeout must be positive.");
@@ -105,6 +113,7 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
     /// <summary>Renders the spans captured so far for the current test as a tree.</summary>
     public string RenderTree() => TraceTreeRenderer.Render(_store.Spans(StoveTestContext.Require().TraceId));
 
+    /// <inheritdoc />
     public Task OnTestStartedAsync(StoveTestContext test)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -112,6 +121,7 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -120,6 +130,7 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public async Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(test);
@@ -196,6 +207,7 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
             events);
     }
 
+    /// <inheritdoc />
     public ValueTask DisposeAsync()
     {
         _listener?.Dispose();
@@ -203,8 +215,10 @@ public sealed class TelemetrySystem : IPluggedSystem, IRunAware, ITestScopeAware
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class TelemetryStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithTelemetry(this StoveBuilder builder, Action<TelemetryOptions>? configure = null)
     {
         var options = new TelemetryOptions();
@@ -212,5 +226,9 @@ public static class TelemetryStoveExtensions
         return builder.WithSystem(new TelemetrySystem(name: null, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static TelemetrySystem Telemetry(this StoveTestContext test) => test.GetSystem<TelemetrySystem>();
 }

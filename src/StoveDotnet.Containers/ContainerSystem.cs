@@ -5,6 +5,7 @@ namespace StoveDotnet.Containers;
 /// <summary>Native access to resolved host/ports after container readiness and initialization.</summary>
 public sealed record ContainerExposedConfiguration(IContainer Container) : IExposedConfiguration;
 
+/// <summary>Options of a user-supplied dependency container.</summary>
 public sealed class ContainerOptions : SystemOptions<ContainerExposedConfiguration>
 {
     /// <summary>Build a fresh, unstarted container. Stove starts and disposes the returned instance.
@@ -17,6 +18,9 @@ public sealed class ContainerOptions : SystemOptions<ContainerExposedConfigurati
 
     /// <summary>Opt-in container log excerpts on test failure. Logs are shared across tests, not correlated.</summary>
     public bool IncludeLogs { get; set; }
+    /// <summary>
+    /// Maximum number of log characters attached to a failed test; the end of the log is kept. Defaults to 8192.
+    /// </summary>
     public int MaxLogLength { get; set; } = 8192;
     /// <summary>Redacts combined stdout/stderr before truncation. Throwing redactors fail closed.
     /// This affects Stove's log excerpt only, not native exceptions, client logs or application logs.</summary>
@@ -33,6 +37,7 @@ public sealed class ContainerSystem(string? name, ContainerOptions options)
     /// <summary>Native container owned by Stove. Callers must not stop/dispose it or enable reuse for shared infrastructure.</summary>
     public IContainer Container => _container ?? throw new InvalidOperationException($"{DisplayName} has not created a container yet.");
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
@@ -50,6 +55,7 @@ public sealed class ContainerSystem(string? name, ContainerOptions options)
         Expose(new(_container));
     }
 
+    /// <inheritdoc />
     public async Task<FailureDetails?> DescribeAsync(StoveTestContext test, CancellationToken cancellationToken)
     {
         if (_container is null) return null;
@@ -74,6 +80,7 @@ public sealed class ContainerSystem(string? name, ContainerOptions options)
         return new FailureDetails($"container:{Name ?? "(default)"}", content);
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
@@ -81,11 +88,17 @@ public sealed class ContainerSystem(string? name, ContainerOptions options)
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class ContainerStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithContainer(this StoveBuilder builder, Action<ContainerOptions> configure) =>
         builder.WithContainer(null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithContainer(this StoveBuilder builder, string? name, Action<ContainerOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -95,5 +108,9 @@ public static class ContainerStoveExtensions
         return builder.WithSystem(new ContainerSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static ContainerSystem Container(this StoveTestContext test, string? name = null) => test.GetSystem<ContainerSystem>(name);
 }

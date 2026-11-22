@@ -21,22 +21,31 @@ public sealed class AzureServiceBusSystem
     private ServiceBusContainer? _container;
     private ServiceBusClient? _client;
     private ServiceBusAdministrationClient? _administrationClient;
-    private AzureServiceBusSetupContext? _setupContext;
+    private AzureServiceBusMigrationContext? _setupContext;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the system. Tests normally register it through the builder extension, which also applies the options
+    /// callback.
+    /// </summary>
     public AzureServiceBusSystem(string? name, AzureServiceBusOptions options) : base(name, options)
     {
     }
 
     /// <summary>Owned and disposed by Stove. Senders and receivers created by callers remain caller-owned.</summary>
     public ServiceBusClient Client => _client ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
+    /// <summary>Stove's administration client, for entities and rules the topology does not cover.</summary>
     public ServiceBusAdministrationClient AdministrationClient =>
         _administrationClient ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <summary>A queue of the running namespace.</summary>
     public AzureServiceBusEntity Queue(string name) => new(this, name, null, canSend: true);
+    /// <summary>A topic of the running namespace, for publishing and scheduling.</summary>
     public AzureServiceBusEntity Topic(string name) => new(this, name, null, canSend: true);
+    /// <summary>A subscription of a topic, for peeking and receiving.</summary>
     public AzureServiceBusEntity Subscription(string topic, string subscription) => new(this, topic, subscription, canSend: false);
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(Options.MaxPeekMessages);
@@ -80,11 +89,11 @@ public sealed class AzureServiceBusSystem
 
         var exposed = new AzureServiceBusExposedConfiguration(fullyQualifiedNamespace, connectionString, isEmulator);
         Expose(exposed);
-        _setupContext = new AzureServiceBusSetupContext(Client, AdministrationClient, exposed);
-        if (isEmulator || Options.RunTopologySetupOnExisting)
+        _setupContext = new AzureServiceBusMigrationContext(Client, AdministrationClient, exposed);
+        if (isEmulator || Options.RunMigrationsOnExisting)
         {
             await EnsureTopologyAsync(cancellationToken).ConfigureAwait(false);
-            await Options.Setup.RunAsync(_setupContext, cancellationToken).ConfigureAwait(false);
+            await Options.Migrations.RunAsync(_setupContext, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -161,12 +170,14 @@ public sealed class AzureServiceBusSystem
     internal void TrackScheduled(string entity, long sequenceNumber, StoveTestContext test) =>
         _scheduled.GetOrAdd(test.TestId, _ => new()).TryAdd(new(entity, sequenceNumber), 0);
 
+    /// <inheritdoc />
     public Task OnTestStartedAsync(StoveTestContext test)
     {
         lock (_scopeGate) _activeTests.Add(test.TestId);
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public async Task OnTestEndedAsync(StoveTestContext test, Exception? failure)
     {
         lock (_scopeGate) _activeTests.Remove(test.TestId);
@@ -182,6 +193,7 @@ public sealed class AzureServiceBusSystem
         }
     }
 
+    /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
@@ -195,11 +207,17 @@ public sealed class AzureServiceBusSystem
     private sealed record ScheduledMessage(string Entity, long SequenceNumber);
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class AzureServiceBusStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithAzureServiceBus(this StoveBuilder builder, Action<AzureServiceBusOptions>? configure = null) =>
         builder.WithAzureServiceBus(null, configure);
 
+    /// <summary>
+    /// Registers a named instance, so several of the same kind can run side by side. Resolve it in a test by
+    /// passing the same name to the accessor.
+    /// </summary>
     public static StoveBuilder WithAzureServiceBus(this StoveBuilder builder, string? name, Action<AzureServiceBusOptions>? configure = null)
     {
         var options = new AzureServiceBusOptions();
@@ -207,6 +225,10 @@ public static class AzureServiceBusStoveExtensions
         return builder.WithSystem(new AzureServiceBusSystem(name, options));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static AzureServiceBusSystem AzureServiceBus(this StoveTestContext test, string? name = null) =>
         test.GetSystem<AzureServiceBusSystem>(name);
 }

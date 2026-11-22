@@ -15,5 +15,6 @@ internal sealed record ApplicationRegistration(string? Name, IApplicationUnderTe
 /// <summary>Systems that need the running applications, e.g. a base address or DI container. Runs after all applications are ready.</summary>
 public interface IAfterApplicationsStarted
 {
+    /// <summary>Called once, after every application has started and passed its readiness check.</summary>
     Task OnApplicationsStartedAsync(Stove stove, CancellationToken cancellationToken);
 }

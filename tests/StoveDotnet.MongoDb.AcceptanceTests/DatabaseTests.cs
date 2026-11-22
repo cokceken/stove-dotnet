@@ -23,8 +23,8 @@ public sealed class MongoFixture : IAsyncLifetime
     {
         options.ConfigureClient = settings => settings.ApplicationName = "stove-contract";
         options.ConfigureExposedConfiguration = c => [new($"Mongo:{name}:ConnectionString", c.ConnectionString), new($"Mongo:{name}:Database", c.Database)];
-        options.Setup.Add((c, ct) => c.Database.GetCollection<TestDocument>("records").InsertOneAsync(new(ObjectId.GenerateNewId(), "ready"), cancellationToken: ct), order: 2);
-        options.Setup.Add(async (c, ct) =>
+        options.Migrations.Add((c, ct) => c.Database.GetCollection<TestDocument>("records").InsertOneAsync(new(ObjectId.GenerateNewId(), "ready"), cancellationToken: ct), order: 2);
+        options.Migrations.Add(async (c, ct) =>
         {
             await c.Database.CreateCollectionAsync("records", cancellationToken: ct);
             await c.Database.GetCollection<TestDocument>("records").Indexes.CreateOneAsync(
@@ -130,8 +130,8 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
             builder.WithMongoDb(name, o =>
             {
                 MongoFixture.Configure(o, name);
-                o.UseExisting(system.ExposedConfiguration.ConnectionString, system.ExposedConfiguration.Database, runSetup: false);
-                o.Setup.Add((_, _) => throw new InvalidOperationException("must not run"));
+                o.UseExisting(system.ExposedConfiguration.ConnectionString, system.ExposedConfiguration.Database, runMigrations: false);
+                o.Migrations.Add((_, _) => throw new InvalidOperationException("must not run"));
             });
         await using (var stove = await builder.WithHttpClient().WithAspNetCoreApplication<Program>().StartAsync(TestContext.Current.CancellationToken))
             await stove.Test(async t =>
@@ -158,7 +158,7 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
     {
         var error = await Assert.ThrowsAsync<StoveStartupException>(() => StoveBuilder.Create().WithMongoDb(o =>
         {
-            o.UseExisting("mongodb://127.0.0.1:1", "missing", runSetup: false);
+            o.UseExisting("mongodb://127.0.0.1:1", "missing", runMigrations: false);
             o.ConfigureClient = s => s.ServerSelectionTimeout = TimeSpan.FromMilliseconds(250);
         }).StartAsync(TestContext.Current.CancellationToken));
         Assert.IsType<TimeoutException>(error.InnerException);
@@ -187,7 +187,7 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
         var stove = await StoveBuilder.Create().WithMongoDb(o =>
         {
             o.UseExisting(fixture.Primary.ExposedConfiguration.ConnectionString, "cleanup");
-            o.Setup.Add((c, ct) => c.Database.GetCollection<BsonDocument>("seed").InsertOneAsync(new BsonDocument("value", "ready"), cancellationToken: ct));
+            o.Migrations.Add((c, ct) => c.Database.GetCollection<BsonDocument>("seed").InsertOneAsync(new BsonDocument("value", "ready"), cancellationToken: ct));
             o.Cleanup = (_, _) => { calls++; throw new InvalidOperationException("cleanup failed"); };
         }).StartAsync(TestContext.Current.CancellationToken);
         await stove.Test(t => { system = t.MongoDb(); return Task.CompletedTask; });
@@ -207,7 +207,7 @@ public sealed class DatabaseTests(MongoFixture fixture) : IClassFixture<MongoFix
         string connectionString = "";
         var error = await Assert.ThrowsAsync<AggregateException>(() => StoveBuilder.Create().WithMongoDb(o =>
         {
-            o.Setup.Add((c, _) => { connectionString = c.Configuration.ConnectionString; throw original; });
+            o.Migrations.Add((c, _) => { connectionString = c.Configuration.ConnectionString; throw original; });
             o.Cleanup = (_, _) => throw new InvalidOperationException("rollback failed");
         }).StartAsync(TestContext.Current.CancellationToken));
         Assert.Same(original, Assert.IsType<StoveStartupException>(error.InnerExceptions[0]).InnerException);

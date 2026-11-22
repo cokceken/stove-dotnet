@@ -13,6 +13,10 @@ public sealed class SchemaRegistrySystem : ExposingSystem<SchemaRegistryOptions,
     private CachedSchemaRegistryClient? _client;
     private int _disposed;
 
+    /// <summary>
+    /// Creates the registry for the given Kafka system, which it starts after and shares a container network with.
+    /// Tests normally use <c>WithSchemaRegistry</c>.
+    /// </summary>
     public SchemaRegistrySystem(string? name, SchemaRegistryOptions options, KafkaSystem kafka) : base(name, options)
     {
         ArgumentNullException.ThrowIfNull(kafka);
@@ -20,9 +24,12 @@ public sealed class SchemaRegistrySystem : ExposingSystem<SchemaRegistryOptions,
         if (options.ExistingUrl is null) kafka.NeedsRegistryNetwork = true;
     }
 
+    /// <inheritdoc />
     public IReadOnlyCollection<IPluggedSystem> Dependencies => [_kafka];
+    /// <summary>Stove's registry client, for anything the DSL does not cover.</summary>
     public ISchemaRegistryClient Client => _client ?? throw new InvalidOperationException($"{DisplayName} is not running yet.");
 
+    /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var url = Options.ExistingUrl;
@@ -52,6 +59,7 @@ public sealed class SchemaRegistrySystem : ExposingSystem<SchemaRegistryOptions,
             await Options.Migrations.RunAsync(new SchemaRegistryMigrationContext(Client, ExposedConfiguration), cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public override ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1) return ValueTask.CompletedTask;
@@ -62,8 +70,10 @@ public sealed class SchemaRegistrySystem : ExposingSystem<SchemaRegistryOptions,
     }
 }
 
+/// <summary>Registers the module on a <see cref="StoveBuilder"/> and resolves it from a test context.</summary>
 public static class SchemaRegistryStoveExtensions
 {
+    /// <summary>Registers the default (unnamed) instance.</summary>
     public static StoveBuilder WithSchemaRegistry(this StoveBuilder builder, Action<SchemaRegistryOptions>? configure = null) =>
         builder.WithSchemaRegistry(null, configure);
 
@@ -75,5 +85,9 @@ public static class SchemaRegistryStoveExtensions
         return builder.WithSystem(new SchemaRegistrySystem(name, options, builder.GetSystem<KafkaSystem>(kafkaName)));
     }
 
+    /// <summary>
+    /// The system registered on the running environment: the instance with the given name; without a name, the
+    /// unnamed instance or the only one registered.
+    /// </summary>
     public static SchemaRegistrySystem SchemaRegistry(this StoveTestContext test, string? name = null) => test.GetSystem<SchemaRegistrySystem>(name);
 }

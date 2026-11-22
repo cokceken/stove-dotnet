@@ -47,13 +47,14 @@ public sealed class EventuallyTests
         // The same assertion behaves the same whether or not it takes the deadline token.
         foreach (var assert in new Func<Task>[]
         {
-            () => Eventually.AssertAsync(Fail, TimeSpan.FromMilliseconds(180)),
-            () => Eventually.AssertAsync(_ => Fail(), TimeSpan.FromMilliseconds(180)),
+            () => Eventually.AssertAsync(Fail, TimeSpan.FromMilliseconds(500)),
+            () => Eventually.AssertAsync(_ => Fail(), TimeSpan.FromMilliseconds(500)),
         })
         {
             calls = 0;
             var timeout = await Assert.ThrowsAsync<StoveTimeoutException>(assert);
-            Assert.True(calls > 2);
+            // A second attempt is what proves a retry; how many more fit in the window depends on the machine.
+            Assert.True(calls > 1, $"expected a retry, got {calls} attempt(s)");
             Assert.IsType<InvalidOperationException>(timeout.InnerException);
             Assert.Contains("not yet", timeout.Message, StringComparison.Ordinal);
         }

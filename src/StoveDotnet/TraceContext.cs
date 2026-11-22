@@ -6,10 +6,13 @@ namespace StoveDotnet;
 /// <summary>W3C trace-context helpers.</summary>
 public static class TraceContext
 {
+    /// <summary>A new random W3C trace id: 32 lowercase hex chars, never all zero.</summary>
     public static string NewTraceId() => NewHexId(16);
 
+    /// <summary>A new random W3C span id: 16 lowercase hex chars, never all zero.</summary>
     public static string NewSpanId() => NewHexId(8);
 
+    /// <summary>Formats a sampled <c>traceparent</c> header value (<c>00-{traceId}-{spanId}-01</c>).</summary>
     public static string FormatTraceparent(string traceId, string spanId) => $"00-{traceId}-{spanId}-01";
 
     /// <summary>Extracts the trace id from a well-formed <c>traceparent</c> header value.</summary>
