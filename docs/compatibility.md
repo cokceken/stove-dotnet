@@ -25,10 +25,10 @@ Each framework consumer is built and run in full, filtered, intentionally failin
 
 | Framework | Version | Verification | Evidence |
 |---|---:|---:|---|
-| xUnit v3 | `4.0.2` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/Xunit) |
+| xUnit v3 | `4.0.3` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/Xunit) |
 | NUnit | `5.0.0` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/NUnit) |
-| MSTest | `4.5.1` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/MSTest) |
-| TUnit | `1.75.0` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/TUnit) |
+| MSTest | `4.5.3` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/MSTest) |
+| TUnit | `1.85.7` | ✅ CI verified | [Consumer project](https://github.com/cokceken/stove-dotnet/tree/main/examples/Frameworks/TUnit) |
 
 ## Release package surface
 
