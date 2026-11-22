@@ -1,5 +1,5 @@
 # Exact pins keep the Pages build reproducible. Dependabot owns updates.
-click==8.5.0
+click==8.5.1
 colorama==0.4.6
 ghp-import==2.1.0
 Jinja2==3.1.6

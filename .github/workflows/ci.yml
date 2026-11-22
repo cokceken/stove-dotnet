@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request replaces its running checks. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   tests:
     uses: ./.github/workflows/test-suites.yml
@@ -38,6 +43,16 @@ jobs:
       - name: Verify release package manifest
         shell: pwsh
         run: ./scripts/verify-package-manifest.ps1 -ArtifactsDirectory artifacts
+
+      # The release-only scripts run here too, so a release is never their first run.
+      - name: Verify release scripts
+        shell: pwsh
+        run: |
+          ./scripts/tests/release-version.Tests.ps1
+          $order = @(./scripts/get-package-push-order.ps1 -ArtifactsDirectory artifacts)
+          $packages = @(Get-ChildItem artifacts -Filter *.nupkg)
+          if ($order.Count -ne $packages.Count) { throw "Push order lists $($order.Count) of $($packages.Count) packages." }
+          $order | ForEach-Object { Split-Path $_ -Leaf }
 
       - name: Package smoke test
         run: bash scripts/package-smoke-test.sh artifacts

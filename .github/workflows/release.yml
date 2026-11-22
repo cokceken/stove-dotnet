@@ -21,6 +21,10 @@ concurrency:
 jobs:
   tests:
     uses: ./.github/workflows/test-suites.yml
+    with:
+      # The tag must be on main, where CI ran the Windows and macOS suites for this commit. Waiting for a macOS
+      # runner again only delays the release; the packages are built and verified on Linux.
+      cross-platform: false
 
   prepare:
     needs: tests
@@ -41,6 +45,31 @@ jobs:
             exit 1
           fi
 
+      # A version on nuget.org can never be replaced or removed, so a mistyped tag is rejected before anything is built.
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if (-not $tag.StartsWith('v')) { throw "Release tag '$tag' must start with 'v'." }
+          ./scripts/tests/release-version.Tests.ps1
+          ./scripts/verify-release-version.ps1 -Version $tag.Substring(1)
+
+      # Curated notes are optional for pre-releases and required for stable versions.
+      - name: Collect release notes
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $notes = "release-notes/$tag.md"
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          if (Test-Path -LiteralPath $notes) {
+            Copy-Item -LiteralPath $notes -Destination artifacts/release-notes.md
+            Write-Host "Using $notes."
+          } elseif ($tag -notmatch '-') {
+            throw "Stable release $tag needs curated release notes in $notes."
+          } else {
+            Write-Host "No $notes; the pre-release gets generated notes only."
+          }
+
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
@@ -54,6 +83,15 @@ jobs:
       - name: Verify release package manifest
         shell: pwsh
         run: ./scripts/verify-package-manifest.ps1 -ArtifactsDirectory artifacts -Version ($env:GITHUB_REF_NAME).TrimStart('v')
+
+      # Packages pin each other to exact versions; dependencies are pushed first so a partial release stays restorable.
+      - name: Determine package push order
+        shell: pwsh
+        run: |
+          ./scripts/get-package-push-order.ps1 -ArtifactsDirectory artifacts |
+            ForEach-Object { Split-Path $_ -Leaf } |
+            Set-Content -LiteralPath artifacts/push-order.txt
+          Get-Content -LiteralPath artifacts/push-order.txt
 
       - name: Package smoke test
         run: bash scripts/package-smoke-test.sh artifacts
@@ -75,6 +113,8 @@ jobs:
           path: |
             artifacts/*.nupkg
             artifacts/*.snupkg
+            artifacts/push-order.txt
+            artifacts/release-notes.md
           if-no-files-found: error
           retention-days: 1
 
@@ -89,6 +129,7 @@ jobs:
       url: https://www.nuget.org/profiles/${{ vars.NUGET_USER }}
     permissions:
       actions: read
+      attestations: write
       contents: write
       id-token: write
     steps:
@@ -98,14 +139,24 @@ jobs:
           name: release-packages
           path: artifacts
 
+      # Signed statement that these exact files were built by this workflow run from this commit. Verify a file
+      # from the GitHub release with: gh attestation verify <file> --repo cokceken/stove-dotnet
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: artifacts/*.nupkg
+
       - name: Create draft GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           prerelease=""
           case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          notes=""
+          if [ -f artifacts/release-notes.md ]; then notes="--notes-file artifacts/release-notes.md"; fi
+          # Curated notes, when present, come first; the generated list of changes follows them.
           gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg artifacts/*.snupkg \
-            --verify-tag --draft --title "$GITHUB_REF_NAME" --generate-notes $prerelease
+            --verify-tag --draft --title "$GITHUB_REF_NAME" --generate-notes $notes $prerelease
 
       - name: NuGet login (Trusted Publishing)
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
@@ -113,11 +164,22 @@ jobs:
         with:
           user: ${{ vars.NUGET_USER }}
 
+      # One package at a time, dependencies first. The matching symbol package next to each file is pushed with it.
       - name: Push to nuget.org
-        run: >
-          dotnet nuget push "artifacts/*.nupkg"
-          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
-          --source https://api.nuget.org/v3/index.json
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          packages=$(find artifacts -maxdepth 1 -name '*.nupkg' | wc -l)
+          listed=$(grep -c . artifacts/push-order.txt)
+          if [ "$packages" -ne "$listed" ]; then
+            echo "push-order.txt lists $listed packages but $packages were downloaded."
+            exit 1
+          fi
+          while IFS= read -r name; do
+            if [ ! -f "artifacts/$name" ]; then echo "Listed package $name is missing."; exit 1; fi
+            dotnet nuget push "artifacts/$name" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+          done < artifacts/push-order.txt
 
       - name: Publish immutable GitHub release
         env:
