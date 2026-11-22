@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><Description>RabbitMQ for StoveDotnet: topology setup, confirmed publishing and scoped observation on dedicated queues.</Description></PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="RabbitMQ.Client" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <ProjectReference Include="../StoveDotnet/StoveDotnet.csproj" />
